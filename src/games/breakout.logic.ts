@@ -61,6 +61,7 @@ export function moveBreakoutPaddle(state: BreakoutState, centerX: number): Break
 
 export function stepBreakout(state: BreakoutState): BreakoutState {
   if (state.won || state.lost) return state;
+  const previousBall = state.ball;
   let ball = { ...state.ball, x: state.ball.x + state.ball.vx, y: state.ball.y + state.ball.vy };
   let bricks = state.bricks;
   let score = state.score;
@@ -73,7 +74,8 @@ export function stepBreakout(state: BreakoutState): BreakoutState {
     ball = { ...ball, y: ball.radius, vy: Math.abs(ball.vy) };
   }
 
-  if (circleIntersectsRect(ball, state.paddle) && ball.vy > 0) {
+  const crossedPaddleTop = previousBall.y + previousBall.radius <= state.paddle.y && ball.y + ball.radius >= state.paddle.y;
+  if (crossedPaddleTop && circleIntersectsRect(ball, state.paddle) && ball.vy > 0) {
     const hit = ((ball.x - state.paddle.x) / state.paddle.width - 0.5) * 2;
     const speed = Math.hypot(ball.vx, ball.vy);
     ball = { ...ball, y: state.paddle.y - ball.radius, vx: hit * speed * 0.82, vy: -Math.max(speed * 0.45, Math.abs(ball.vy)) };

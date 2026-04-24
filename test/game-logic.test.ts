@@ -42,6 +42,27 @@ describe("breakout logic", () => {
     expect(miss.lives).toBe(1);
     expect(miss.lost).toBe(false);
   });
+
+  test("does not bounce when paddle moves under an already-missed ball", () => {
+    const state = newBreakoutState(config);
+    const cheatedCatch = stepBreakout({
+      ...state,
+      paddle: { ...state.paddle, x: 40, width: 20 },
+      ball: { x: 50, y: state.paddle.y + 1, vx: 0, vy: 1, radius: 1.6 },
+    });
+    expect(cheatedCatch.ball.vy).toBe(1);
+    expect(cheatedCatch.lives).toBe(state.lives);
+  });
+
+  test("still bounces when ball crosses paddle top", () => {
+    const state = newBreakoutState(config);
+    const caught = stepBreakout({
+      ...state,
+      paddle: { ...state.paddle, x: 40, width: 20 },
+      ball: { x: 50, y: state.paddle.y - 2.4, vx: 0, vy: 1, radius: 1.6 },
+    });
+    expect(caught.ball.vy).toBeLessThan(0);
+  });
 });
 
 describe("tic-tac-toe logic", () => {
