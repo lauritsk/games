@@ -1,4 +1,4 @@
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { Keys, createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, markGameFinished, markGameStarted, matchesKey, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { moveBreakoutPaddle, newBreakoutState, stepBreakout, type BreakoutConfig, type BreakoutState } from "./breakout.logic";
@@ -25,6 +25,7 @@ export function mountBreakout(target: HTMLElement): () => void {
   let state = newBreakoutState(configs[difficulty]);
   let mode: Mode = "ready";
   let timer: ReturnType<typeof setInterval> | null = null;
+  const heldKeys = new Set<"left" | "right">();
 
   const { shell, status, actions, board, remove } = createGameShell(target, {
     gameClass: "breakout-game",
@@ -51,6 +52,8 @@ export function mountBreakout(target: HTMLElement): () => void {
   createResetButton(actions, requestReset);
 
   onDocumentKeyDown(onKeyDown, scope);
+  document.addEventListener("keyup", onKeyUp, { signal: scope.signal });
+  window.addEventListener("blur", () => heldKeys.clear(), { signal: scope.signal });
   board.addEventListener("pointermove", onPointerMove, { signal: scope.signal });
   board.addEventListener("pointerdown", (event) => {
     onPointerMove(event);
@@ -67,6 +70,7 @@ export function mountBreakout(target: HTMLElement): () => void {
     resetGameProgress(shell);
     state = newBreakoutState(configs[difficulty]);
     mode = "ready";
+    heldKeys.clear();
     render();
   }
 
@@ -101,6 +105,18 @@ export function mountBreakout(target: HTMLElement): () => void {
       togglePause();
       return;
     }
+    if (matchesKey(event, [...Keys.left, "a"])) {
+      event.preventDefault();
+      heldKeys.add("left");
+      start();
+      return;
+    }
+    if (matchesKey(event, [...Keys.right, "d"])) {
+      event.preventDefault();
+      heldKeys.add("right");
+      start();
+      return;
+    }
     handleStandardGameKey(event, {
       onDirection: (direction) => movePaddleByKey(direction),
       onActivate: start,
@@ -118,13 +134,23 @@ export function mountBreakout(target: HTMLElement): () => void {
     });
   }
 
+  function onKeyUp(event: KeyboardEvent): void {
+    if (matchesKey(event, [...Keys.left, "a"])) heldKeys.delete("left");
+    if (matchesKey(event, [...Keys.right, "d"])) heldKeys.delete("right");
+  }
+
   function movePaddleByKey(direction: Direction): void {
     if (direction !== "left" && direction !== "right") return;
+    heldKeys.add(direction);
     start();
-    const step = direction === "left" ? -8 : 8;
+  }
+
+  function moveHeldPaddle(): void {
+    const left = heldKeys.has("left");
+    const right = heldKeys.has("right");
+    if (left === right) return;
+    const step = left ? -2.8 : 2.8;
     state = moveBreakoutPaddle(state, state.paddle.x + state.paddle.width / 2 + step);
-    playSound("gameMove");
-    render();
   }
 
   function onPointerMove(event: PointerEvent): void {
@@ -135,6 +161,7 @@ export function mountBreakout(target: HTMLElement): () => void {
   }
 
   function tick(): void {
+    moveHeldPaddle();
     const before = aliveBrickCount(state);
     state = stepBreakout(state);
     const after = aliveBrickCount(state);
