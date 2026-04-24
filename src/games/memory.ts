@@ -1,4 +1,5 @@
 import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, markGameFinished, markGameStarted, moveGridIndex, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { allMemoryMatched, newMemoryDeck, openUnmatchedMemoryCards, type MemoryCard } from "./memory.logic";
 type Config = { pairs: number; columns: number; rows: number };
@@ -35,6 +36,7 @@ export function mountMemory(target: HTMLElement): () => void {
   shell.tabIndex = 0;
 
   const scope = createMountScope();
+  const invalidMove = createInvalidMoveFeedback(shell);
   const difficultyButton = createDifficultyButton(actions, () => {
     difficulty = nextDifficulty(difficulty);
     playSound("uiToggle");
@@ -78,7 +80,8 @@ export function mountMemory(target: HTMLElement): () => void {
       tile.dataset.open = String(faceUp);
       tile.dataset.matched = String(card.matched);
       tile.dataset.selected = String(index === selected);
-      tile.disabled = lock || card.open || card.matched;
+      tile.disabled = false;
+      tile.setAttribute("aria-disabled", String(lock || card.open || card.matched));
     });
   }
 
@@ -104,9 +107,15 @@ export function mountMemory(target: HTMLElement): () => void {
   }
 
   function flip(index: number): void {
-    if (lock) return;
+    if (lock) {
+      invalidMove.trigger();
+      return;
+    }
     const card = cards[index];
-    if (!card || card.open || card.matched) return;
+    if (!card || card.open || card.matched) {
+      invalidMove.trigger();
+      return;
+    }
 
     markGameStarted(shell);
     card.open = true;
@@ -158,6 +167,7 @@ export function mountMemory(target: HTMLElement): () => void {
   render();
   return () => {
     clearPending();
+    invalidMove.cleanup();
     scope.cleanup();
     remove();
   };

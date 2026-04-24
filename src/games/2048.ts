@@ -1,4 +1,5 @@
 import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { addRandom2048Tile, canMove2048, slide2048, start2048Board } from "./2048.logic";
 
@@ -28,6 +29,7 @@ export function mount2048(target: HTMLElement): () => void {
   shell.tabIndex = 0;
 
   const scope = createMountScope();
+  const invalidMove = createInvalidMoveFeedback(shell);
   const difficultyButton = createDifficultyButton(actions, () => {
     difficulty = nextDifficulty(difficulty);
     playSound("uiToggle");
@@ -67,9 +69,7 @@ export function mount2048(target: HTMLElement): () => void {
 
   function onKeyDown(event: KeyboardEvent): void {
     handleStandardGameKey(event, {
-      onDirection: (direction) => {
-        if (!over) move(direction);
-      },
+      onDirection: (direction) => move(direction),
       onActivate: requestReset,
       onNextDifficulty: () => {
         difficulty = nextDifficulty(difficulty);
@@ -86,8 +86,15 @@ export function mount2048(target: HTMLElement): () => void {
   }
 
   function move(direction: Direction): void {
+    if (over) {
+      invalidMove.trigger();
+      return;
+    }
     const result = slide2048(board, direction);
-    if (!result.changed) return;
+    if (!result.changed) {
+      invalidMove.trigger();
+      return;
+    }
     markGameStarted(shell);
     board = addRandom2048Tile(result.board);
     score += result.score;
@@ -100,6 +107,7 @@ export function mount2048(target: HTMLElement): () => void {
   render();
   return () => {
     scope.cleanup();
+    invalidMove.cleanup();
     remove();
   };
 }

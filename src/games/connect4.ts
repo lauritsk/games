@@ -1,4 +1,5 @@
 import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { chooseConnect4BotColumn, connect4Bot, connect4Columns, connect4Human, connect4Rows, dropConnect4DiscInPlace, findConnect4Win, newConnect4Board, type Connect4Cell, type Connect4Player, type Connect4WinLine } from "./connect4.logic";
 
@@ -34,6 +35,7 @@ export function mountConnect4(target: HTMLElement): () => void {
   shell.tabIndex = 0;
   setBoardGrid(grid, connect4Columns, connect4Rows);
   const scope = createMountScope();
+  const invalidMove = createInvalidMoveFeedback(shell);
   onDocumentKeyDown(onKeyDown, scope);
 
   const modeButton = el("button", { className: "button pill surface interactive", type: "button" });
@@ -93,7 +95,8 @@ export function mountConnect4(target: HTMLElement): () => void {
         else delete cell.dataset.selected;
         if (winningLine.some(([r, c]) => r === row && c === column)) cell.dataset.win = "true";
         else delete cell.dataset.win;
-        cell.disabled = isLocked() || Boolean(winner) || moves === connect4Rows * connect4Columns || !canPlay(column);
+        cell.disabled = isLocked();
+        cell.setAttribute("aria-disabled", String(Boolean(winner) || moves === connect4Rows * connect4Columns || !canPlay(column)));
     });
   }
 
@@ -147,6 +150,10 @@ export function mountConnect4(target: HTMLElement): () => void {
 
   function playTurn(column: number): void {
     if (isLocked()) return;
+    if (winner || moves === connect4Rows * connect4Columns || !canPlay(column)) {
+      invalidMove.trigger();
+      return;
+    }
     play(column);
     if (mode === "bot" && !winner && current === connect4Bot) scheduleBot();
   }
@@ -193,6 +200,7 @@ export function mountConnect4(target: HTMLElement): () => void {
 
   return () => {
     scope.cleanup();
+    invalidMove.cleanup();
     clearBotTimer();
     remove();
   };

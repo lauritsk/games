@@ -1,4 +1,5 @@
 import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, moveGridPoint, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { flagMinesweeperCount, floodOpenMinesweeperInPlace, minesweeperNeighbors, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperCell, type MinesweeperConfig } from "./minesweeper.logic";
 
@@ -35,6 +36,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   });
   shell.tabIndex = 0;
   const scope = createMountScope();
+  const invalidMove = createInvalidMoveFeedback(shell);
   onDocumentKeyDown(onKeyDown, scope);
 
   const difficultyButton = createDifficultyButton(actions, () => {
@@ -87,7 +89,8 @@ export function mountMinesweeper(target: HTMLElement): () => void {
         tile.dataset.mine = String(cell.mine && (cell.open || state === "lost"));
         tile.dataset.selected = String(row === selectedRow && column === selectedColumn);
         tile.textContent = cellText(cell);
-        tile.disabled = state !== "playing" || cell.open;
+        tile.disabled = false;
+        tile.setAttribute("aria-disabled", String(state !== "playing"));
     });
   }
 
@@ -127,9 +130,15 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   }
 
   function openCell(row: number, column: number): void {
-    if (state !== "playing") return;
+    if (state !== "playing") {
+      invalidMove.trigger();
+      return;
+    }
     const cell = board[row]?.[column];
-    if (!cell || cell.flag) return;
+    if (!cell || cell.flag) {
+      invalidMove.trigger();
+      return;
+    }
     if (cell.open) {
       chordCell(row, column);
       return;
@@ -159,13 +168,22 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   }
 
   function chordCell(row: number, column: number): void {
-    if (state !== "playing") return;
+    if (state !== "playing") {
+      invalidMove.trigger();
+      return;
+    }
     const cell = board[row]?.[column];
-    if (!cell?.open || cell.nearby === 0) return;
+    if (!cell?.open || cell.nearby === 0) {
+      invalidMove.trigger();
+      return;
+    }
 
     const around = minesweeperNeighbors(config, row, column);
     const flagged = around.filter(([r, c]) => board[r]?.[c]?.flag).length;
-    if (flagged !== cell.nearby) return;
+    if (flagged !== cell.nearby) {
+      invalidMove.trigger();
+      return;
+    }
 
     markGameStarted(shell);
     for (const [r, c] of around) {
@@ -187,9 +205,15 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   }
 
   function toggleFlag(row: number, column: number): void {
-    if (state !== "playing") return;
+    if (state !== "playing") {
+      invalidMove.trigger();
+      return;
+    }
     const cell = board[row]?.[column];
-    if (!cell || cell.open) return;
+    if (!cell || cell.open) {
+      invalidMove.trigger();
+      return;
+    }
     markGameStarted(shell);
     cell.flag = !cell.flag;
     playSound("gameMove");
@@ -199,6 +223,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   render();
   return () => {
     scope.cleanup();
+    invalidMove.cleanup();
     remove();
   };
 }

@@ -182,6 +182,12 @@
 
   .button { min-width: 0; padding-inline: 10px; white-space: nowrap; }
 
+  .game[data-invalid="true"] .board {
+    animation: invalid-shake 260ms ease;
+    border-color: #ff6b6b;
+    box-shadow: inset 0 0 0 2px rgba(255, 107, 107, 0.7), var(--shadow);
+  }
+
   .board {
     place-self: start center;
     display: grid;
@@ -374,6 +380,14 @@
   @keyframes pulse {
     from { transform: scale(0.88); opacity: 0.55; }
     to { transform: scale(1.08); opacity: 1; }
+  }
+
+  @keyframes invalid-shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-7px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(3px); }
   }
 }
 

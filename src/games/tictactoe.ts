@@ -1,4 +1,5 @@
 import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, isConfirmOpen, moveGridIndex, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { botMark, chooseTicTacToeBotMove, getTicTacToeWinner, humanMark, newTicTacToeBoard, ticTacToeSize, type Mark, type TicTacToeCell } from "./tictactoe.logic";
 
@@ -31,6 +32,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   shell.tabIndex = 0;
   setBoardGrid(grid, ticTacToeSize);
   const scope = createMountScope();
+  const invalidMove = createInvalidMoveFeedback(shell);
   onDocumentKeyDown(onKeyDown, scope);
 
   const modeButton = el("button", { className: "button pill surface interactive", type: "button" });
@@ -82,7 +84,8 @@ export function mountTicTacToe(target: HTMLElement): () => void {
       cell.dataset.mark = value;
       if (winLine.includes(index)) cell.dataset.win = "true";
       else delete cell.dataset.win;
-      cell.disabled = isLocked() || Boolean(winner) || value !== "";
+      cell.disabled = isLocked();
+      cell.setAttribute("aria-disabled", String(Boolean(winner) || value !== ""));
     });
   }
 
@@ -128,7 +131,11 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   }
 
   function playTurn(index: number): void {
-    if (isLocked() || winner || board[index]) return;
+    if (isLocked()) return;
+    if (winner || board[index]) {
+      invalidMove.trigger();
+      return;
+    }
     play(index);
     if (mode === "bot" && !winner && current === botMark) scheduleBot();
   }
@@ -169,6 +176,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   render();
   return () => {
     scope.cleanup();
+    invalidMove.cleanup();
     clearBotTimer();
     remove();
   };

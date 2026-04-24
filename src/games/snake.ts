@@ -1,6 +1,7 @@
 import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, required, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
-import { moveSnakePoint, nextSnakeDirection, randomSnakeFood, snakeOutOfBounds, snakePointKey, snakePointsEqual, startSnakeBody, type SnakePoint } from "./snake.logic";
+import { moveSnakePoint, nextSnakeDirection, oppositeSnakeDirection, randomSnakeFood, snakeOutOfBounds, snakePointKey, snakePointsEqual, startSnakeBody, type SnakePoint } from "./snake.logic";
 type State = "ready" | "playing" | "won" | "lost";
 type Config = { size: number; speed: number };
 
@@ -37,6 +38,7 @@ export function mountSnake(target: HTMLElement): () => void {
   shell.tabIndex = 0;
 
   const scope = createMountScope();
+  const invalidMove = createInvalidMoveFeedback(shell);
   const difficultyButton = createDifficultyButton(actions, () => {
     difficulty = nextDifficulty(difficulty);
     playSound("uiToggle");
@@ -84,6 +86,7 @@ export function mountSnake(target: HTMLElement): () => void {
     handleStandardGameKey(event, {
       onDirection: (next) => {
         if (queueDirection(next)) playSound("gameMove");
+        else if (state === "playing" && next === oppositeSnakeDirection[direction]) invalidMove.trigger();
         start();
       },
       onActivate: start,
@@ -102,7 +105,10 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function start(): void {
-    if (state === "lost" || state === "won") return;
+    if (state === "lost" || state === "won") {
+      invalidMove.trigger();
+      return;
+    }
     if (timer) return;
     state = "playing";
     markGameStarted(shell);
@@ -174,6 +180,7 @@ export function mountSnake(target: HTMLElement): () => void {
   render();
   return () => {
     stopTimer();
+    invalidMove.cleanup();
     scope.cleanup();
     remove();
   };
