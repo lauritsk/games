@@ -3,10 +3,13 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run src/server.ts",
-    "build": "bun run src/build.ts",
+    "dev": "bun --hot src/server.ts",
+    "build": "bun build ./index.html --outdir=dist --minify",
+    "build:single": "bun build --compile --target=browser ./index.html --outdir=dist-single --minify",
     "typecheck": "tsc --noEmit",
-    "check": "bun run typecheck && bun run build"
+    "test": "bun test",
+    "test:watch": "bun --watch test",
+    "check": "bun run typecheck && bun test && bun run build"
   },
   "devDependencies": {
     "@types/bun": "latest",

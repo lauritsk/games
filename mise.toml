@@ -9,10 +9,22 @@ run = "bun run dev"
 description = "Build the web app"
 run = "bun run build"
 
+[tasks.build-single]
+description = "Build the web app as one standalone HTML file"
+run = "bun run build:single"
+
 [tasks.typecheck]
 description = "Typecheck the app"
 run = "bun run typecheck"
 
+[tasks.test]
+description = "Run tests"
+run = "bun test"
+
+[tasks.test-watch]
+description = "Run tests in watch mode"
+run = "bun run test:watch"
+
 [tasks.check]
-description = "Typecheck and build"
+description = "Typecheck, test, and build"
 run = "bun run check"
