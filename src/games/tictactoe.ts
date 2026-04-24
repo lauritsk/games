@@ -1,4 +1,4 @@
-import { button, clearNode, confirmChoice, createGameShell, el, isConfirmOpen, matchesKey, nextDifficulty, previousDifficulty, type Difficulty, type GameDefinition } from "../core";
+import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
 
 type Mark = "X" | "O";
 type Cell = Mark | "";
@@ -61,14 +61,12 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   reset.addEventListener("click", requestReset);
 
   function requestReset(): void {
-    if (shell.dataset.started === "true" && shell.dataset.finished !== "true") confirmChoice("Start a new game?", resetGame);
-    else resetGame();
+    requestGameReset(shell, resetGame);
   }
 
   function resetGame(): void {
     clearBotTimer();
-    shell.dataset.started = "false";
-    shell.dataset.finished = "false";
+    resetGameProgress(shell);
     board = newBoard();
     current = human;
     selected = 4;
@@ -97,30 +95,30 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   function onKeyDown(event: KeyboardEvent): void {
     if (isConfirmOpen()) return;
     const key = event.key.toLowerCase();
-    if (matchesKey(event, ["arrowup", "k"])) {
+    if (matchesKey(event, Keys.up)) {
       event.preventDefault();
       selected = Math.max(0, selected - size);
       render();
-    } else if (matchesKey(event, ["arrowright", "l"])) {
+    } else if (matchesKey(event, Keys.right)) {
       event.preventDefault();
       selected = Math.min(board.length - 1, selected + 1);
       render();
-    } else if (matchesKey(event, ["arrowdown", "j"])) {
+    } else if (matchesKey(event, Keys.down)) {
       event.preventDefault();
       selected = Math.min(board.length - 1, selected + size);
       render();
-    } else if (matchesKey(event, ["arrowleft", "h"])) {
+    } else if (matchesKey(event, Keys.left)) {
       event.preventDefault();
       selected = Math.max(0, selected - 1);
       render();
-    } else if (matchesKey(event, [" ", "enter"])) {
+    } else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
       playTurn(selected);
-    } else if (matchesKey(event, ["+", "=", ">"])) {
+    } else if (matchesKey(event, Keys.nextDifficulty)) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
       resetGame();
-    } else if (matchesKey(event, ["-", "_", "<"])) {
+    } else if (matchesKey(event, Keys.previousDifficulty)) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
       resetGame();
@@ -154,16 +152,16 @@ export function mountTicTacToe(target: HTMLElement): () => void {
 
   function play(index: number): void {
     if (winner || board[index]) return;
-    shell.dataset.started = "true";
+    markGameStarted(shell);
     board[index] = current;
     const result = getWinner(board);
     if (result) {
       winner = result.winner;
       winLine = result.line;
-      shell.dataset.finished = "true";
+      markGameFinished(shell);
     } else if (board.every(Boolean)) {
       winner = "draw";
-      shell.dataset.finished = "true";
+      markGameFinished(shell);
     } else {
       current = current === human ? bot : human;
     }

@@ -1,4 +1,5 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
+import { renderIndexHtml } from "./html";
 
 const appRoot = new URL("..", import.meta.url);
 const dist = new URL("dist/", appRoot);
@@ -30,24 +31,6 @@ if (!script) throw new Error("Missing JavaScript output");
 const scriptName = script.path.split("/").at(-1);
 if (!scriptName) throw new Error("Missing JavaScript file name");
 
-await writeFile(
-  new URL("index.html", dist),
-  `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#fff7df" />
-    <title>Classic Games</title>
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/assets/styles.css" />
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/assets/${scriptName}"></script>
-  </body>
-</html>
-`,
-);
+await writeFile(new URL("index.html", dist), renderIndexHtml(`/assets/${scriptName}`, "/assets/styles.css"));
 
 console.log("Built dist");

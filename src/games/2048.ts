@@ -1,4 +1,4 @@
-import { button, clearNode, confirmChoice, createGameShell, el, isConfirmOpen, matchesKey, nextDifficulty, previousDifficulty, type Difficulty, type GameDefinition } from "../core";
+import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
 
 type Direction = "up" | "right" | "down" | "left";
 type Board = number[][];
@@ -37,16 +37,14 @@ export function mount2048(target: HTMLElement): () => void {
     resetGame();
   });
   reset.addEventListener("click", requestReset);
-  window.addEventListener("keydown", onKeyDown);
+  document.addEventListener("keydown", onKeyDown);
 
   function requestReset(): void {
-    if (shell.dataset.started === "true" && shell.dataset.finished !== "true") confirmChoice("Start a new game?", resetGame);
-    else resetGame();
+    requestGameReset(shell, resetGame);
   }
 
   function resetGame(): void {
-    shell.dataset.started = "false";
-    shell.dataset.finished = "false";
+    resetGameProgress(shell);
     size = sizes[difficulty];
     board = startBoard(size);
     score = 0;
@@ -68,24 +66,24 @@ export function mount2048(target: HTMLElement): () => void {
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (!document.body.contains(shell) || isConfirmOpen()) return;
+    if (isConfirmOpen()) return;
     const key = event.key.toLowerCase();
     const direction = keyDirection(event.key);
     if (direction && !over) {
       event.preventDefault();
       move(direction);
-    } else if (matchesKey(event, ["+", "=", ">"])) {
+    } else if (matchesKey(event, Keys.nextDifficulty)) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
       resetGame();
-    } else if (matchesKey(event, ["-", "_", "<"])) {
+    } else if (matchesKey(event, Keys.previousDifficulty)) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
       resetGame();
     } else if (key === "n") {
       event.preventDefault();
       requestReset();
-    } else if (matchesKey(event, [" ", "enter"])) {
+    } else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
       requestReset();
     }
@@ -94,17 +92,17 @@ export function mount2048(target: HTMLElement): () => void {
   function move(direction: Direction): void {
     const result = slide(board, direction);
     if (!result.changed) return;
-    shell.dataset.started = "true";
+    markGameStarted(shell);
     board = addRandomTile(result.board);
     score += result.score;
     over = !canMove(board);
-    if (over) shell.dataset.finished = "true";
+    if (over) markGameFinished(shell);
     render();
   }
 
   render();
   return () => {
-    window.removeEventListener("keydown", onKeyDown);
+    document.removeEventListener("keydown", onKeyDown);
     remove();
   };
 }
@@ -145,7 +143,7 @@ function slide(board: Board, direction: Direction): { board: Board; score: numbe
     writeLine(next, direction, index, merged.line);
   }
 
-  return { board: next, score, changed: JSON.stringify(board) !== JSON.stringify(next) };
+  return { board: next, score, changed: !boardsEqual(board, next) };
 }
 
 function readLine(board: Board, direction: Direction, index: number): number[] {
@@ -185,6 +183,10 @@ function mergeLine(line: number[]): { line: number[]; score: number } {
   }
 
   return { line: merged.concat(Array(line.length - merged.length).fill(0)), score };
+}
+
+function boardsEqual(a: Board, b: Board): boolean {
+  return a.every((row, rowIndex) => row.every((value, columnIndex) => value === b[rowIndex]?.[columnIndex]));
 }
 
 function canMove(board: Board): boolean {

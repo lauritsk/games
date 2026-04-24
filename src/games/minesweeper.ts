@@ -1,4 +1,4 @@
-import { button, clearNode, confirmChoice, createGameShell, el, isConfirmOpen, matchesKey, nextDifficulty, previousDifficulty, type Difficulty, type GameDefinition } from "../core";
+import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
 
 type Cell = { mine: boolean; open: boolean; flag: boolean; nearby: number };
 type State = "playing" | "won" | "lost";
@@ -47,13 +47,11 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   reset.addEventListener("click", requestReset);
 
   function requestReset(): void {
-    if (shell.dataset.started === "true" && shell.dataset.finished !== "true") confirmChoice("Start a new game?", resetGame);
-    else resetGame();
+    requestGameReset(shell, resetGame);
   }
 
   function resetGame(): void {
-    shell.dataset.started = "false";
-    shell.dataset.finished = "false";
+    resetGameProgress(shell);
     config = configs[difficulty];
     board = newBoard(config);
     state = "playing";
@@ -92,33 +90,33 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   function onKeyDown(event: KeyboardEvent): void {
     if (isConfirmOpen()) return;
     const key = event.key.toLowerCase();
-    if (matchesKey(event, ["arrowup", "k"])) {
+    if (matchesKey(event, Keys.up)) {
       event.preventDefault();
       selectedRow = Math.max(0, selectedRow - 1);
       render();
-    } else if (matchesKey(event, ["arrowright", "l"])) {
+    } else if (matchesKey(event, Keys.right)) {
       event.preventDefault();
       selectedColumn = Math.min(config.size - 1, selectedColumn + 1);
       render();
-    } else if (matchesKey(event, ["arrowdown", "j"])) {
+    } else if (matchesKey(event, Keys.down)) {
       event.preventDefault();
       selectedRow = Math.min(config.size - 1, selectedRow + 1);
       render();
-    } else if (matchesKey(event, ["arrowleft", "h"])) {
+    } else if (matchesKey(event, Keys.left)) {
       event.preventDefault();
       selectedColumn = Math.max(0, selectedColumn - 1);
       render();
-    } else if (matchesKey(event, [" ", "enter"])) {
+    } else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
       openCell(selectedRow, selectedColumn);
     } else if (key === "f") {
       event.preventDefault();
       toggleFlag(selectedRow, selectedColumn);
-    } else if (matchesKey(event, ["+", "=", ">"])) {
+    } else if (matchesKey(event, Keys.nextDifficulty)) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
       resetGame();
-    } else if (matchesKey(event, ["-", "_", "<"])) {
+    } else if (matchesKey(event, Keys.previousDifficulty)) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
       resetGame();
@@ -143,7 +141,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       return;
     }
 
-    shell.dataset.started = "true";
+    markGameStarted(shell);
 
     if (firstMove) {
       board = seededBoard(config, row, column);
@@ -158,7 +156,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       floodOpen(board, config, row, column);
       if (openSafeCount(board) === config.size * config.size - config.mines) state = "won";
     }
-    if (state !== "playing") shell.dataset.finished = "true";
+    if (state !== "playing") markGameFinished(shell);
     render();
   }
 
@@ -171,7 +169,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     const flagged = around.filter(([r, c]) => board[r]?.[c]?.flag).length;
     if (flagged !== cell.nearby) return;
 
-    shell.dataset.started = "true";
+    markGameStarted(shell);
     for (const [r, c] of around) {
       const next = board[r]?.[c];
       if (!next || next.open || next.flag) continue;
@@ -183,7 +181,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       }
     }
     if (state !== "lost" && openSafeCount(board) === config.size * config.size - config.mines) state = "won";
-    if (state !== "playing") shell.dataset.finished = "true";
+    if (state !== "playing") markGameFinished(shell);
     render();
   }
 
@@ -191,7 +189,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     if (state !== "playing") return;
     const cell = board[row]?.[column];
     if (!cell || cell.open) return;
-    shell.dataset.started = "true";
+    markGameStarted(shell);
     cell.flag = !cell.flag;
     render();
   }
@@ -224,8 +222,8 @@ function seededBoard(config: Config, safeRow: number, safeColumn: number): Cell[
 
 function floodOpen(board: Cell[][], config: Config, row: number, column: number): void {
   const queue: [number, number][] = [[row, column]];
-  while (queue.length) {
-    const [r, c] = queue.shift()!;
+  for (let index = 0; index < queue.length; index += 1) {
+    const [r, c] = queue[index]!;
     const cell = board[r]?.[c];
     if (!cell || cell.open || cell.flag) continue;
     cell.open = true;

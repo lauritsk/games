@@ -1,4 +1,4 @@
-import { clearNode, confirmChoice, el, matchesKey, type GameDefinition } from "./core";
+import { clearNode, confirmChoice, el, isGameInProgress, Keys, matchesKey, type GameDefinition } from "./core";
 import { games } from "./games";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -47,15 +47,15 @@ function renderDashboard(): void {
 
   function onDashboardKeyDown(event: KeyboardEvent): void {
     const key = event.key.toLowerCase();
-    if (matchesKey(event, ["arrowleft", "arrowup", "h", "k"])) {
+    if (matchesKey(event, Keys.previous)) {
       event.preventDefault();
       selectedIndex = (selectedIndex - 1 + games.length) % games.length;
       renderSelection();
-    } else if (matchesKey(event, ["arrowright", "arrowdown", "l", "j"])) {
+    } else if (matchesKey(event, Keys.next)) {
       event.preventDefault();
       selectedIndex = (selectedIndex + 1) % games.length;
       renderSelection();
-    } else if (matchesKey(event, [" ", "enter"])) {
+    } else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
       window.location.hash = `#/${games[selectedIndex]!.id}`;
     }
@@ -93,9 +93,7 @@ function renderGame(game: GameDefinition): void {
     if (event.key !== "Escape" || confirmCleanup) return;
     event.preventDefault();
     const gameElement = gameHost.querySelector<HTMLElement>(".game");
-    const started = gameElement?.dataset.started === "true";
-    const finished = gameElement?.dataset.finished === "true";
-    if (started && !finished) {
+    if (gameElement && isGameInProgress(gameElement)) {
       confirmCleanup = confirmChoice(
         "Leave this game?",
         () => {

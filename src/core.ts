@@ -1,6 +1,18 @@
 export type GameTheme = "deep-cave" | "deep-ocean" | "outer-space" | "deep-forest";
 export type Difficulty = "Easy" | "Medium" | "Hard";
 
+export const Keys = {
+  previous: ["arrowleft", "arrowup", "h", "k"],
+  next: ["arrowright", "arrowdown", "l", "j"],
+  left: ["arrowleft", "h"],
+  right: ["arrowright", "l"],
+  up: ["arrowup", "k"],
+  down: ["arrowdown", "j"],
+  activate: [" ", "enter"],
+  nextDifficulty: ["+", "=", ">"],
+  previousDifficulty: ["-", "_", "<"],
+} as const;
+
 const difficultyOrder: Difficulty[] = ["Easy", "Medium", "Hard"];
 
 export type GameDefinition = {
@@ -67,6 +79,28 @@ export function isConfirmOpen(): boolean {
   return Boolean(document.querySelector(".confirm"));
 }
 
+export function isGameInProgress(shell: HTMLElement): boolean {
+  return shell.dataset.started === "true" && shell.dataset.finished !== "true";
+}
+
+export function resetGameProgress(shell: HTMLElement): void {
+  shell.dataset.started = "false";
+  shell.dataset.finished = "false";
+}
+
+export function markGameStarted(shell: HTMLElement): void {
+  shell.dataset.started = "true";
+}
+
+export function markGameFinished(shell: HTMLElement): void {
+  shell.dataset.finished = "true";
+}
+
+export function requestGameReset(shell: HTMLElement, resetGame: () => void): void {
+  if (isGameInProgress(shell)) confirmChoice("Start a new game?", resetGame);
+  else resetGame();
+}
+
 export function matchesKey(event: KeyboardEvent, keys: readonly string[]): boolean {
   const key = event.key.toLowerCase();
   return keys.some((candidate) => candidate.toLowerCase() === key);
@@ -103,11 +137,11 @@ export function confirmChoice(message: string, onYes: () => void, onClose?: () =
   function onKeyDown(event: KeyboardEvent): void {
     event.stopImmediatePropagation();
     const key = event.key.toLowerCase();
-    if (["arrowleft", "arrowup", "h", "k"].includes(key)) {
+    if (matchesKey(event, Keys.previous)) {
       event.preventDefault();
       selected = 0;
       render();
-    } else if (["arrowright", "arrowdown", "l", "j"].includes(key)) {
+    } else if (matchesKey(event, Keys.next)) {
       event.preventDefault();
       selected = 1;
       render();
@@ -117,7 +151,7 @@ export function confirmChoice(message: string, onYes: () => void, onClose?: () =
     } else if (key === "n" || key === "escape") {
       event.preventDefault();
       close();
-    } else if (key === "enter" || key === " ") {
+    } else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
       selected === 0 ? yesAction() : close();
     }
@@ -144,8 +178,7 @@ export function confirmChoice(message: string, onYes: () => void, onClose?: () =
 
 export function createGameShell(target: HTMLElement, options: GameShellOptions): GameShell {
   const shell = el("section", { className: `game ${options.gameClass}` });
-  shell.dataset.started = "false";
-  shell.dataset.finished = "false";
+  resetGameProgress(shell);
   const top = el("div", { className: "game__top cluster" });
   const status = el("p", {
     className: "status pill surface",

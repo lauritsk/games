@@ -1,4 +1,4 @@
-import { button, clearNode, confirmChoice, createGameShell, el, isConfirmOpen, matchesKey, nextDifficulty, previousDifficulty, type Difficulty, type GameDefinition } from "../core";
+import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
 
 type Point = { row: number; column: number };
 type Direction = "up" | "right" | "down" | "left";
@@ -53,17 +53,15 @@ export function mountSnake(target: HTMLElement): () => void {
     resetGame();
   });
   reset.addEventListener("click", requestReset);
-  window.addEventListener("keydown", onKeyDown);
+  document.addEventListener("keydown", onKeyDown);
 
   function requestReset(): void {
-    if (shell.dataset.started === "true" && shell.dataset.finished !== "true") confirmChoice("Start a new game?", resetGame);
-    else resetGame();
+    requestGameReset(shell, resetGame);
   }
 
   function resetGame(): void {
     stopTimer();
-    shell.dataset.started = "false";
-    shell.dataset.finished = "false";
+    resetGameProgress(shell);
     config = configs[difficulty];
     snake = startSnake(config.size);
     food = randomFood(config.size, snake);
@@ -95,20 +93,20 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (!document.body.contains(shell) || isConfirmOpen()) return;
+    if (isConfirmOpen()) return;
     const next = keyDirection(event);
     if (next) {
       event.preventDefault();
       queueDirection(next);
       start();
-    } else if (matchesKey(event, [" ", "enter"])) {
+    } else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
       start();
-    } else if (matchesKey(event, ["+", "=", ">"])) {
+    } else if (matchesKey(event, Keys.nextDifficulty)) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
       resetGame();
-    } else if (matchesKey(event, ["-", "_", "<"])) {
+    } else if (matchesKey(event, Keys.previousDifficulty)) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
       resetGame();
@@ -122,7 +120,7 @@ export function mountSnake(target: HTMLElement): () => void {
     if (state === "lost" || state === "won") return;
     if (timer) return;
     state = "playing";
-    shell.dataset.started = "true";
+    markGameStarted(shell);
     timer = setInterval(tick, config.speed);
     render();
   }
@@ -140,7 +138,7 @@ export function mountSnake(target: HTMLElement): () => void {
 
     if (outOfBounds(next, config.size) || bodyToCheck.some((part) => pointsEqual(part, next))) {
       state = "lost";
-      shell.dataset.finished = "true";
+      markGameFinished(shell);
       stopTimer();
       render();
       return;
@@ -150,7 +148,7 @@ export function mountSnake(target: HTMLElement): () => void {
     if (ate) {
       if (snake.length === config.size * config.size) {
         state = "won";
-        shell.dataset.finished = "true";
+        markGameFinished(shell);
         stopTimer();
       } else {
         food = randomFood(config.size, snake);
@@ -184,7 +182,7 @@ export function mountSnake(target: HTMLElement): () => void {
   render();
   return () => {
     stopTimer();
-    window.removeEventListener("keydown", onKeyDown);
+    document.removeEventListener("keydown", onKeyDown);
     remove();
   };
 }

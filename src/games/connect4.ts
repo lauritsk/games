@@ -1,4 +1,4 @@
-import { button, clearNode, confirmChoice, createGameShell, el, isConfirmOpen, matchesKey, nextDifficulty, previousDifficulty, type Difficulty, type GameDefinition } from "../core";
+import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
 
 type Player = 1 | 2;
 type Cell = Player | 0;
@@ -59,14 +59,12 @@ export function mountConnect4(target: HTMLElement): () => void {
   reset.addEventListener("click", requestReset);
 
   function requestReset(): void {
-    if (shell.dataset.started === "true" && shell.dataset.finished !== "true") confirmChoice("Start a new game?", resetGame);
-    else resetGame();
+    requestGameReset(shell, resetGame);
   }
 
   function resetGame(): void {
     clearBotTimer();
-    shell.dataset.started = "false";
-    shell.dataset.finished = "false";
+    resetGameProgress(shell);
     board = newBoard();
     current = human;
     winner = null;
@@ -106,22 +104,22 @@ export function mountConnect4(target: HTMLElement): () => void {
   function onKeyDown(event: KeyboardEvent): void {
     if (isConfirmOpen()) return;
     const key = event.key.toLowerCase();
-    if (matchesKey(event, ["arrowleft", "h"])) {
+    if (matchesKey(event, Keys.left)) {
       event.preventDefault();
       selectedColumn = Math.max(0, selectedColumn - 1);
       render();
-    } else if (matchesKey(event, ["arrowright", "l"])) {
+    } else if (matchesKey(event, Keys.right)) {
       event.preventDefault();
       selectedColumn = Math.min(columns - 1, selectedColumn + 1);
       render();
-    } else if (matchesKey(event, [" ", "enter", "arrowdown", "j"])) {
+    } else if (matchesKey(event, [...Keys.activate, ...Keys.down])) {
       event.preventDefault();
       playTurn(selectedColumn);
-    } else if (matchesKey(event, ["+", "=", ">"])) {
+    } else if (matchesKey(event, Keys.nextDifficulty)) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
       resetGame();
-    } else if (matchesKey(event, ["-", "_", "<"])) {
+    } else if (matchesKey(event, Keys.previousDifficulty)) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
       resetGame();
@@ -158,7 +156,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     const row = dropDisc(board, column, current);
     if (row === null) return;
 
-    shell.dataset.started = "true";
+    markGameStarted(shell);
     moves += 1;
     const line = findWin(board, row, column, current);
     if (line) {
@@ -167,7 +165,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     } else {
       current = current === human ? bot : human;
     }
-    if (winner || moves === rows * columns) shell.dataset.finished = "true";
+    if (winner || moves === rows * columns) markGameFinished(shell);
     render();
   }
 
