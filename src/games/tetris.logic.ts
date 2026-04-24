@@ -100,6 +100,15 @@ export function rotateTetrisPiece(board: TetrisBoard, piece: TetrisPiece): Tetri
   return piece;
 }
 
+export function tetrisGhostPiece(board: TetrisBoard, piece: TetrisPiece): TetrisPiece {
+  let ghost = piece;
+  while (true) {
+    const moved = moveTetrisPiece(board, ghost, "down");
+    if (moved === ghost) return ghost;
+    ghost = moved;
+  }
+}
+
 export function lockTetrisPiece(board: TetrisBoard, piece: TetrisPiece): TetrisBoard {
   const next = board.map((row) => [...row]);
   for (const cell of tetrisPieceCells(piece)) {

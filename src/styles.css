@@ -375,6 +375,11 @@
   .tetris-cell[data-value="S"] { background: #a7f06d; }
   .tetris-cell[data-value="T"] { background: #c5b3ff; }
   .tetris-cell[data-value="Z"] { background: #ff6b6b; }
+  .tetris-cell[data-ghost="true"] {
+    background: transparent;
+    border: 2px dashed color-mix(in srgb, var(--accent), white 18%);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent), transparent 70%);
+  }
   .tetris-cell[data-active="true"] { transform: scale(1.06); box-shadow: 0 0 14px color-mix(in srgb, var(--accent), transparent 48%); }
 
   .memory-card {

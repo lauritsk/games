@@ -1,7 +1,7 @@
 import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
-import { moveTetrisPiece, newTetrisState, rotateTetrisPiece, tetrisColumns, tetrisDrop, tetrisHardDrop, tetrisPieceCells, tetrisRows, type TetrisCell, type TetrisPoint, type TetrisState } from "./tetris.logic";
+import { moveTetrisPiece, newTetrisState, rotateTetrisPiece, tetrisColumns, tetrisDrop, tetrisGhostPiece, tetrisHardDrop, tetrisPieceCells, tetrisRows, type TetrisCell, type TetrisPoint, type TetrisState } from "./tetris.logic";
 
 type Mode = "ready" | "playing" | "paused" | "over";
 type Config = { speed: number };
@@ -159,13 +159,17 @@ export function mountTetris(target: HTMLElement): () => void {
     status.textContent = statusText();
 
     const active = new Map(tetrisPieceCells(state.piece).map((cell) => [pointKey(cell), state.piece.type]));
+    const ghost = new Set(tetrisPieceCells(tetrisGhostPiece(state.board, state.piece)).map(pointKey));
     const cells = syncChildren(board, tetrisRows * tetrisColumns, () => el("div", { className: "tetris-cell" }));
     cells.forEach((cell, index) => {
       const point = { row: Math.floor(index / tetrisColumns), column: index % tetrisColumns };
-      const value = active.get(pointKey(point)) ?? state.board[point.row]?.[point.column] ?? "";
+      const key = pointKey(point);
+      const ghostOnly = ghost.has(key) && !active.has(key);
+      const value = active.get(key) ?? state.board[point.row]?.[point.column] ?? "";
       cell.dataset.value = value;
-      cell.dataset.active = String(active.has(pointKey(point)));
-      cell.setAttribute("aria-label", labelFor(point, value));
+      cell.dataset.active = String(active.has(key));
+      cell.dataset.ghost = String(ghostOnly);
+      cell.setAttribute("aria-label", labelFor(point, value, ghostOnly));
     });
   }
 
@@ -176,8 +180,8 @@ export function mountTetris(target: HTMLElement): () => void {
     return `${state.score} · L${state.level} · ${state.next}`;
   }
 
-  function labelFor(point: TetrisPoint, value: TetrisCell): string {
-    const content = value === "" ? "empty" : `${value} block`;
+  function labelFor(point: TetrisPoint, value: TetrisCell, ghost: boolean): string {
+    const content = ghost ? "landing preview" : value === "" ? "empty" : `${value} block`;
     return `Row ${point.row + 1}, column ${point.column + 1}, ${content}`;
   }
 

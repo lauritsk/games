@@ -4,7 +4,7 @@ import { connect4Human, dropConnect4DiscInPlace, findConnect4TacticalMove, findC
 import { floodOpenMinesweeperInPlace, minesweeperNeighbors, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperConfig } from "../src/games/minesweeper.logic";
 import { allMemoryMatched, newMemoryDeck, openUnmatchedMemoryCards, type MemoryCard } from "../src/games/memory.logic";
 import { moveSnakePoint, nextSnakeDirection, snakeOutOfBounds, snakePointsEqual, startSnakeBody } from "../src/games/snake.logic";
-import { canPlaceTetrisPiece, clearTetrisLines, lockTetrisPiece, moveTetrisPiece, newTetrisBoard, rotateTetrisPiece, spawnTetrisPiece, tetrisDrop, tetrisLineScore, tetrisRows, type TetrisBoard } from "../src/games/tetris.logic";
+import { canPlaceTetrisPiece, clearTetrisLines, lockTetrisPiece, moveTetrisPiece, newTetrisBoard, rotateTetrisPiece, spawnTetrisPiece, tetrisDrop, tetrisGhostPiece, tetrisLineScore, tetrisRows, type TetrisBoard } from "../src/games/tetris.logic";
 import { chooseTicTacToeBotMove, getTicTacToeWinner, humanMark, newTicTacToeBoard, winningTicTacToeMove, type TicTacToeCell } from "../src/games/tictactoe.logic";
 
 describe("2048 logic", () => {
@@ -114,6 +114,15 @@ describe("tetris logic", () => {
     const blockedState = { ...state, board: blocked, piece: spawnTetrisPiece("O") };
     expect(tetrisDrop(blockedState).over).toBe(true);
     expect(moveTetrisPiece(board, spawnTetrisPiece("T"), "down").origin.row).toBe(2);
+  });
+
+  test("finds ghost landing position", () => {
+    const board = newTetrisBoard();
+    const piece = spawnTetrisPiece("O");
+    expect(tetrisGhostPiece(board, piece).origin.row).toBe(19);
+
+    board[18] = Array.from({ length: 10 }, () => "Z");
+    expect(tetrisGhostPiece(board, piece).origin.row).toBe(17);
   });
 });
 
