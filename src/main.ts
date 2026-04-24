@@ -1,4 +1,4 @@
-import { clearNode, el, type GameDefinition } from "@classic-games/core";
+import { clearNode, confirmChoice, el, type GameDefinition } from "./core";
 import { games } from "./games";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -95,71 +95,17 @@ function renderGame(game: GameDefinition): void {
     const gameElement = gameHost.querySelector<HTMLElement>(".game");
     const started = gameElement?.dataset.started === "true";
     const finished = gameElement?.dataset.finished === "true";
-    if (started && !finished) showConfirm(screen);
-    else window.location.hash = "#/";
-  }
-}
-
-function showConfirm(screen: HTMLElement): void {
-  let selected = 1;
-  const dialog = el("div", { className: "confirm", ariaLabel: "Leave current game?" });
-  dialog.setAttribute("role", "dialog");
-  dialog.setAttribute("aria-modal", "true");
-
-  const panel = el("div", { className: "confirm__panel surface" });
-  const message = el("p", { text: "Leave this game?" });
-  const actions = el("div", { className: "confirm__actions cluster" });
-  const yes = el("button", { className: "pill surface interactive", text: "Yes", type: "button" });
-  const no = el("button", { className: "pill surface interactive", text: "No", type: "button" });
-  actions.append(yes, no);
-  panel.append(message, actions);
-  dialog.append(panel);
-  screen.append(dialog);
-
-  yes.addEventListener("click", leave);
-  no.addEventListener("click", close);
-  document.addEventListener("keydown", onConfirmKeyDown);
-  renderConfirm();
-
-  confirmCleanup = close;
-
-  function onConfirmKeyDown(event: KeyboardEvent): void {
-    event.stopImmediatePropagation();
-    const key = event.key.toLowerCase();
-    if (["arrowleft", "arrowup", "h", "k"].includes(key)) {
-      event.preventDefault();
-      selected = 0;
-      renderConfirm();
-    } else if (["arrowright", "arrowdown", "l", "j"].includes(key)) {
-      event.preventDefault();
-      selected = 1;
-      renderConfirm();
-    } else if (key === "y") {
-      event.preventDefault();
-      leave();
-    } else if (key === "n" || key === "escape") {
-      event.preventDefault();
-      close();
-    } else if (key === "enter" || key === " ") {
-      event.preventDefault();
-      selected === 0 ? leave() : close();
-    }
-  }
-
-  function renderConfirm(): void {
-    yes.dataset.selected = String(selected === 0);
-    no.dataset.selected = String(selected === 1);
-  }
-
-  function leave(): void {
-    close();
-    window.location.hash = "#/";
-  }
-
-  function close(): void {
-    document.removeEventListener("keydown", onConfirmKeyDown);
-    dialog.remove();
-    confirmCleanup = null;
+    if (started && !finished) {
+      confirmCleanup = confirmChoice(
+        "Leave this game?",
+        () => {
+          window.location.hash = "#/";
+        },
+        () => {
+          confirmCleanup = null;
+        },
+      );
+    } else window.location.hash = "#/";
   }
 }
 

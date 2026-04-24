@@ -10,7 +10,7 @@ description = "Build the web app"
 run = "bun run build"
 
 [tasks.typecheck]
-description = "Typecheck all workspaces"
+description = "Typecheck the app"
 run = "bun run typecheck"
 
 [tasks.check]

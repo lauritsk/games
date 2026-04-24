@@ -2,14 +2,10 @@
   "name": "classic-games",
   "type": "module",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
-    "dev": "bun run --cwd apps/web dev",
-    "build": "bun run --cwd apps/web build",
-    "typecheck": "tsc -b",
+    "dev": "bun run src/server.ts",
+    "build": "bun run src/build.ts",
+    "typecheck": "tsc --noEmit",
     "check": "bun run typecheck && bun run build"
   },
   "devDependencies": {

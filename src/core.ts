@@ -52,8 +52,8 @@ export function button(text: string, className = "button"): HTMLButtonElement {
   return el("button", { className, text, type: "button" });
 }
 
-export function confirmChoice(message: string, onYes: () => void): void {
-  if (document.querySelector(".confirm")) return;
+export function confirmChoice(message: string, onYes: () => void, onClose?: () => void): () => void {
+  if (document.querySelector(".confirm")) return () => undefined;
 
   let selected = 1;
   const dialog = el("div", { className: "confirm", ariaLabel: message });
@@ -111,7 +111,10 @@ export function confirmChoice(message: string, onYes: () => void): void {
   function close(): void {
     document.removeEventListener("keydown", onKeyDown);
     dialog.remove();
+    onClose?.();
   }
+
+  return close;
 }
 
 export function createGameShell(target: HTMLElement, options: GameShellOptions): GameShell {

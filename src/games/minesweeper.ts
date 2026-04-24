@@ -1,4 +1,4 @@
-import { button, clearNode, confirmChoice, createGameShell, el, type GameDefinition } from "@classic-games/core";
+import { button, clearNode, confirmChoice, createGameShell, el, type GameDefinition } from "../core";
 
 type Cell = { mine: boolean; open: boolean; flag: boolean; nearby: number };
 type State = "playing" | "won" | "lost";

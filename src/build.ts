@@ -48,4 +48,4 @@ await writeFile(
 `,
 );
 
-console.log("Built apps/web/dist");
+console.log("Built dist");

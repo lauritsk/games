@@ -1,4 +1,4 @@
-import { button, clearNode, confirmChoice, createGameShell, el, type GameDefinition } from "@classic-games/core";
+import { button, clearNode, confirmChoice, createGameShell, el, type GameDefinition } from "../core";
 
 type Mark = "X" | "O";
 type Cell = Mark | "";

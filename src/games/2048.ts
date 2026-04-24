@@ -1,4 +1,4 @@
-import { button, clearNode, confirmChoice, createGameShell, el, type GameDefinition } from "@classic-games/core";
+import { button, clearNode, confirmChoice, createGameShell, el, type GameDefinition } from "../core";
 
 type Difficulty = "Easy" | "Medium" | "Hard";
 type Direction = "up" | "right" | "down" | "left";
