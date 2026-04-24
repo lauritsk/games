@@ -17,7 +17,12 @@ import {
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
-import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
+import {
+  changeDifficulty,
+  createDifficultyControl,
+  createModeControl,
+  createResetControl,
+} from "./controls";
 import {
   moveSnakePoint,
   nextSnakeDirection,
@@ -27,10 +32,12 @@ import {
   snakePointKey,
   snakePointsEqual,
   startSnakeBody,
+  wrapSnakePoint,
   type SnakePoint,
 } from "./snake.logic";
 type State = "ready" | "playing" | "won" | "lost";
 type Config = { size: number; speed: number };
+type WallMode = "fatal" | "teleport";
 
 const configs: Record<Difficulty, Config> = {
   Easy: { size: 14, speed: 170 },
@@ -55,6 +62,7 @@ export function mountSnake(target: HTMLElement): () => void {
   let direction: Direction = "right";
   let queuedDirection: Direction = direction;
   let state: State = "ready";
+  let wallMode: WallMode = "fatal";
   let timer: ReturnType<typeof setInterval> | null = null;
 
   const {
@@ -81,6 +89,15 @@ export function mountSnake(target: HTMLElement): () => void {
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  const wallModeButton = createModeControl(actions, {
+    get: () => wallMode,
+    set: (next) => {
+      wallMode = next;
+    },
+    next: (current) => (current === "fatal" ? "teleport" : "fatal"),
+    label: wallModeLabel,
+    reset: resetGame,
+  });
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
 
@@ -100,6 +117,7 @@ export function mountSnake(target: HTMLElement): () => void {
     setBoardGrid(grid, config.size);
     status.textContent = statusText();
     difficultyButton.textContent = difficulty;
+    wallModeButton.textContent = wallModeLabel(wallMode);
 
     const body = new Set(snake.map(snakePointKey));
     const head = snakePointKey(required(snake[0]));
@@ -154,12 +172,14 @@ export function mountSnake(target: HTMLElement): () => void {
   function tick(): void {
     direction = queuedDirection;
     const head = required(snake[0]);
-    const next = moveSnakePoint(head, direction);
+    const moved = moveSnakePoint(head, direction);
+    const outOfBounds = snakeOutOfBounds(moved, config.size);
+    const next = wallMode === "teleport" ? wrapSnakePoint(moved, config.size) : moved;
     const ate = snakePointsEqual(next, food);
     const bodyToCheck = ate ? snake : snake.slice(0, -1);
 
     if (
-      snakeOutOfBounds(next, config.size) ||
+      (outOfBounds && wallMode === "fatal") ||
       bodyToCheck.some((part) => snakePointsEqual(part, next))
     ) {
       state = "lost";
@@ -188,10 +208,14 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function statusText(): string {
-    if (state === "ready") return "Ready";
+    if (state === "ready") return `Ready · ${wallModeLabel(wallMode)}`;
     if (state === "won") return "Full";
     if (state === "lost") return `Crash · ${snake.length}`;
-    return `Length ${snake.length}`;
+    return `Length ${snake.length} · ${wallModeLabel(wallMode)}`;
+  }
+
+  function wallModeLabel(mode: WallMode): string {
+    return mode === "fatal" ? "Fatal walls" : "Teleport walls";
   }
 
   function labelFor(point: SnakePoint): string {

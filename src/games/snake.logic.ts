@@ -43,6 +43,13 @@ export function snakeOutOfBounds(point: SnakePoint, size: number): boolean {
   return point.row < 0 || point.column < 0 || point.row >= size || point.column >= size;
 }
 
+export function wrapSnakePoint(point: SnakePoint, size: number): SnakePoint {
+  return {
+    row: (point.row + size) % size,
+    column: (point.column + size) % size,
+  };
+}
+
 export function snakePointsEqual(a: SnakePoint, b: SnakePoint): boolean {
   return a.row === b.row && a.column === b.column;
 }

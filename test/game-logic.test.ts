@@ -34,6 +34,7 @@ import {
   snakeOutOfBounds,
   snakePointsEqual,
   startSnakeBody,
+  wrapSnakePoint,
 } from "../src/games/snake.logic";
 import {
   fireInvaderShot,
@@ -333,6 +334,7 @@ describe("snake logic", () => {
     expect(moveSnakePoint({ row: 1, column: 1 }, "left")).toEqual({ row: 1, column: 0 });
     expect(nextSnakeDirection("right", "right", "left")).toBe("right");
     expect(snakeOutOfBounds({ row: -1, column: 0 }, 10)).toBe(true);
+    expect(wrapSnakePoint({ row: -1, column: 10 }, 10)).toEqual({ row: 9, column: 0 });
     expect(snakePointsEqual({ row: 1, column: 2 }, { row: 1, column: 2 })).toBe(true);
   });
 });

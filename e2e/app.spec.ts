@@ -89,7 +89,7 @@ test("difficulty changes during active games reset to the selected difficulty", 
 
   await page.keyboard.press("+");
   await expect(page.getByRole("button", { name: "Hard" })).toBeVisible();
-  await expect(page.getByLabel("Game status")).toHaveText("Ready");
+  await expect(page.getByLabel("Game status")).toHaveText("Ready · Fatal walls");
   await expect(page.locator(".snake-cell")).toHaveCount(22 * 22);
   await page.evaluate(() => window.assertNoClientErrors());
 });
