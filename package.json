@@ -1,12 +1,19 @@
 {
-  "name": "games",
-  "module": "index.ts",
+  "name": "classic-games",
   "type": "module",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --cwd apps/web dev",
+    "build": "bun run --cwd apps/web build",
+    "typecheck": "tsc -b",
+    "check": "bun run typecheck && bun run build"
   },
-  "peerDependencies": {
+  "devDependencies": {
+    "@types/bun": "latest",
     "typescript": "^5"
   }
 }

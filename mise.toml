@@ -1,2 +1,18 @@
 [tools]
 bun = "1.3.13"
+
+[tasks.dev]
+description = "Run the web app dev server"
+run = "bun run dev"
+
+[tasks.build]
+description = "Build the web app"
+run = "bun run build"
+
+[tasks.typecheck]
+description = "Typecheck all workspaces"
+run = "bun run typecheck"
+
+[tasks.check]
+description = "Typecheck and build"
+run = "bun run check"

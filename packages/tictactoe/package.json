@@ -1,0 +1,11 @@
+{
+  "name": "@classic-games/tictactoe",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@classic-games/core": "workspace:*"
+  }
+}

@@ -1,0 +1,325 @@
+@layer reset, theme, base, util, component, game, responsive;
+
+@layer reset {
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body, #app { width: 100%; height: 100%; }
+  html { min-width: 320px; }
+  body { margin: 0; overflow: hidden; }
+  button, input, textarea, select { font: inherit; }
+  button, a { color: inherit; }
+  button { border: 0; cursor: pointer; }
+  a { text-decoration: none; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+}
+
+@layer theme {
+  :root {
+    color-scheme: dark;
+    --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --gap: clamp(10px, 2vmin, 18px);
+    --pad: clamp(10px, 2.4vmin, 24px);
+    --radius: 22px;
+    --round: 999px;
+    --ease: 140ms ease;
+    --ink: #f7efe1;
+    --muted: #b9ab99;
+    --surface: rgba(255, 255, 255, 0.08);
+    --surface-hover: rgba(255, 255, 255, 0.14);
+    --line: rgba(255, 255, 255, 0.14);
+    --shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
+    --focus: var(--accent);
+  }
+
+  body[data-theme="deep-cave"], .theme-deep-cave { --bg: #120d0a; --accent: #f0a85d; }
+  body[data-theme="deep-ocean"], .theme-deep-ocean { --bg: #061521; --accent: #67d8ff; }
+  body[data-theme="outer-space"], .theme-outer-space { --bg: #090716; --accent: #c5b3ff; }
+  body[data-theme="deep-forest"], .theme-deep-forest { --bg: #07120d; --accent: #a7f06d; }
+}
+
+@layer base {
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+  }
+
+  h1, p { margin: 0; }
+  h1 { font-size: clamp(1.45rem, 4vmin, 2.2rem); letter-spacing: -0.04em; }
+}
+
+@layer util {
+  .center-screen { display: grid; place-items: center; min-height: 0; }
+  .stack { display: grid; align-content: center; gap: var(--gap); }
+  .cluster { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: nowrap; }
+  .surface { border: 1px solid var(--line); background: var(--surface); backdrop-filter: blur(14px); }
+  .interactive { transition: transform var(--ease), background var(--ease); }
+  .interactive:hover { transform: translateY(-1px); background: var(--surface-hover); }
+  .pill { border-radius: var(--round); padding: 10px 13px; font-weight: 850; }
+  .muted { color: var(--muted); }
+}
+
+@layer component {
+  .app-shell {
+    width: min(960px, 100%);
+    height: 100svh;
+    margin: 0 auto;
+    padding: var(--pad);
+  }
+
+  .workspace,
+  .dashboard,
+  .game-screen,
+  .game-host,
+  .game { width: 100%; }
+
+  .dashboard,
+  .game-screen,
+  .game-host { height: 100%; }
+
+  .game-screen {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: var(--gap);
+  }
+
+  .back-button {
+    width: max-content;
+    font-size: 0.92rem;
+  }
+
+  .game-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: var(--gap);
+    width: min(620px, 100%);
+  }
+
+  .game-card {
+    display: grid;
+    place-items: center;
+    min-height: 72px;
+    padding: 14px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    font-weight: 900;
+    text-align: center;
+  }
+
+  .game-card[data-selected="true"],
+  .confirm button[data-selected="true"] {
+    border-color: var(--focus);
+    background: color-mix(in srgb, var(--accent), transparent 78%);
+    outline: 4px solid var(--focus);
+    outline-offset: 4px;
+  }
+
+  .confirm {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, 0.42);
+  }
+
+  .confirm__panel {
+    display: grid;
+    gap: var(--gap);
+    min-width: min(280px, calc(100vw - 32px));
+    padding: 18px;
+    border-radius: var(--radius);
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+
+  .confirm__actions { justify-content: center; }
+}
+
+@layer game {
+  .game {
+    display: grid;
+    grid-template-rows: 44px minmax(0, 1fr);
+    gap: var(--gap);
+    max-width: min(82vmin, 720px);
+    height: 100%;
+    max-height: 100%;
+  }
+
+  .game__top {
+    display: grid;
+    grid-template-columns: 12ch minmax(0, 1fr);
+    align-items: center;
+    height: 44px;
+  }
+
+  .game__actions {
+    justify-content: end;
+    overflow: hidden;
+  }
+
+  .status,
+  .button {
+    height: 38px;
+    font-size: 0.92rem;
+  }
+
+  .status {
+    display: grid;
+    place-items: center;
+    min-width: 12ch;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .button { white-space: nowrap; }
+
+  .board {
+    align-self: start;
+    display: grid;
+    width: 100%;
+    padding: clamp(9px, 2vmin, 18px);
+    border: 1px solid color-mix(in srgb, var(--accent), transparent 68%);
+    border-radius: calc(var(--radius) + 10px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), var(--shadow);
+  }
+
+  .board--connect4 {
+    grid-template-columns: repeat(7, 1fr);
+    gap: clamp(5px, 1.2vmin, 10px);
+    aspect-ratio: 7 / 6;
+    background: #083a5a;
+  }
+
+  .board--minesweeper,
+  .board--2048 {
+    aspect-ratio: 1;
+  }
+
+  .board--minesweeper {
+    grid-template-columns: repeat(var(--mine-size, 9), 1fr);
+    gap: clamp(3px, 0.8vmin, 7px);
+    background: #241712;
+  }
+
+  .board--2048 {
+    grid-template-columns: repeat(var(--tile-size, 4), 1fr);
+    gap: clamp(7px, 1.4vmin, 12px);
+    background: #151126;
+    contain: layout paint;
+  }
+
+  .board--tictactoe {
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(8px, 1.6vmin, 14px);
+    aspect-ratio: 1;
+    background: #102116;
+  }
+
+  .slot,
+  .mine-cell,
+  .tile,
+  .ttt-cell {
+    aspect-ratio: 1;
+    position: relative;
+    background: rgba(0, 8, 24, 0.36);
+    box-shadow: inset 0 7px 14px rgba(0, 8, 24, 0.38), 0 1px 0 rgba(255,255,255,0.16);
+  }
+
+  .slot { border-radius: 50%; }
+
+  .slot::before,
+  .slot::after { content: ""; position: absolute; border-radius: inherit; }
+
+  .slot::before {
+    inset: 10%;
+    background: color-mix(in srgb, var(--bg), white 8%);
+    box-shadow: inset 0 -4px 9px rgba(0,0,0,0.16);
+    transform: scale(0.96);
+    transition: transform var(--ease), background var(--ease);
+  }
+
+  .slot[data-selected="true"] {
+    outline: 4px solid var(--focus);
+    outline-offset: 3px;
+    background: color-mix(in srgb, var(--accent), transparent 58%);
+  }
+  .slot:not(:disabled):hover::before { transform: scale(0.88) translateY(-2px); }
+  .slot[data-player="1"]::before { background: #ff6262; }
+  .slot[data-player="2"]::before { background: #ffd766; }
+
+  .slot[data-win="true"]::after {
+    inset: 25%;
+    border: 3px solid rgba(255,255,255,0.9);
+    animation: pulse 900ms ease-in-out infinite alternate;
+  }
+
+  .mine-cell {
+    border-radius: 10px;
+    color: var(--ink);
+    font-size: clamp(0.72rem, 2.2vmin, 1rem);
+    font-weight: 900;
+  }
+
+  .mine-cell[data-selected="true"] {
+    outline: 4px solid var(--focus);
+    outline-offset: 2px;
+    background: color-mix(in srgb, var(--accent), transparent 58%);
+  }
+  .mine-cell[data-open="true"] { background: rgba(255,255,255,0.12); box-shadow: none; }
+  .mine-cell[data-open="true"][data-selected="true"] { background: color-mix(in srgb, var(--accent), transparent 50%); }
+  .mine-cell[data-flag="true"] { color: var(--accent); }
+  .mine-cell[data-mine="true"] { background: #d8673e; }
+
+  .tile {
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 12px;
+    color: var(--ink);
+    font-size: clamp(1rem, 5vmin, 2rem);
+    font-variant-numeric: tabular-nums;
+    font-weight: 950;
+    line-height: 1;
+  }
+
+  .tile[data-value="0"] { opacity: 0.32; }
+  .tile:not([data-value="0"]) { background: color-mix(in srgb, var(--accent), white 8%); color: #100d18; box-shadow: none; }
+
+  .ttt-cell {
+    display: grid;
+    place-items: center;
+    border-radius: 16px;
+    color: var(--ink);
+    font-size: clamp(2.4rem, 12vmin, 6rem);
+    font-weight: 950;
+    line-height: 1;
+  }
+
+  .ttt-cell[data-selected="true"] {
+    outline: 4px solid var(--focus);
+    outline-offset: 3px;
+    background: color-mix(in srgb, var(--accent), transparent 58%);
+  }
+
+  .ttt-cell[data-win="true"] { background: var(--accent); color: #07120d; }
+
+  @keyframes pulse {
+    from { transform: scale(0.88); opacity: 0.55; }
+    to { transform: scale(1.08); opacity: 1; }
+  }
+}
+
+@layer responsive {
+  @media (max-width: 640px) {
+    .app-shell { padding: 10px; }
+    .game { max-width: 100%; }
+  }
+
+  @media (max-height: 620px) {
+    .pill { padding-block: 7px; }
+    .status, .button { height: 34px; }
+    .game { grid-template-rows: 40px minmax(0, 1fr); }
+    .game__top { height: 40px; }
+  }
+}

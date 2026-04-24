@@ -1,0 +1,11 @@
+{
+  "name": "@classic-games/minesweeper",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@classic-games/core": "workspace:*"
+  }
+}
