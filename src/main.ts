@@ -1,5 +1,6 @@
 import { clearNode, confirmChoice, el, isGameInProgress, Keys, matchesKey, type GameDefinition } from "./core";
 import { games } from "./games";
+import { playSound, unlockSound } from "./sound";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("Missing app root");
@@ -16,6 +17,8 @@ page.append(workspace);
 app.append(page);
 
 window.addEventListener("hashchange", renderRoute);
+window.addEventListener("pointerdown", unlockSound, { capture: true });
+window.addEventListener("keydown", unlockSound, { capture: true });
 renderRoute();
 
 function renderRoute(): void {
@@ -50,13 +53,16 @@ function renderDashboard(): void {
     if (matchesKey(event, Keys.previous)) {
       event.preventDefault();
       selectedIndex = (selectedIndex - 1 + games.length) % games.length;
+      playSound("dashboardMove");
       renderSelection();
     } else if (matchesKey(event, Keys.next)) {
       event.preventDefault();
       selectedIndex = (selectedIndex + 1) % games.length;
+      playSound("dashboardMove");
       renderSelection();
     } else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
+      playSound("dashboardSelect");
       window.location.hash = `#/${games[selectedIndex]!.id}`;
     }
   }
@@ -72,6 +78,7 @@ function gameCard(game: GameDefinition, selected = false): HTMLAnchorElement {
   link.href = `#/${game.id}`;
   link.textContent = game.name;
   link.dataset.selected = String(selected);
+  link.addEventListener("click", () => playSound("dashboardSelect"));
   return link;
 }
 

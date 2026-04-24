@@ -1,4 +1,5 @@
 import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
+import { playSound } from "../sound";
 
 type Direction = "up" | "right" | "down" | "left";
 type Board = number[][];
@@ -34,12 +35,14 @@ export function mount2048(target: HTMLElement): () => void {
 
   difficultyButton.addEventListener("click", () => {
     difficulty = nextDifficulty(difficulty);
+    playSound("uiToggle");
     resetGame();
   });
   reset.addEventListener("click", requestReset);
   document.addEventListener("keydown", onKeyDown);
 
   function requestReset(): void {
+    playSound("uiReset");
     requestGameReset(shell, resetGame);
   }
 
@@ -75,10 +78,12 @@ export function mount2048(target: HTMLElement): () => void {
     } else if (matchesKey(event, Keys.nextDifficulty)) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
+      playSound("uiToggle");
       resetGame();
     } else if (matchesKey(event, Keys.previousDifficulty)) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
+      playSound("uiToggle");
       resetGame();
     } else if (key === "n") {
       event.preventDefault();
@@ -97,6 +102,7 @@ export function mount2048(target: HTMLElement): () => void {
     score += result.score;
     over = !canMove(board);
     if (over) markGameFinished(shell);
+    playSound(over ? "gameLose" : result.score > 0 ? "gameGood" : "gameMove");
     render();
   }
 

@@ -1,4 +1,5 @@
 import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
+import { playSound } from "../sound";
 
 type Mark = "X" | "O";
 type Cell = Mark | "";
@@ -52,15 +53,18 @@ export function mountTicTacToe(target: HTMLElement): () => void {
 
   modeButton.addEventListener("click", () => {
     mode = mode === "bot" ? "local" : "bot";
+    playSound("uiToggle");
     resetGame();
   });
   difficultyButton.addEventListener("click", () => {
     difficulty = nextDifficulty(difficulty);
+    playSound("uiToggle");
     resetGame();
   });
   reset.addEventListener("click", requestReset);
 
   function requestReset(): void {
+    playSound("uiReset");
     requestGameReset(shell, resetGame);
   }
 
@@ -117,14 +121,17 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     } else if (matchesKey(event, Keys.nextDifficulty)) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
+      playSound("uiToggle");
       resetGame();
     } else if (matchesKey(event, Keys.previousDifficulty)) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
+      playSound("uiToggle");
       resetGame();
     } else if (key === "m") {
       event.preventDefault();
       mode = mode === "bot" ? "local" : "bot";
+      playSound("uiToggle");
       resetGame();
     } else if (key === "n") {
       event.preventDefault();
@@ -165,6 +172,8 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     } else {
       current = current === human ? bot : human;
     }
+    if (winner) playSound(winner === "draw" ? "gameMajor" : winner === human ? "gameWin" : "gameLose");
+    else playSound("gameMove");
     render();
   }
 

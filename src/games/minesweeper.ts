@@ -1,4 +1,5 @@
 import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
+import { playSound } from "../sound";
 
 type Cell = { mine: boolean; open: boolean; flag: boolean; nearby: number };
 type State = "playing" | "won" | "lost";
@@ -42,11 +43,13 @@ export function mountMinesweeper(target: HTMLElement): () => void {
 
   difficultyButton.addEventListener("click", () => {
     difficulty = nextDifficulty(difficulty);
+    playSound("uiToggle");
     resetGame();
   });
   reset.addEventListener("click", requestReset);
 
   function requestReset(): void {
+    playSound("uiReset");
     requestGameReset(shell, resetGame);
   }
 
@@ -115,10 +118,12 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     } else if (matchesKey(event, Keys.nextDifficulty)) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
+      playSound("uiToggle");
       resetGame();
     } else if (matchesKey(event, Keys.previousDifficulty)) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
+      playSound("uiToggle");
       resetGame();
     } else if (key === "n") {
       event.preventDefault();
@@ -157,6 +162,9 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       if (openSafeCount(board) === config.size * config.size - config.mines) state = "won";
     }
     if (state !== "playing") markGameFinished(shell);
+    if (state === "won") playSound("gameWin");
+    else if (state === "lost") playSound("gameLose");
+    else playSound("gameMove");
     render();
   }
 
@@ -182,6 +190,9 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     }
     if (state !== "lost" && openSafeCount(board) === config.size * config.size - config.mines) state = "won";
     if (state !== "playing") markGameFinished(shell);
+    if (state === "won") playSound("gameWin");
+    else if (state === "lost") playSound("gameLose");
+    else playSound("gameMove");
     render();
   }
 
@@ -191,6 +202,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     if (!cell || cell.open) return;
     markGameStarted(shell);
     cell.flag = !cell.flag;
+    playSound("gameMove");
     render();
   }
 

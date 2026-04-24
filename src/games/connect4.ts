@@ -1,4 +1,5 @@
 import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
+import { playSound } from "../sound";
 
 type Player = 1 | 2;
 type Cell = Player | 0;
@@ -48,17 +49,20 @@ export function mountConnect4(target: HTMLElement): () => void {
 
   modeButton.addEventListener("click", () => {
     mode = mode === "bot" ? "local" : "bot";
+    playSound("uiToggle");
     resetGame();
   });
 
   difficultyButton.addEventListener("click", () => {
     difficulty = nextDifficulty(difficulty);
+    playSound("uiToggle");
     resetGame();
   });
 
   reset.addEventListener("click", requestReset);
 
   function requestReset(): void {
+    playSound("uiReset");
     requestGameReset(shell, resetGame);
   }
 
@@ -118,14 +122,17 @@ export function mountConnect4(target: HTMLElement): () => void {
     } else if (matchesKey(event, Keys.nextDifficulty)) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
+      playSound("uiToggle");
       resetGame();
     } else if (matchesKey(event, Keys.previousDifficulty)) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
+      playSound("uiToggle");
       resetGame();
     } else if (key === "m") {
       event.preventDefault();
       mode = mode === "bot" ? "local" : "bot";
+      playSound("uiToggle");
       resetGame();
     } else if (key === "n") {
       event.preventDefault();
@@ -166,6 +173,9 @@ export function mountConnect4(target: HTMLElement): () => void {
       current = current === human ? bot : human;
     }
     if (winner || moves === rows * columns) markGameFinished(shell);
+    if (winner) playSound(winner === human ? "gameWin" : "gameLose");
+    else if (moves === rows * columns) playSound("gameMajor");
+    else playSound("gameMove");
     render();
   }
 

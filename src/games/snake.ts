@@ -1,4 +1,5 @@
 import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
+import { playSound } from "../sound";
 
 type Point = { row: number; column: number };
 type Direction = "up" | "right" | "down" | "left";
@@ -50,12 +51,14 @@ export function mountSnake(target: HTMLElement): () => void {
 
   difficultyButton.addEventListener("click", () => {
     difficulty = nextDifficulty(difficulty);
+    playSound("uiToggle");
     resetGame();
   });
   reset.addEventListener("click", requestReset);
   document.addEventListener("keydown", onKeyDown);
 
   function requestReset(): void {
+    playSound("uiReset");
     requestGameReset(shell, resetGame);
   }
 
@@ -97,7 +100,7 @@ export function mountSnake(target: HTMLElement): () => void {
     const next = keyDirection(event);
     if (next) {
       event.preventDefault();
-      queueDirection(next);
+      if (queueDirection(next)) playSound("gameMove");
       start();
     } else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
@@ -105,10 +108,12 @@ export function mountSnake(target: HTMLElement): () => void {
     } else if (matchesKey(event, Keys.nextDifficulty)) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
+      playSound("uiToggle");
       resetGame();
     } else if (matchesKey(event, Keys.previousDifficulty)) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
+      playSound("uiToggle");
       resetGame();
     } else if (event.key.toLowerCase() === "n") {
       event.preventDefault();
@@ -122,11 +127,14 @@ export function mountSnake(target: HTMLElement): () => void {
     state = "playing";
     markGameStarted(shell);
     timer = setInterval(tick, config.speed);
+    playSound("gameMajor");
     render();
   }
 
-  function queueDirection(next: Direction): void {
-    if (next !== opposite[direction]) queuedDirection = next;
+  function queueDirection(next: Direction): boolean {
+    if (next === opposite[direction] || next === queuedDirection) return false;
+    queuedDirection = next;
+    return true;
   }
 
   function tick(): void {
@@ -140,6 +148,7 @@ export function mountSnake(target: HTMLElement): () => void {
       state = "lost";
       markGameFinished(shell);
       stopTimer();
+      playSound("gameLose");
       render();
       return;
     }
@@ -150,8 +159,10 @@ export function mountSnake(target: HTMLElement): () => void {
         state = "won";
         markGameFinished(shell);
         stopTimer();
+        playSound("gameWin");
       } else {
         food = randomFood(config.size, snake);
+        playSound("gameGood");
       }
     } else {
       snake.pop();
