@@ -196,7 +196,7 @@ export function mountBreakout(target: HTMLElement): () => void {
     difficultyButton.textContent = difficulty;
     pauseButton.textContent = mode === "paused" ? "Resume" : "Pause";
     status.textContent = statusText();
-    position(ball, state.ball.x - state.ball.radius, state.ball.y - state.ball.radius, state.ball.radius * 2, state.ball.radius * 2);
+    positionBall();
     position(paddle, state.paddle.x, state.paddle.y, state.paddle.width, state.paddle.height);
     syncBricks(state);
   }
@@ -211,6 +211,15 @@ export function mountBreakout(target: HTMLElement): () => void {
       child.dataset.alive = String(brick.alive);
       child.setAttribute("aria-label", brick.alive ? `Brick ${index + 1}` : `Destroyed brick ${index + 1}`);
     });
+  }
+
+  function positionBall(): void {
+    const diameter = state.ball.radius * 2;
+    const visualDiameterY = diameter * 0.8;
+    ball.style.left = `${state.ball.x - state.ball.radius}%`;
+    ball.style.top = `${state.ball.y - visualDiameterY / 2}%`;
+    ball.style.width = `${diameter}%`;
+    ball.style.height = `${visualDiameterY}%`;
   }
 
   function position(element: HTMLElement, x: number, y: number, width: number, height: number): void {
