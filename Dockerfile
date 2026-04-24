@@ -1,4 +1,5 @@
-FROM dhi.io/bun:1-dev AS build
+ARG BUN_VERSION=1.3.13
+FROM dhi.io/bun:${BUN_VERSION}-dev AS build
 
 WORKDIR /app
 COPY package.json bun.lock ./
@@ -8,7 +9,8 @@ COPY index.html tsconfig.json ./
 COPY src ./src
 RUN bun build ./src/server.ts --outdir ./dist --target bun
 
-FROM dhi.io/bun:1
+ARG BUN_VERSION=1.3.13
+FROM dhi.io/bun:${BUN_VERSION}
 
 ENV NODE_ENV=production
 ENV PORT=3000

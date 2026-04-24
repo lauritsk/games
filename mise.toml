@@ -1,7 +1,15 @@
+[env]
+HK_MISE = 1
+
 [tools]
 bun = "1.3.13"
+hk = "1.44.1"
+pkl = "0.31.1"
 "npm:oxlint" = "1.61.0"
 "npm:oxfmt" = "0.46.0"
+
+[hooks]
+postinstall = "hk install --mise"
 
 [tasks.dev]
 description = "Run the web app dev server"
@@ -11,38 +19,39 @@ run = "bun run dev"
 description = "Build the web app"
 run = "bun run build"
 
-[tasks.build-single]
+[tasks."build:single"]
 description = "Build the web app as one standalone HTML file"
 run = "bun run build:single"
 
-[tasks.typecheck]
-description = "Typecheck the app"
-run = "bun run typecheck"
-
-[tasks.format]
-description = "Format source files"
-run = "oxfmt --write ."
-
-[tasks.format-check]
-description = "Check source formatting"
-run = "oxfmt --check ."
-
 [tasks.lint]
-description = "Run oxlint and type checks"
-run = "oxlint . --deny-warnings && bun run typecheck"
+description = "Run hk-managed checks across the repository"
+run = "hk check --all"
+
+[tasks.fix]
+description = "Run hk-managed fixers across the repository"
+run = "hk fix --all"
 
 [tasks.test]
 description = "Run tests"
 run = "bun run test"
 
-[tasks.test-e2e]
+[tasks."test:e2e"]
 description = "Run Playwright browser tests"
+depends = ["build"]
 run = "bun run test:e2e"
 
-[tasks.test-watch]
+[tasks."test:watch"]
 description = "Run tests in watch mode"
 run = "bun run test:watch"
 
+[tasks."docker:build"]
+description = "Build Docker image with Bun version from mise"
+run = "docker build --build-arg BUN_VERSION=$(mise current bun) -t localhost/games ."
+
+[tasks."docker:up"]
+description = "Run Docker Compose with Bun version from mise"
+run = "BUN_VERSION=$(mise current bun) docker compose up --build"
+
 [tasks.check]
-description = "Format-check, lint, typecheck, test, and build"
-run = "mise run format-check && mise run lint && bun run check"
+description = "Run version check, hk checks, tests, and build"
+depends = ["lint", "test", "build", "test:e2e"]

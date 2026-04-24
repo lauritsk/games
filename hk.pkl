@@ -1,0 +1,30 @@
+amends "package://github.com/jdx/hk/releases/download/v1.44.1/hk@1.44.1#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.44.1/hk@1.44.1#/Builtins.pkl"
+
+local linters = new Mapping<String, Step> {
+  ["oxlint"] = Builtins.ox_lint
+  ["oxfmt"] = new Step {
+    glob = List("**/*.{js,jsx,ts,tsx,json,jsonc,css,html}")
+    check = "oxfmt --check {{ files }}"
+    fix = "oxfmt --write {{ files }}"
+  }
+  ["typecheck"] = new Step {
+    glob = List("**/*.{ts,tsx}")
+    check = "bun run typecheck"
+  }
+}
+
+hooks {
+  ["pre-commit"] {
+    fix = true
+    stash = "git"
+    steps = linters
+  }
+  ["fix"] {
+    fix = true
+    steps = linters
+  }
+  ["check"] {
+    steps = linters
+  }
+}
