@@ -1,4 +1,4 @@
-import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { playSound } from "../sound";
 import { addRandom2048Tile, canMove2048, slide2048, start2048Board } from "./2048.logic";
 
@@ -27,17 +27,14 @@ export function mount2048(target: HTMLElement): () => void {
   });
   shell.tabIndex = 0;
 
-  const difficultyButton = button("", "button pill surface interactive");
-  const reset = button("New", "button pill surface interactive");
-  actions.append(difficultyButton, reset);
-
-  difficultyButton.addEventListener("click", () => {
+  const scope = createMountScope();
+  const difficultyButton = createDifficultyButton(actions, () => {
     difficulty = nextDifficulty(difficulty);
     playSound("uiToggle");
     resetGame();
   });
-  reset.addEventListener("click", requestReset);
-  document.addEventListener("keydown", onKeyDown);
+  createResetButton(actions, requestReset);
+  onDocumentKeyDown(onKeyDown, scope);
 
   function requestReset(): void {
     playSound("uiReset");
@@ -54,42 +51,38 @@ export function mount2048(target: HTMLElement): () => void {
   }
 
   function render(): void {
-    clearNode(grid);
     setBoardGrid(grid, size);
     status.textContent = over ? `Done · ${score}` : String(score);
     difficultyButton.textContent = difficulty;
 
-    for (const value of board.flat()) {
-      const tile = el("div", { className: "tile tile-2048", text: value ? String(value) : "" });
+    const values = board.flat();
+    const tiles = syncChildren(grid, values.length, () => el("div", { className: "tile tile-2048" }));
+    values.forEach((value, index) => {
+      const tile = tiles[index];
+      if (!tile) return;
+      tile.textContent = value ? String(value) : "";
       tile.dataset.value = String(value);
-      grid.append(tile);
-    }
+    });
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (isConfirmOpen()) return;
-    const key = event.key.toLowerCase();
-    const direction = directionFromKey(event);
-    if (direction && !over) {
-      event.preventDefault();
-      move(direction);
-    } else if (matchesKey(event, Keys.nextDifficulty)) {
-      event.preventDefault();
-      difficulty = nextDifficulty(difficulty);
-      playSound("uiToggle");
-      resetGame();
-    } else if (matchesKey(event, Keys.previousDifficulty)) {
-      event.preventDefault();
-      difficulty = previousDifficulty(difficulty);
-      playSound("uiToggle");
-      resetGame();
-    } else if (key === "n") {
-      event.preventDefault();
-      requestReset();
-    } else if (matchesKey(event, Keys.activate)) {
-      event.preventDefault();
-      requestReset();
-    }
+    handleStandardGameKey(event, {
+      onDirection: (direction) => {
+        if (!over) move(direction);
+      },
+      onActivate: requestReset,
+      onNextDifficulty: () => {
+        difficulty = nextDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onPreviousDifficulty: () => {
+        difficulty = previousDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onReset: requestReset,
+    });
   }
 
   function move(direction: Direction): void {
@@ -106,7 +99,7 @@ export function mount2048(target: HTMLElement): () => void {
 
   render();
   return () => {
-    document.removeEventListener("keydown", onKeyDown);
+    scope.cleanup();
     remove();
   };
 }

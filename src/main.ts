@@ -1,4 +1,4 @@
-import { clearNode, confirmChoice, el, isGameInProgress, Keys, matchesKey, type GameDefinition } from "./core";
+import { clearNode, confirmChoice, createMountScope, el, isGameInProgress, Keys, matchesKey, onDocumentKeyDown, required, syncChildren, type GameDefinition, type MountScope } from "./core";
 import { games } from "./games";
 import { playSound, unlockSound } from "./sound";
 
@@ -6,8 +6,8 @@ const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("Missing app root");
 
 let unmountGame: (() => void) | null = null;
-let dashboardKeyCleanup: (() => void) | null = null;
-let gameKeyCleanup: (() => void) | null = null;
+let dashboardScope: MountScope | null = null;
+let gameScope: MountScope | null = null;
 let confirmCleanup: (() => void) | null = null;
 
 const page = el("main", { className: "app-shell center-screen" });
@@ -24,8 +24,8 @@ renderRoute();
 function renderRoute(): void {
   const game = getRouteGame();
   document.body.dataset.theme = game?.theme ?? "deep-cave";
-  dashboardKeyCleanup?.();
-  dashboardKeyCleanup = null;
+  dashboardScope?.cleanup();
+  dashboardScope = null;
   game ? renderGame(game) : renderDashboard();
 }
 
@@ -42,11 +42,11 @@ function renderDashboard(): void {
   let selectedIndex = 0;
   const list = el("div", { className: "game-list" });
 
-  games.forEach((game, index) => list.append(gameCard(game, index === selectedIndex)));
-  document.addEventListener("keydown", onDashboardKeyDown);
+  renderSelection();
+  dashboardScope = createMountScope();
+  onDocumentKeyDown(onDashboardKeyDown, dashboardScope);
   dashboard.append(list);
   workspace.append(dashboard);
-  dashboardKeyCleanup = () => document.removeEventListener("keydown", onDashboardKeyDown);
 
   function onDashboardKeyDown(event: KeyboardEvent): void {
     const columns = getDashboardColumns(list);
@@ -59,7 +59,7 @@ function renderDashboard(): void {
     else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
       playSound("dashboardSelect");
-      window.location.hash = `#/${games[selectedIndex]!.id}`;
+      window.location.hash = `#/${required(games[selectedIndex]).id}`;
       return;
     } else return;
 
@@ -70,8 +70,14 @@ function renderDashboard(): void {
   }
 
   function renderSelection(): void {
-    clearNode(list);
-    games.forEach((game, index) => list.append(gameCard(game, index === selectedIndex)));
+    const cards = syncChildren(list, games.length, (index) => gameCard(required(games[index])));
+    games.forEach((game, index) => {
+      const card = required(cards[index]);
+      card.href = `#/${game.id}`;
+      card.textContent = game.name;
+      card.className = `game-card surface interactive theme-${game.theme}`;
+      card.dataset.selected = String(index === selectedIndex);
+    });
   }
 }
 
@@ -90,14 +96,14 @@ function moveDashboardVertical(index: number, step: 1 | -1, columns: number, len
     return columnDiff || Math.floor(a / columns) - Math.floor(b / columns);
   });
   const orderIndex = verticalOrder.indexOf(index);
-  return verticalOrder[wrapIndex(orderIndex + step, length)]!;
+  return required(verticalOrder[wrapIndex(orderIndex + step, length)]);
 }
 
-function gameCard(game: GameDefinition, selected = false): HTMLAnchorElement {
+function gameCard(game: GameDefinition): HTMLAnchorElement {
   const link = el("a", { className: `game-card surface interactive theme-${game.theme}` });
   link.href = `#/${game.id}`;
   link.textContent = game.name;
-  link.dataset.selected = String(selected);
+  link.dataset.selected = "false";
   link.addEventListener("click", () => playSound("dashboardSelect"));
   return link;
 }
@@ -113,8 +119,8 @@ function renderGame(game: GameDefinition): void {
   screen.append(back, gameHost);
   workspace.append(screen);
   unmountGame = game.mount(gameHost);
-  document.addEventListener("keydown", onGameKeyDown);
-  gameKeyCleanup = () => document.removeEventListener("keydown", onGameKeyDown);
+  gameScope = createMountScope();
+  onDocumentKeyDown(onGameKeyDown, gameScope);
 
   function onGameKeyDown(event: KeyboardEvent): void {
     if (event.key !== "Escape" || confirmCleanup) return;
@@ -137,10 +143,10 @@ function renderGame(game: GameDefinition): void {
 function cleanupGame(): void {
   confirmCleanup?.();
   confirmCleanup = null;
-  gameKeyCleanup?.();
-  gameKeyCleanup = null;
-  dashboardKeyCleanup?.();
-  dashboardKeyCleanup = null;
+  gameScope?.cleanup();
+  gameScope = null;
+  dashboardScope?.cleanup();
+  dashboardScope = null;
   unmountGame?.();
   unmountGame = null;
 }

@@ -136,25 +136,111 @@ export function moveGridPoint(point: GridPoint, direction: Direction, rows: numb
   return { ...point, column: Math.max(0, point.column - 1) };
 }
 
-export function shuffle<T>(items: T[]): T[] {
+export function required<T>(value: T | null | undefined, message = "Missing required value"): T {
+  if (value === null || value === undefined) throw new Error(message);
+  return value;
+}
+
+export function gridCell<T>(grid: T[][], row: number, column: number, message = "Missing grid cell"): T {
+  return required(grid[row]?.[column], message);
+}
+
+export type RandomSource = () => number;
+
+export type MountScope = {
+  readonly signal: AbortSignal;
+  cleanup(): void;
+};
+
+export type StandardGameKeyHandlers = {
+  onDirection?: (direction: Direction, event: KeyboardEvent) => void;
+  onActivate?: (event: KeyboardEvent) => void;
+  onNextDifficulty?: (event: KeyboardEvent) => void;
+  onPreviousDifficulty?: (event: KeyboardEvent) => void;
+  onReset?: (event: KeyboardEvent) => void;
+};
+
+export function createMountScope(): MountScope {
+  const controller = new AbortController();
+  return {
+    signal: controller.signal,
+    cleanup: () => controller.abort(),
+  };
+}
+
+export function onDocumentKeyDown(handler: (event: KeyboardEvent) => void, scope: MountScope): void {
+  document.addEventListener("keydown", handler, { signal: scope.signal });
+}
+
+export function handleStandardGameKey(event: KeyboardEvent, handlers: StandardGameKeyHandlers): boolean {
+  if (isConfirmOpen()) return true;
+  const direction = directionFromKey(event);
+  if (direction && handlers.onDirection) {
+    event.preventDefault();
+    handlers.onDirection(direction, event);
+    return true;
+  }
+  if (matchesKey(event, Keys.activate) && handlers.onActivate) {
+    event.preventDefault();
+    handlers.onActivate(event);
+    return true;
+  }
+  if (matchesKey(event, Keys.nextDifficulty) && handlers.onNextDifficulty) {
+    event.preventDefault();
+    handlers.onNextDifficulty(event);
+    return true;
+  }
+  if (matchesKey(event, Keys.previousDifficulty) && handlers.onPreviousDifficulty) {
+    event.preventDefault();
+    handlers.onPreviousDifficulty(event);
+    return true;
+  }
+  if (event.key.toLowerCase() === "n" && handlers.onReset) {
+    event.preventDefault();
+    handlers.onReset(event);
+    return true;
+  }
+  return false;
+}
+
+export function createDifficultyButton(actions: HTMLElement, onClick: () => void): HTMLButtonElement {
+  const difficultyButton = button("", "button pill surface interactive");
+  difficultyButton.addEventListener("click", onClick);
+  actions.append(difficultyButton);
+  return difficultyButton;
+}
+
+export function createResetButton(actions: HTMLElement, onClick: () => void): HTMLButtonElement {
+  const resetButton = button("New", "button pill surface interactive");
+  resetButton.addEventListener("click", onClick);
+  actions.append(resetButton);
+  return resetButton;
+}
+
+export function syncChildren<T extends HTMLElement>(container: HTMLElement, count: number, create: (index: number) => T): T[] {
+  while (container.children.length > count) container.lastElementChild?.remove();
+  while (container.children.length < count) container.append(create(container.children.length));
+  return Array.from(container.children) as T[];
+}
+
+export function shuffleInPlace<T>(items: T[], rng: RandomSource = Math.random): T[] {
   for (let index = items.length - 1; index > 0; index -= 1) {
-    const swap = Math.floor(Math.random() * (index + 1));
-    [items[index], items[swap]] = [items[swap]!, items[index]!];
+    const swap = Math.floor(rng() * (index + 1));
+    [items[index], items[swap]] = [required(items[swap]), required(items[index])];
   }
   return items;
 }
 
 function cycleDifficulty(difficulty: Difficulty, step: 1 | -1): Difficulty {
   const index = difficultyOrder.indexOf(difficulty);
-  return difficultyOrder[(index + step + difficultyOrder.length) % difficultyOrder.length]!;
+  return difficultyOrder[(index + step + difficultyOrder.length) % difficultyOrder.length] ?? "Easy";
 }
 
 export function confirmChoice(message: string, onYes: () => void, onClose?: () => void): () => void {
   if (isConfirmOpen()) return () => undefined;
 
   let selected = 1;
-  const dialog = el("div", { className: "confirm", ariaLabel: message });
-  dialog.setAttribute("role", "dialog");
+  const dialog = el("dialog", { className: "confirm", ariaLabel: message });
   dialog.setAttribute("aria-modal", "true");
 
   const panel = el("div", { className: "confirm__panel surface" });
@@ -167,15 +253,26 @@ export function confirmChoice(message: string, onYes: () => void, onClose?: () =
   dialog.append(panel);
   document.body.append(dialog);
 
+  const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   yes.addEventListener("click", yesAction);
   no.addEventListener("click", close);
+  dialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    close();
+  });
   document.addEventListener("keydown", onKeyDown);
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
   render();
 
   function onKeyDown(event: KeyboardEvent): void {
-    event.stopImmediatePropagation();
     const key = event.key.toLowerCase();
-    if (matchesKey(event, Keys.previous)) {
+    if (key === "tab") {
+      event.preventDefault();
+      selected = selected === 0 ? 1 : 0;
+      render();
+      (selected === 0 ? yes : no).focus();
+    } else if (matchesKey(event, Keys.previous)) {
       event.preventDefault();
       selected = 0;
       render();
@@ -198,6 +295,7 @@ export function confirmChoice(message: string, onYes: () => void, onClose?: () =
   function render(): void {
     yes.dataset.selected = String(selected === 0);
     no.dataset.selected = String(selected === 1);
+    (selected === 0 ? yes : no).focus();
   }
 
   function yesAction(): void {
@@ -207,7 +305,9 @@ export function confirmChoice(message: string, onYes: () => void, onClose?: () =
 
   function close(): void {
     document.removeEventListener("keydown", onKeyDown);
+    if (dialog.open) dialog.close();
     dialog.remove();
+    previousFocus?.focus();
     onClose?.();
   }
 

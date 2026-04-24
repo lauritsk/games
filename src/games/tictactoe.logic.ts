@@ -1,4 +1,4 @@
-import type { Difficulty } from "../core";
+import type { Difficulty, RandomSource } from "../core";
 
 export type Mark = "X" | "O";
 export type TicTacToeCell = Mark | "";
@@ -22,13 +22,15 @@ export function newTicTacToeBoard(): TicTacToeCell[] {
   return Array<TicTacToeCell>(9).fill("");
 }
 
-export function chooseTicTacToeBotMove(board: TicTacToeCell[], difficulty: Difficulty): number {
+export function chooseTicTacToeBotMove(board: TicTacToeCell[], difficulty: Difficulty, rng?: RandomSource): number {
+  assertTicTacToeBoard(board);
   const open = openTicTacToeCells(board);
-  if (difficulty === "Easy") return random(open);
-  return winningTicTacToeMove(board, botMark) ?? winningTicTacToeMove(board, humanMark) ?? (difficulty === "Hard" ? minimaxMove(board) : centerCornerSide(board, open));
+  if (difficulty === "Easy") return random(open, rng);
+  return winningTicTacToeMove(board, botMark) ?? winningTicTacToeMove(board, humanMark) ?? (difficulty === "Hard" ? minimaxMove(board) : centerCornerSide(board, open, rng));
 }
 
 export function winningTicTacToeMove(board: TicTacToeCell[], mark: Mark): number | null {
+  assertTicTacToeBoard(board);
   for (const index of openTicTacToeCells(board)) {
     const test = [...board];
     test[index] = mark;
@@ -38,10 +40,12 @@ export function winningTicTacToeMove(board: TicTacToeCell[], mark: Mark): number
 }
 
 export function openTicTacToeCells(board: TicTacToeCell[]): number[] {
+  assertTicTacToeBoard(board);
   return board.flatMap((value, index) => value ? [] : [index]);
 }
 
 export function getTicTacToeWinner(board: TicTacToeCell[]): { winner: Mark; line: readonly number[] } | null {
+  assertTicTacToeBoard(board);
   for (const line of lines) {
     const [a, b, c] = line;
     const value = board[a];
@@ -79,10 +83,14 @@ function minimax(board: TicTacToeCell[], maximizing: boolean): number {
   return maximizing ? Math.max(...scores) : Math.min(...scores);
 }
 
-function centerCornerSide(board: TicTacToeCell[], open: number[]): number {
-  return [4, 0, 2, 6, 8, 1, 3, 5, 7].find((index) => open.includes(index)) ?? random(open);
+function centerCornerSide(board: TicTacToeCell[], open: number[], rng?: RandomSource): number {
+  return [4, 0, 2, 6, 8, 1, 3, 5, 7].find((index) => open.includes(index)) ?? random(open, rng);
 }
 
-function random(values: number[]): number {
-  return values[Math.floor(Math.random() * values.length)] ?? 0;
+function random(values: number[], rng: RandomSource = Math.random): number {
+  return values[Math.floor(rng() * values.length)] ?? 0;
+}
+
+export function assertTicTacToeBoard(board: TicTacToeCell[]): void {
+  if (board.length !== ticTacToeSize * ticTacToeSize) throw new Error("Invalid Tic-Tac-Toe board shape");
 }

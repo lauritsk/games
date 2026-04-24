@@ -1,4 +1,4 @@
-import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, required, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { playSound } from "../sound";
 import { moveSnakePoint, nextSnakeDirection, randomSnakeFood, snakeOutOfBounds, snakePointKey, snakePointsEqual, startSnakeBody, type SnakePoint } from "./snake.logic";
 type State = "ready" | "playing" | "won" | "lost";
@@ -36,17 +36,14 @@ export function mountSnake(target: HTMLElement): () => void {
   });
   shell.tabIndex = 0;
 
-  const difficultyButton = button("", "button pill surface interactive");
-  const reset = button("New", "button pill surface interactive");
-  actions.append(difficultyButton, reset);
-
-  difficultyButton.addEventListener("click", () => {
+  const scope = createMountScope();
+  const difficultyButton = createDifficultyButton(actions, () => {
     difficulty = nextDifficulty(difficulty);
     playSound("uiToggle");
     resetGame();
   });
-  reset.addEventListener("click", requestReset);
-  document.addEventListener("keydown", onKeyDown);
+  createResetButton(actions, requestReset);
+  onDocumentKeyDown(onKeyDown, scope);
 
   function requestReset(): void {
     playSound("uiReset");
@@ -66,50 +63,42 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function render(): void {
-    clearNode(grid);
     setBoardGrid(grid, config.size);
     status.textContent = statusText();
     difficultyButton.textContent = difficulty;
 
     const body = new Set(snake.map(snakePointKey));
-    const head = snakePointKey(snake[0]!);
-    for (let row = 0; row < config.size; row += 1) {
-      for (let column = 0; column < config.size; column += 1) {
-        const point = { row, column };
-        const key = snakePointKey(point);
-        const cell = el("div", { className: "snake-cell", ariaLabel: labelFor(point) });
-        cell.dataset.snake = String(body.has(key));
-        cell.dataset.head = String(key === head);
-        cell.dataset.food = String(snakePointsEqual(point, food));
-        grid.append(cell);
-      }
-    }
+    const head = snakePointKey(required(snake[0]));
+    const cells = syncChildren(grid, config.size * config.size, () => el("div", { className: "snake-cell" }));
+    cells.forEach((cell, index) => {
+      const point = { row: Math.floor(index / config.size), column: index % config.size };
+      const key = snakePointKey(point);
+      cell.setAttribute("aria-label", labelFor(point));
+      cell.dataset.snake = String(body.has(key));
+      cell.dataset.head = String(key === head);
+      cell.dataset.food = String(snakePointsEqual(point, food));
+    });
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (isConfirmOpen()) return;
-    const next = directionFromKey(event);
-    if (next) {
-      event.preventDefault();
-      if (queueDirection(next)) playSound("gameMove");
-      start();
-    } else if (matchesKey(event, Keys.activate)) {
-      event.preventDefault();
-      start();
-    } else if (matchesKey(event, Keys.nextDifficulty)) {
-      event.preventDefault();
-      difficulty = nextDifficulty(difficulty);
-      playSound("uiToggle");
-      resetGame();
-    } else if (matchesKey(event, Keys.previousDifficulty)) {
-      event.preventDefault();
-      difficulty = previousDifficulty(difficulty);
-      playSound("uiToggle");
-      resetGame();
-    } else if (event.key.toLowerCase() === "n") {
-      event.preventDefault();
-      requestReset();
-    }
+    handleStandardGameKey(event, {
+      onDirection: (next) => {
+        if (queueDirection(next)) playSound("gameMove");
+        start();
+      },
+      onActivate: start,
+      onNextDifficulty: () => {
+        difficulty = nextDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onPreviousDifficulty: () => {
+        difficulty = previousDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onReset: requestReset,
+    });
   }
 
   function start(): void {
@@ -131,7 +120,7 @@ export function mountSnake(target: HTMLElement): () => void {
 
   function tick(): void {
     direction = queuedDirection;
-    const head = snake[0]!;
+    const head = required(snake[0]);
     const next = moveSnakePoint(head, direction);
     const ate = snakePointsEqual(next, food);
     const bodyToCheck = ate ? snake : snake.slice(0, -1);
@@ -170,7 +159,7 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function labelFor(point: SnakePoint): string {
-    if (snakePointsEqual(point, snake[0]!)) return `Row ${point.row + 1}, column ${point.column + 1}, snake head`;
+    if (snakePointsEqual(point, required(snake[0]))) return `Row ${point.row + 1}, column ${point.column + 1}, snake head`;
     if (snake.some((part) => snakePointsEqual(part, point))) return `Row ${point.row + 1}, column ${point.column + 1}, snake body`;
     if (snakePointsEqual(point, food)) return `Row ${point.row + 1}, column ${point.column + 1}, food`;
     return `Row ${point.row + 1}, column ${point.column + 1}, empty`;
@@ -185,7 +174,7 @@ export function mountSnake(target: HTMLElement): () => void {
   render();
   return () => {
     stopTimer();
-    document.removeEventListener("keydown", onKeyDown);
+    scope.cleanup();
     remove();
   };
 }

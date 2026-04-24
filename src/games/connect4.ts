@@ -1,6 +1,6 @@
-import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type GameDefinition } from "../core";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
 import { playSound } from "../sound";
-import { chooseConnect4BotColumn, connect4Bot, connect4Columns, connect4Human, connect4Rows, dropConnect4Disc, findConnect4Win, newConnect4Board, type Connect4Cell, type Connect4Player, type Connect4WinLine } from "./connect4.logic";
+import { chooseConnect4BotColumn, connect4Bot, connect4Columns, connect4Human, connect4Rows, dropConnect4DiscInPlace, findConnect4Win, newConnect4Board, type Connect4Cell, type Connect4Player, type Connect4WinLine } from "./connect4.logic";
 
 type Mode = "bot" | "local";
 
@@ -33,26 +33,24 @@ export function mountConnect4(target: HTMLElement): () => void {
   });
   shell.tabIndex = 0;
   setBoardGrid(grid, connect4Columns, connect4Rows);
-  document.addEventListener("keydown", onKeyDown);
+  const scope = createMountScope();
+  onDocumentKeyDown(onKeyDown, scope);
 
-  const modeButton = button("", "button pill surface interactive");
-  const difficultyButton = button("", "button pill surface interactive");
-  const reset = button("New", "button pill surface interactive");
-  actions.append(modeButton, difficultyButton, reset);
-
+  const modeButton = el("button", { className: "button pill surface interactive", type: "button" });
+  actions.append(modeButton);
   modeButton.addEventListener("click", () => {
     mode = mode === "bot" ? "local" : "bot";
     playSound("uiToggle");
     resetGame();
   });
 
-  difficultyButton.addEventListener("click", () => {
+  const difficultyButton = createDifficultyButton(actions, () => {
     difficulty = nextDifficulty(difficulty);
     playSound("uiToggle");
     resetGame();
   });
 
-  reset.addEventListener("click", requestReset);
+  createResetButton(actions, requestReset);
 
   function requestReset(): void {
     playSound("uiReset");
@@ -72,65 +70,67 @@ export function mountConnect4(target: HTMLElement): () => void {
   }
 
   function render(): void {
-    clearNode(grid);
     shell.dataset.turn = String(current);
     status.textContent = statusText();
     modeButton.textContent = mode === "bot" ? "Vs bot" : "2 players";
     difficultyButton.textContent = difficulty;
 
-    for (let row = 0; row < connect4Rows; row += 1) {
-      for (let column = 0; column < connect4Columns; column += 1) {
+    const cells = syncChildren(grid, connect4Rows * connect4Columns, (index) => {
+      const column = index % connect4Columns;
+      const cell = el("button", { className: "slot", type: "button" });
+      cell.addEventListener("click", () => playTurn(column));
+      return cell;
+    });
+    cells.forEach((cell, index) => {
+        const row = Math.floor(index / connect4Columns);
+        const column = index % connect4Columns;
         const value = board[row]?.[column] ?? 0;
-        const cell = el("button", {
-          className: "slot",
-          ariaLabel: labelFor(row, column, value),
-          type: "button",
-        });
+        cell.setAttribute("aria-label", labelFor(row, column, value));
         cell.dataset.player = String(value);
         cell.dataset.row = String(row);
         cell.dataset.column = String(column);
         if (column === selectedColumn) cell.dataset.selected = "true";
+        else delete cell.dataset.selected;
         if (winningLine.some(([r, c]) => r === row && c === column)) cell.dataset.win = "true";
+        else delete cell.dataset.win;
         cell.disabled = isLocked() || Boolean(winner) || moves === connect4Rows * connect4Columns || !canPlay(column);
-        cell.addEventListener("click", () => playTurn(column));
-        grid.append(cell);
-      }
-    }
+    });
   }
 
   function onKeyDown(event: KeyboardEvent): void {
     if (isConfirmOpen()) return;
-    const key = event.key.toLowerCase();
-    if (matchesKey(event, Keys.left)) {
-      event.preventDefault();
-      selectedColumn = Math.max(0, selectedColumn - 1);
-      render();
-    } else if (matchesKey(event, Keys.right)) {
-      event.preventDefault();
-      selectedColumn = Math.min(connect4Columns - 1, selectedColumn + 1);
-      render();
-    } else if (matchesKey(event, [...Keys.activate, ...Keys.down])) {
-      event.preventDefault();
-      playTurn(selectedColumn);
-    } else if (matchesKey(event, Keys.nextDifficulty)) {
-      event.preventDefault();
-      difficulty = nextDifficulty(difficulty);
-      playSound("uiToggle");
-      resetGame();
-    } else if (matchesKey(event, Keys.previousDifficulty)) {
-      event.preventDefault();
-      difficulty = previousDifficulty(difficulty);
-      playSound("uiToggle");
-      resetGame();
-    } else if (key === "m") {
+    if (event.key.toLowerCase() === "m") {
       event.preventDefault();
       mode = mode === "bot" ? "local" : "bot";
       playSound("uiToggle");
       resetGame();
-    } else if (key === "n") {
-      event.preventDefault();
-      requestReset();
+      return;
     }
+    if (matchesKey(event, Keys.down)) {
+      event.preventDefault();
+      playTurn(selectedColumn);
+      return;
+    }
+    handleStandardGameKey(event, {
+      onDirection: (direction) => {
+        if (direction === "left") selectedColumn = Math.max(0, selectedColumn - 1);
+        else if (direction === "right") selectedColumn = Math.min(connect4Columns - 1, selectedColumn + 1);
+        else if (direction === "down") playTurn(selectedColumn);
+        render();
+      },
+      onActivate: () => playTurn(selectedColumn),
+      onNextDifficulty: () => {
+        difficulty = nextDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onPreviousDifficulty: () => {
+        difficulty = previousDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onReset: requestReset,
+    });
   }
 
   function statusText(): string {
@@ -153,7 +153,7 @@ export function mountConnect4(target: HTMLElement): () => void {
 
   function play(column: number): void {
     if (winner || !canPlay(column)) return;
-    const row = dropConnect4Disc(board, column, current);
+    const row = dropConnect4DiscInPlace(board, column, current);
     if (row === null) return;
 
     markGameStarted(shell);
@@ -192,7 +192,7 @@ export function mountConnect4(target: HTMLElement): () => void {
   render();
 
   return () => {
-    document.removeEventListener("keydown", onKeyDown);
+    scope.cleanup();
     clearBotTimer();
     remove();
   };

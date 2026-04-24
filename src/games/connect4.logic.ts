@@ -1,4 +1,4 @@
-import type { Difficulty } from "../core";
+import { required, type Difficulty, type RandomSource } from "../core";
 
 export type Connect4Player = 1 | 2;
 export type Connect4Cell = Connect4Player | 0;
@@ -14,34 +14,38 @@ export function newConnect4Board(): Connect4Cell[][] {
   return Array.from({ length: connect4Rows }, () => Array<Connect4Cell>(connect4Columns).fill(0));
 }
 
-export function chooseConnect4BotColumn(board: Connect4Cell[][], difficulty: Difficulty): number {
+export function chooseConnect4BotColumn(board: Connect4Cell[][], difficulty: Difficulty, rng?: RandomSource): number {
+  assertConnect4Board(board);
   const valid = playableConnect4Columns(board);
-  if (difficulty === "Easy") return randomMove(valid);
+  if (difficulty === "Easy") return randomMove(valid, rng);
 
   const tactical = findConnect4TacticalMove(board, connect4Bot, valid) ?? findConnect4TacticalMove(board, connect4Human, valid);
   if (tactical !== null) return tactical;
 
-  if (difficulty === "Hard") return safeShapeMove(board, valid) ?? bestShapeMove(board, valid) ?? randomMove(valid);
-  return bestShapeMove(board, valid) ?? randomMove(valid);
+  if (difficulty === "Hard") return safeShapeMove(board, valid) ?? bestShapeMove(board, valid) ?? randomMove(valid, rng);
+  return bestShapeMove(board, valid) ?? randomMove(valid, rng);
 }
 
 export function playableConnect4Columns(board: Connect4Cell[][]): number[] {
+  assertConnect4Board(board);
   return Array.from({ length: connect4Columns }, (_, column) => column).filter((column) => board[0]?.[column] === 0);
 }
 
 export function findConnect4TacticalMove(board: Connect4Cell[][], player: Connect4Player, valid = playableConnect4Columns(board)): number | null {
+  assertConnect4Board(board);
   for (const column of valid) {
     const test = cloneConnect4Board(board);
-    const row = dropConnect4Disc(test, column, player);
+    const row = dropConnect4DiscInPlace(test, column, player);
     if (row !== null && findConnect4Win(test, row, column, player)) return column;
   }
   return null;
 }
 
-export function dropConnect4Disc(board: Connect4Cell[][], column: number, player: Connect4Player): number | null {
+export function dropConnect4DiscInPlace(board: Connect4Cell[][], column: number, player: Connect4Player): number | null {
+  assertConnect4Board(board);
   for (let row = connect4Rows - 1; row >= 0; row -= 1) {
     if (board[row]?.[column] === 0) {
-      board[row]![column] = player;
+      required(board[row])[column] = player;
       return row;
     }
   }
@@ -69,8 +73,8 @@ export function findConnect4Win(board: Connect4Cell[][], row: number, column: nu
   return null;
 }
 
-function randomMove(valid: number[]): number {
-  return valid[Math.floor(Math.random() * valid.length)] ?? 0;
+function randomMove(valid: number[], rng: RandomSource = Math.random): number {
+  return valid[Math.floor(rng() * valid.length)] ?? 0;
 }
 
 function safeShapeMove(board: Connect4Cell[][], valid: number[]): number | null {
@@ -81,7 +85,7 @@ function safeShapeMove(board: Connect4Cell[][], valid: number[]): number | null 
 
 function givesImmediateWin(board: Connect4Cell[][], column: number): boolean {
   const test = cloneConnect4Board(board);
-  const row = dropConnect4Disc(test, column, connect4Bot);
+  const row = dropConnect4DiscInPlace(test, column, connect4Bot);
   if (row === null) return true;
   return findConnect4TacticalMove(test, connect4Human, playableConnect4Columns(test)) !== null;
 }
@@ -93,7 +97,7 @@ function bestShapeMove(board: Connect4Cell[][], valid: number[]): number | null 
 
 function scoreMove(board: Connect4Cell[][], column: number, player: Connect4Player): number {
   const test = cloneConnect4Board(board);
-  const row = dropConnect4Disc(test, column, player);
+  const row = dropConnect4DiscInPlace(test, column, player);
   if (row === null) return -Infinity;
   return longestLine(test, row, column, player) * 10 - Math.abs(column - Math.floor(connect4Columns / 2));
 }
@@ -106,6 +110,10 @@ function longestLine(board: Connect4Cell[][], row: number, column: number, playe
     [1, -1],
   ] as const;
   return Math.max(...directions.map(([dr, dc]) => 1 + walk(board, row, column, dr, dc, player).length + walk(board, row, column, -dr, -dc, player).length));
+}
+
+export function assertConnect4Board(board: Connect4Cell[][]): void {
+  if (board.length !== connect4Rows || board.some((row) => row.length !== connect4Columns)) throw new Error("Invalid Connect 4 board shape");
 }
 
 function walk(board: Connect4Cell[][], row: number, column: number, dr: number, dc: number, player: Connect4Player): Connect4WinLine {

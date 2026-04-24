@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { canMove2048, merge2048Line, slide2048 } from "../src/games/2048.logic";
-import { connect4Human, dropConnect4Disc, findConnect4TacticalMove, findConnect4Win, newConnect4Board } from "../src/games/connect4.logic";
-import { floodOpenMinesweeper, minesweeperNeighbors, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperConfig } from "../src/games/minesweeper.logic";
+import { connect4Human, dropConnect4DiscInPlace, findConnect4TacticalMove, findConnect4Win, newConnect4Board } from "../src/games/connect4.logic";
+import { floodOpenMinesweeperInPlace, minesweeperNeighbors, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperConfig } from "../src/games/minesweeper.logic";
 import { allMemoryMatched, newMemoryDeck, openUnmatchedMemoryCards, type MemoryCard } from "../src/games/memory.logic";
 import { moveSnakePoint, nextSnakeDirection, snakeOutOfBounds, snakePointsEqual, startSnakeBody } from "../src/games/snake.logic";
 import { chooseTicTacToeBotMove, getTicTacToeWinner, humanMark, newTicTacToeBoard, winningTicTacToeMove, type TicTacToeCell } from "../src/games/tictactoe.logic";
@@ -32,15 +32,15 @@ describe("tic-tac-toe logic", () => {
 describe("connect 4 logic", () => {
   test("drops discs, finds wins, and finds tactical moves", () => {
     const board = newConnect4Board();
-    expect(dropConnect4Disc(board, 0, connect4Human)).toBe(5);
-    expect(dropConnect4Disc(board, 0, connect4Human)).toBe(4);
+    expect(dropConnect4DiscInPlace(board, 0, connect4Human)).toBe(5);
+    expect(dropConnect4DiscInPlace(board, 0, connect4Human)).toBe(4);
 
     const winBoard = newConnect4Board();
-    for (const column of [0, 1, 2, 3]) dropConnect4Disc(winBoard, column, connect4Human);
+    for (const column of [0, 1, 2, 3]) dropConnect4DiscInPlace(winBoard, column, connect4Human);
     expect(findConnect4Win(winBoard, 5, 3, connect4Human)).not.toBeNull();
 
     const tacticalBoard = newConnect4Board();
-    for (const column of [0, 1, 2]) dropConnect4Disc(tacticalBoard, column, connect4Human);
+    for (const column of [0, 1, 2]) dropConnect4DiscInPlace(tacticalBoard, column, connect4Human);
     expect(findConnect4TacticalMove(tacticalBoard, connect4Human)).toBe(3);
   });
 });
@@ -63,7 +63,7 @@ describe("minesweeper logic", () => {
 
   test("flood opens empty cells", () => {
     const board = newMinesweeperBoard({ size: 3, mines: 0 });
-    floodOpenMinesweeper(board, { size: 3, mines: 0 }, 1, 1);
+    floodOpenMinesweeperInPlace(board, { size: 3, mines: 0 }, 1, 1);
     expect(openSafeMinesweeperCount(board)).toBe(9);
   });
 });

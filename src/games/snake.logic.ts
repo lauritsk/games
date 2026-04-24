@@ -1,4 +1,4 @@
-import type { Direction } from "../core";
+import { required, type Direction, type RandomSource } from "../core";
 
 export type SnakePoint = { row: number; column: number };
 
@@ -26,13 +26,13 @@ export function moveSnakePoint(point: SnakePoint, direction: Direction): SnakePo
   return { row: point.row, column: point.column - 1 };
 }
 
-export function randomSnakeFood(size: number, snake: SnakePoint[]): SnakePoint {
+export function randomSnakeFood(size: number, snake: SnakePoint[], rng: RandomSource = Math.random): SnakePoint {
   const occupied = new Set(snake.map(snakePointKey));
   const empty = Array.from({ length: size * size }, (_, index) => ({
     row: Math.floor(index / size),
     column: index % size,
   })).filter((point) => !occupied.has(snakePointKey(point)));
-  return empty[Math.floor(Math.random() * empty.length)] ?? snake[0]!;
+  return empty[Math.floor(rng() * empty.length)] ?? required(snake[0]);
 }
 
 export function snakeOutOfBounds(point: SnakePoint, size: number): boolean {

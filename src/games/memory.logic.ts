@@ -1,14 +1,14 @@
-import { shuffle } from "../core";
+import { shuffleInPlace, type RandomSource } from "../core";
 
 export type MemoryCard = { id: number; symbol: string; open: boolean; matched: boolean };
 
 export const memorySymbols = ["★", "◆", "●", "▲", "☽", "✿", "♣", "☀", "♥", "✦", "⬟", "☂"];
 
-export function newMemoryDeck(pairs: number): MemoryCard[] {
-  return shuffle(memorySymbols.slice(0, pairs).flatMap((symbol, id) => [
+export function newMemoryDeck(pairs: number, rng?: RandomSource): MemoryCard[] {
+  return shuffleInPlace(memorySymbols.slice(0, pairs).flatMap((symbol, id) => [
     { id: id * 2, symbol, open: false, matched: false },
     { id: id * 2 + 1, symbol, open: false, matched: false },
-  ]));
+  ]), rng);
 }
 
 export function allMemoryMatched(cards: MemoryCard[]): boolean {

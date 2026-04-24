@@ -1,6 +1,6 @@
-import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, moveGridPoint, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type GameDefinition } from "../core";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, moveGridPoint, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
 import { playSound } from "../sound";
-import { flagMinesweeperCount, floodOpenMinesweeper, minesweeperNeighbors, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperCell, type MinesweeperConfig } from "./minesweeper.logic";
+import { flagMinesweeperCount, floodOpenMinesweeperInPlace, minesweeperNeighbors, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperCell, type MinesweeperConfig } from "./minesweeper.logic";
 
 type State = "playing" | "won" | "lost";
 
@@ -34,18 +34,15 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     boardLabel: "Minesweeper board",
   });
   shell.tabIndex = 0;
-  document.addEventListener("keydown", onKeyDown);
+  const scope = createMountScope();
+  onDocumentKeyDown(onKeyDown, scope);
 
-  const difficultyButton = button("", "button pill surface interactive");
-  const reset = button("New", "button pill surface interactive");
-  actions.append(difficultyButton, reset);
-
-  difficultyButton.addEventListener("click", () => {
+  const difficultyButton = createDifficultyButton(actions, () => {
     difficulty = nextDifficulty(difficulty);
     playSound("uiToggle");
     resetGame();
   });
-  reset.addEventListener("click", requestReset);
+  createResetButton(actions, requestReset);
 
   function requestReset(): void {
     playSound("uiReset");
@@ -64,61 +61,63 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   }
 
   function render(): void {
-    clearNode(grid);
     setBoardGrid(grid, config.size);
     status.textContent = statusText();
     difficultyButton.textContent = difficulty;
 
-    for (let row = 0; row < config.size; row += 1) {
-      for (let column = 0; column < config.size; column += 1) {
-        const cell = board[row]![column]!;
-        const tile = el("button", { className: "mine-cell", ariaLabel: labelFor(row, column, cell), type: "button" });
+    const tiles = syncChildren(grid, config.size * config.size, () => {
+      const tile = el("button", { className: "mine-cell", type: "button" });
+      tile.addEventListener("click", () => openCell(Number(tile.dataset.row), Number(tile.dataset.column)));
+      tile.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        toggleFlag(Number(tile.dataset.row), Number(tile.dataset.column));
+      });
+      return tile;
+    });
+    tiles.forEach((tile, index) => {
+        const row = Math.floor(index / config.size);
+        const column = index % config.size;
+        const cell = board[row]?.[column];
+        if (!cell) return;
+        tile.dataset.row = String(row);
+        tile.dataset.column = String(column);
+        tile.setAttribute("aria-label", labelFor(row, column, cell));
         tile.dataset.open = String(cell.open);
         tile.dataset.flag = String(cell.flag);
         tile.dataset.mine = String(cell.mine && (cell.open || state === "lost"));
         tile.dataset.selected = String(row === selectedRow && column === selectedColumn);
         tile.textContent = cellText(cell);
         tile.disabled = state !== "playing" || cell.open;
-        tile.addEventListener("click", () => openCell(row, column));
-        tile.addEventListener("contextmenu", (event) => {
-          event.preventDefault();
-          toggleFlag(row, column);
-        });
-        grid.append(tile);
-      }
-    }
+    });
   }
 
   function onKeyDown(event: KeyboardEvent): void {
     if (isConfirmOpen()) return;
-    const key = event.key.toLowerCase();
-    const direction = directionFromKey(event);
-    if (direction) {
-      event.preventDefault();
-      const next = moveGridPoint({ row: selectedRow, column: selectedColumn }, direction, config.size, config.size);
-      selectedRow = next.row;
-      selectedColumn = next.column;
-      render();
-    } else if (matchesKey(event, Keys.activate)) {
-      event.preventDefault();
-      openCell(selectedRow, selectedColumn);
-    } else if (key === "f") {
+    if (event.key.toLowerCase() === "f") {
       event.preventDefault();
       toggleFlag(selectedRow, selectedColumn);
-    } else if (matchesKey(event, Keys.nextDifficulty)) {
-      event.preventDefault();
-      difficulty = nextDifficulty(difficulty);
-      playSound("uiToggle");
-      resetGame();
-    } else if (matchesKey(event, Keys.previousDifficulty)) {
-      event.preventDefault();
-      difficulty = previousDifficulty(difficulty);
-      playSound("uiToggle");
-      resetGame();
-    } else if (key === "n") {
-      event.preventDefault();
-      requestReset();
+      return;
     }
+    handleStandardGameKey(event, {
+      onDirection: (direction) => {
+        const next = moveGridPoint({ row: selectedRow, column: selectedColumn }, direction, config.size, config.size);
+        selectedRow = next.row;
+        selectedColumn = next.column;
+        render();
+      },
+      onActivate: () => openCell(selectedRow, selectedColumn),
+      onNextDifficulty: () => {
+        difficulty = nextDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onPreviousDifficulty: () => {
+        difficulty = previousDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onReset: requestReset,
+    });
   }
 
   function statusText(): string {
@@ -143,12 +142,13 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       firstMove = false;
     }
 
-    const current = board[row]![column]!;
+    const current = board[row]?.[column];
+    if (!current) return;
     if (current.mine) {
       current.open = true;
       state = "lost";
     } else {
-      floodOpenMinesweeper(board, config, row, column);
+      floodOpenMinesweeperInPlace(board, config, row, column);
       if (openSafeMinesweeperCount(board) === config.size * config.size - config.mines) state = "won";
     }
     if (state !== "playing") markGameFinished(shell);
@@ -175,7 +175,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
         next.open = true;
         state = "lost";
       } else {
-        floodOpenMinesweeper(board, config, r, c);
+        floodOpenMinesweeperInPlace(board, config, r, c);
       }
     }
     if (state !== "lost" && openSafeMinesweeperCount(board) === config.size * config.size - config.mines) state = "won";
@@ -198,7 +198,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
 
   render();
   return () => {
-    document.removeEventListener("keydown", onKeyDown);
+    scope.cleanup();
     remove();
   };
 }

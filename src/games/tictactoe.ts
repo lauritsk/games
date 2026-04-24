@@ -1,4 +1,4 @@
-import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, moveGridIndex, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type GameDefinition } from "../core";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, isConfirmOpen, moveGridIndex, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
 import { playSound } from "../sound";
 import { botMark, chooseTicTacToeBotMove, getTicTacToeWinner, humanMark, newTicTacToeBoard, ticTacToeSize, type Mark, type TicTacToeCell } from "./tictactoe.logic";
 
@@ -30,24 +30,22 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   });
   shell.tabIndex = 0;
   setBoardGrid(grid, ticTacToeSize);
-  document.addEventListener("keydown", onKeyDown);
+  const scope = createMountScope();
+  onDocumentKeyDown(onKeyDown, scope);
 
-  const modeButton = button("", "button pill surface interactive");
-  const difficultyButton = button("", "button pill surface interactive");
-  const reset = button("New", "button pill surface interactive");
-  actions.append(modeButton, difficultyButton, reset);
-
+  const modeButton = el("button", { className: "button pill surface interactive", type: "button" });
+  actions.append(modeButton);
   modeButton.addEventListener("click", () => {
     mode = mode === "bot" ? "local" : "bot";
     playSound("uiToggle");
     resetGame();
   });
-  difficultyButton.addEventListener("click", () => {
+  const difficultyButton = createDifficultyButton(actions, () => {
     difficulty = nextDifficulty(difficulty);
     playSound("uiToggle");
     resetGame();
   });
-  reset.addEventListener("click", requestReset);
+  createResetButton(actions, requestReset);
 
   function requestReset(): void {
     playSound("uiReset");
@@ -66,52 +64,55 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   }
 
   function render(): void {
-    clearNode(grid);
     status.textContent = statusText();
     modeButton.textContent = mode === "bot" ? "Vs bot" : "2 players";
     difficultyButton.textContent = difficulty;
 
+    const cells = syncChildren(grid, board.length, (index) => {
+      const cell = el("button", { className: "ttt-cell", type: "button" });
+      cell.addEventListener("click", () => playTurn(index));
+      return cell;
+    });
     board.forEach((value, index) => {
-      const cell = el("button", { className: "ttt-cell", text: value, ariaLabel: labelFor(index, value), type: "button" });
+      const cell = cells[index];
+      if (!cell) return;
+      cell.textContent = value;
+      cell.setAttribute("aria-label", labelFor(index, value));
       cell.dataset.selected = String(index === selected);
       cell.dataset.mark = value;
       if (winLine.includes(index)) cell.dataset.win = "true";
+      else delete cell.dataset.win;
       cell.disabled = isLocked() || Boolean(winner) || value !== "";
-      cell.addEventListener("click", () => playTurn(index));
-      grid.append(cell);
     });
   }
 
   function onKeyDown(event: KeyboardEvent): void {
     if (isConfirmOpen()) return;
-    const key = event.key.toLowerCase();
-    const direction = directionFromKey(event);
-    if (direction) {
-      event.preventDefault();
-      selected = moveGridIndex(selected, direction, ticTacToeSize, board.length);
-      render();
-    } else if (matchesKey(event, Keys.activate)) {
-      event.preventDefault();
-      playTurn(selected);
-    } else if (matchesKey(event, Keys.nextDifficulty)) {
-      event.preventDefault();
-      difficulty = nextDifficulty(difficulty);
-      playSound("uiToggle");
-      resetGame();
-    } else if (matchesKey(event, Keys.previousDifficulty)) {
-      event.preventDefault();
-      difficulty = previousDifficulty(difficulty);
-      playSound("uiToggle");
-      resetGame();
-    } else if (key === "m") {
+    if (event.key.toLowerCase() === "m") {
       event.preventDefault();
       mode = mode === "bot" ? "local" : "bot";
       playSound("uiToggle");
       resetGame();
-    } else if (key === "n") {
-      event.preventDefault();
-      requestReset();
+      return;
     }
+    handleStandardGameKey(event, {
+      onDirection: (direction) => {
+        selected = moveGridIndex(selected, direction, ticTacToeSize, board.length);
+        render();
+      },
+      onActivate: () => playTurn(selected),
+      onNextDifficulty: () => {
+        difficulty = nextDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onPreviousDifficulty: () => {
+        difficulty = previousDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onReset: requestReset,
+    });
   }
 
   function statusText(): string {
@@ -167,7 +168,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
 
   render();
   return () => {
-    document.removeEventListener("keydown", onKeyDown);
+    scope.cleanup();
     clearBotTimer();
     remove();
   };

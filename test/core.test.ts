@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { moveGridIndex, moveGridPoint, nextDifficulty, previousDifficulty, shuffle } from "../src/core";
+import { moveGridIndex, moveGridPoint, nextDifficulty, previousDifficulty, shuffleInPlace } from "../src/core";
 
 describe("difficulty cycling", () => {
   test("moves forward through difficulties and wraps", () => {
@@ -35,7 +35,7 @@ describe("grid movement", () => {
   });
 });
 
-test("shuffle preserves items", () => {
+test("shuffleInPlace preserves items", () => {
   const items = [1, 2, 3, 4];
-  expect(shuffle([...items]).sort()).toEqual(items);
+  expect(shuffleInPlace([...items]).sort()).toEqual(items);
 });

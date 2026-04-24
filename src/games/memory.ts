@@ -1,4 +1,4 @@
-import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, moveGridIndex, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type GameDefinition } from "../core";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, markGameFinished, markGameStarted, moveGridIndex, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
 import { playSound } from "../sound";
 import { allMemoryMatched, newMemoryDeck, openUnmatchedMemoryCards, type MemoryCard } from "./memory.logic";
 type Config = { pairs: number; columns: number; rows: number };
@@ -34,17 +34,14 @@ export function mountMemory(target: HTMLElement): () => void {
   });
   shell.tabIndex = 0;
 
-  const difficultyButton = button("", "button pill surface interactive");
-  const reset = button("New", "button pill surface interactive");
-  actions.append(difficultyButton, reset);
-
-  difficultyButton.addEventListener("click", () => {
+  const scope = createMountScope();
+  const difficultyButton = createDifficultyButton(actions, () => {
     difficulty = nextDifficulty(difficulty);
     playSound("uiToggle");
     resetGame();
   });
-  reset.addEventListener("click", requestReset);
-  document.addEventListener("keydown", onKeyDown);
+  createResetButton(actions, requestReset);
+  onDocumentKeyDown(onKeyDown, scope);
 
   function requestReset(): void {
     playSound("uiReset");
@@ -63,48 +60,47 @@ export function mountMemory(target: HTMLElement): () => void {
   }
 
   function render(): void {
-    clearNode(grid);
     setBoardGrid(grid, config.columns, config.rows);
     status.textContent = allMemoryMatched(cards) ? `Won · ${moves}` : `Moves ${moves}`;
     difficultyButton.textContent = difficulty;
 
+    const tiles = syncChildren(grid, cards.length, (index) => {
+      const tile = el("button", { className: "memory-card", type: "button" });
+      tile.addEventListener("click", () => flip(index));
+      return tile;
+    });
     cards.forEach((card, index) => {
       const faceUp = card.open || card.matched;
-      const tile = el("button", { className: "memory-card", ariaLabel: labelFor(card, index), type: "button" });
+      const tile = tiles[index];
+      if (!tile) return;
+      tile.setAttribute("aria-label", labelFor(card, index));
       tile.textContent = faceUp ? card.symbol : "?";
       tile.dataset.open = String(faceUp);
       tile.dataset.matched = String(card.matched);
       tile.dataset.selected = String(index === selected);
       tile.disabled = lock || card.open || card.matched;
-      tile.addEventListener("click", () => flip(index));
-      grid.append(tile);
     });
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (isConfirmOpen()) return;
-    const direction = directionFromKey(event);
-    if (direction) {
-      event.preventDefault();
-      selected = moveGridIndex(selected, direction, config.columns, cards.length);
-      render();
-    } else if (matchesKey(event, Keys.activate)) {
-      event.preventDefault();
-      flip(selected);
-    } else if (matchesKey(event, Keys.nextDifficulty)) {
-      event.preventDefault();
-      difficulty = nextDifficulty(difficulty);
-      playSound("uiToggle");
-      resetGame();
-    } else if (matchesKey(event, Keys.previousDifficulty)) {
-      event.preventDefault();
-      difficulty = previousDifficulty(difficulty);
-      playSound("uiToggle");
-      resetGame();
-    } else if (event.key.toLowerCase() === "n") {
-      event.preventDefault();
-      requestReset();
-    }
+    handleStandardGameKey(event, {
+      onDirection: (direction) => {
+        selected = moveGridIndex(selected, direction, config.columns, cards.length);
+        render();
+      },
+      onActivate: () => flip(selected),
+      onNextDifficulty: () => {
+        difficulty = nextDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onPreviousDifficulty: () => {
+        difficulty = previousDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onReset: requestReset,
+    });
   }
 
   function flip(index: number): void {
@@ -119,11 +115,12 @@ export function mountMemory(target: HTMLElement): () => void {
     if (open.length === 2) {
       moves += 1;
       const [a, b] = open;
-      if (a!.symbol === b!.symbol) {
-        a!.matched = true;
-        b!.matched = true;
-        a!.open = false;
-        b!.open = false;
+      if (!a || !b) return;
+      if (a.symbol === b.symbol) {
+        a.matched = true;
+        b.matched = true;
+        a.open = false;
+        b.open = false;
         if (allMemoryMatched(cards)) {
           markGameFinished(shell);
           playSound("gameWin");
@@ -132,8 +129,8 @@ export function mountMemory(target: HTMLElement): () => void {
         playSound("gameBad");
         lock = true;
         pendingTimer = setTimeout(() => {
-          a!.open = false;
-          b!.open = false;
+          a.open = false;
+          b.open = false;
           lock = false;
           pendingTimer = null;
           render();
@@ -161,7 +158,7 @@ export function mountMemory(target: HTMLElement): () => void {
   render();
   return () => {
     clearPending();
-    document.removeEventListener("keydown", onKeyDown);
+    scope.cleanup();
     remove();
   };
 }
