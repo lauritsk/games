@@ -22,7 +22,11 @@ export function newTicTacToeBoard(): TicTacToeCell[] {
   return Array<TicTacToeCell>(9).fill("");
 }
 
-export function chooseTicTacToeBotMove(board: TicTacToeCell[], difficulty: Difficulty, rng?: RandomSource): number {
+export function chooseTicTacToeBotMove(
+  board: TicTacToeCell[],
+  difficulty: Difficulty,
+  rng?: RandomSource,
+): number {
   assertTicTacToeBoard(board);
   const open = openTicTacToeCells(board);
   if (difficulty === "Easy") return random(open, rng);
@@ -48,7 +52,9 @@ export function openTicTacToeCells(board: TicTacToeCell[]): number[] {
   return board.flatMap((value, index) => (value ? [] : [index]));
 }
 
-export function getTicTacToeWinner(board: TicTacToeCell[]): { winner: Mark; line: readonly number[] } | null {
+export function getTicTacToeWinner(
+  board: TicTacToeCell[],
+): { winner: Mark; line: readonly number[] } | null {
   assertTicTacToeBoard(board);
   for (const line of lines) {
     const [a, b, c] = line;
@@ -96,5 +102,6 @@ function random(values: number[], rng: RandomSource = Math.random): number {
 }
 
 export function assertTicTacToeBoard(board: TicTacToeCell[]): void {
-  if (board.length !== ticTacToeSize * ticTacToeSize) throw new Error("Invalid Tic-Tac-Toe board shape");
+  if (board.length !== ticTacToeSize * ticTacToeSize)
+    throw new Error("Invalid Tic-Tac-Toe board shape");
 }

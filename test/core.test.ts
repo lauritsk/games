@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { moveGridIndex, moveGridPoint, nextDifficulty, previousDifficulty, shuffleInPlace } from "../src/core";
+import {
+  moveGridIndex,
+  moveGridPoint,
+  nextDifficulty,
+  previousDifficulty,
+  shuffleInPlace,
+} from "../src/core";
 
 describe("difficulty cycling", () => {
   test("moves forward through difficulties and wraps", () => {

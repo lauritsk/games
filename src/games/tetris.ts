@@ -31,7 +31,6 @@ import {
   tetrisRows,
   type TetrisCell,
   type TetrisPoint,
-  type TetrisState,
 } from "./tetris.logic";
 
 type Mode = "ready" | "playing" | "paused" | "over";
@@ -76,7 +75,11 @@ export function mountTetris(target: HTMLElement): () => void {
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
-  const pauseButton = el("button", { className: "button pill surface interactive", text: "Pause", type: "button" });
+  const pauseButton = el("button", {
+    className: "button pill surface interactive",
+    text: "Pause",
+    type: "button",
+  });
   pauseButton.addEventListener("click", togglePause);
   actions.append(pauseButton);
   const requestReset = createResetControl(actions, shell, resetGame);
@@ -144,7 +147,8 @@ export function mountTetris(target: HTMLElement): () => void {
     }
     start();
     const before = state.piece;
-    if (direction === "up") state = { ...state, piece: rotateTetrisPiece(state.board, state.piece) };
+    if (direction === "up")
+      state = { ...state, piece: rotateTetrisPiece(state.board, state.piece) };
     else state = { ...state, piece: moveTetrisPiece(state.board, state.piece, direction) };
     if (state.piece === before) invalidMove.trigger();
     else playSound("gameMove");
@@ -185,9 +189,15 @@ export function mountTetris(target: HTMLElement): () => void {
     pauseButton.textContent = mode === "paused" ? "Resume" : "Pause";
     status.textContent = statusText();
 
-    const active = new Map(tetrisPieceCells(state.piece).map((cell) => [pointKey(cell), state.piece.type]));
-    const ghost = new Set(tetrisPieceCells(tetrisGhostPiece(state.board, state.piece)).map(pointKey));
-    const cells = syncChildren(board, tetrisRows * tetrisColumns, () => el("div", { className: "tetris-cell" }));
+    const active = new Map(
+      tetrisPieceCells(state.piece).map((cell) => [pointKey(cell), state.piece.type]),
+    );
+    const ghost = new Set(
+      tetrisPieceCells(tetrisGhostPiece(state.board, state.piece)).map(pointKey),
+    );
+    const cells = syncChildren(board, tetrisRows * tetrisColumns, () =>
+      el("div", { className: "tetris-cell" }),
+    );
     cells.forEach((cell, index) => {
       const point = { row: Math.floor(index / tetrisColumns), column: index % tetrisColumns };
       const key = pointKey(point);

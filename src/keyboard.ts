@@ -25,14 +25,24 @@ export function directionFromKey(event: KeyboardEvent): Direction | null {
   return null;
 }
 
-export function moveGridIndex(index: number, direction: Direction, columns: number, length: number): number {
+export function moveGridIndex(
+  index: number,
+  direction: Direction,
+  columns: number,
+  length: number,
+): number {
   if (direction === "up") return Math.max(0, index - columns);
   if (direction === "right") return Math.min(length - 1, index + 1);
   if (direction === "down") return Math.min(length - 1, index + columns);
   return Math.max(0, index - 1);
 }
 
-export function moveGridPoint(point: GridPoint, direction: Direction, rows: number, columns: number): GridPoint {
+export function moveGridPoint(
+  point: GridPoint,
+  direction: Direction,
+  rows: number,
+  columns: number,
+): GridPoint {
   if (direction === "up") return { ...point, row: Math.max(0, point.row - 1) };
   if (direction === "right") return { ...point, column: Math.min(columns - 1, point.column + 1) };
   if (direction === "down") return { ...point, row: Math.min(rows - 1, point.row + 1) };

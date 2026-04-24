@@ -1,11 +1,16 @@
 import { button, el } from "./dom";
 import { Keys, matchesKey } from "./keyboard";
+import { playSound, playSoundIfUnlocked } from "./sound";
 
 export function isConfirmOpen(): boolean {
   return Boolean(document.querySelector(".confirm"));
 }
 
-export function confirmChoice(message: string, onYes: () => void, onClose?: () => void): () => void {
+export function confirmChoice(
+  message: string,
+  onYes: () => void,
+  onClose?: () => void,
+): () => void {
   if (isConfirmOpen()) return () => undefined;
 
   let selected = 1;
@@ -22,11 +27,12 @@ export function confirmChoice(message: string, onYes: () => void, onClose?: () =
   dialog.append(panel);
   document.body.append(dialog);
 
-  const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const previousFocus =
+    document.activeElement instanceof HTMLElement ? document.activeElement : null;
   yes.addEventListener("click", yesAction);
   no.addEventListener("click", close);
-  yes.addEventListener("pointerenter", () => select(0));
-  no.addEventListener("pointerenter", () => select(1));
+  yes.addEventListener("pointerenter", () => select(0, "pointer"));
+  no.addEventListener("pointerenter", () => select(1, "pointer"));
   dialog.addEventListener("cancel", (event) => {
     event.preventDefault();
     close();
@@ -40,13 +46,13 @@ export function confirmChoice(message: string, onYes: () => void, onClose?: () =
     const key = event.key.toLowerCase();
     if (key === "tab") {
       event.preventDefault();
-      select(selected === 0 ? 1 : 0);
+      select(selected === 0 ? 1 : 0, "keyboard");
     } else if (matchesKey(event, Keys.previous)) {
       event.preventDefault();
-      select(0);
+      select(0, "keyboard");
     } else if (matchesKey(event, Keys.next)) {
       event.preventDefault();
-      select(1);
+      select(1, "keyboard");
     } else if (key === "y") {
       event.preventDefault();
       yesAction();
@@ -55,13 +61,16 @@ export function confirmChoice(message: string, onYes: () => void, onClose?: () =
       close();
     } else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
-      selected === 0 ? yesAction() : close();
+      if (selected === 0) yesAction();
+      else close();
     }
   }
 
-  function select(next: number): void {
+  function select(next: number, source: "keyboard" | "pointer"): void {
     if (selected === next) return;
     selected = next;
+    if (source === "keyboard") playSound("dashboardMove");
+    else playSoundIfUnlocked("dashboardMove");
     render();
   }
 

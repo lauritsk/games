@@ -88,7 +88,11 @@ export function mountBreakout(target: HTMLElement): () => void {
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
-  const pauseButton = el("button", { className: "button pill surface interactive", text: "Pause", type: "button" });
+  const pauseButton = el("button", {
+    className: "button pill surface interactive",
+    text: "Pause",
+    type: "button",
+  });
   pauseButton.addEventListener("click", togglePause);
   actions.append(pauseButton);
   const requestReset = createResetControl(actions, shell, resetGame);
@@ -225,7 +229,10 @@ export function mountBreakout(target: HTMLElement): () => void {
       if (!brick) return;
       positionPercent(child, brick);
       child.dataset.alive = String(brick.alive);
-      child.setAttribute("aria-label", brick.alive ? `Brick ${index + 1}` : `Destroyed brick ${index + 1}`);
+      child.setAttribute(
+        "aria-label",
+        brick.alive ? `Brick ${index + 1}` : `Destroyed brick ${index + 1}`,
+      );
     });
   }
 
@@ -240,7 +247,13 @@ export function mountBreakout(target: HTMLElement): () => void {
     });
   }
 
-  function position(element: HTMLElement, x: number, y: number, width: number, height: number): void {
+  function position(
+    element: HTMLElement,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): void {
     positionPercent(element, { x, y, width, height });
   }
 

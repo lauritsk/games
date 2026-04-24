@@ -190,7 +190,8 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     } else {
       current = current === humanMark ? botMark : humanMark;
     }
-    if (winner) playSound(winner === "draw" ? "gameMajor" : winner === humanMark ? "gameWin" : "gameLose");
+    if (winner)
+      playSound(winner === "draw" ? "gameMajor" : winner === humanMark ? "gameWin" : "gameLose");
     else playSound("gameMove");
     render();
   }

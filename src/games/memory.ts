@@ -17,7 +17,12 @@ import {
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
-import { allMemoryMatched, newMemoryDeck, openUnmatchedMemoryCards, type MemoryCard } from "./memory.logic";
+import {
+  allMemoryMatched,
+  newMemoryDeck,
+  openUnmatchedMemoryCards,
+  type MemoryCard,
+} from "./memory.logic";
 type Config = { pairs: number; columns: number; rows: number };
 
 const configs: Record<Difficulty, Config> = {

@@ -1,7 +1,7 @@
 {
   "name": "classic-games",
-  "type": "module",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "bun --hot src/server.ts",
     "build": "bun build ./index.html --outdir=dist --minify",

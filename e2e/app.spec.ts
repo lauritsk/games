@@ -46,7 +46,9 @@ test("reset confirmation can cancel or accept an active game reset", async ({ pa
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
-test("keyboard routing selects games, plays current game, and protects escape navigation", async ({ page }) => {
+test("keyboard routing selects games, plays current game, and protects escape navigation", async ({
+  page,
+}) => {
   await page.goto("/");
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Enter");
@@ -78,7 +80,9 @@ test("bot timers are cleaned up when leaving games", async ({ page }) => {
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
-test("difficulty changes during active games reset to the selected difficulty", async ({ page }) => {
+test("difficulty changes during active games reset to the selected difficulty", async ({
+  page,
+}) => {
   await openGame(page, "Snake");
   await page.keyboard.press("Space");
   await expect(page.getByLabel("Game status")).toContainText(/Length|Ready/);

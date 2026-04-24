@@ -13,7 +13,7 @@ import {
   type MountScope,
 } from "./core";
 import { games } from "./games";
-import { playSound, unlockSound } from "./sound";
+import { playSound, playSoundIfUnlocked, unlockSound } from "./sound";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("Missing app root");
@@ -39,7 +39,8 @@ function renderRoute(): void {
   document.body.dataset.theme = game?.theme ?? "deep-cave";
   dashboardScope?.cleanup();
   dashboardScope = null;
-  game ? renderGame(game) : renderDashboard();
+  if (game) renderGame(game);
+  else renderDashboard();
 }
 
 function getRouteGame(): GameDefinition | null {
@@ -67,8 +68,10 @@ function renderDashboard(): void {
 
     if (matchesKey(event, Keys.left)) nextIndex = selectedIndex - 1;
     else if (matchesKey(event, Keys.right)) nextIndex = selectedIndex + 1;
-    else if (matchesKey(event, Keys.up)) nextIndex = moveDashboardVertical(selectedIndex, -1, columns, games.length);
-    else if (matchesKey(event, Keys.down)) nextIndex = moveDashboardVertical(selectedIndex, 1, columns, games.length);
+    else if (matchesKey(event, Keys.up))
+      nextIndex = moveDashboardVertical(selectedIndex, -1, columns, games.length);
+    else if (matchesKey(event, Keys.down))
+      nextIndex = moveDashboardVertical(selectedIndex, 1, columns, games.length);
     else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
       playSound("dashboardSelect");
@@ -82,12 +85,23 @@ function renderDashboard(): void {
     renderSelection();
   }
 
+  function selectDashboardIndex(index: number): boolean {
+    if (selectedIndex === index) return false;
+    selectedIndex = index;
+    return true;
+  }
+
   function renderSelection(): void {
     const cards = syncChildren(list, games.length, (index) => {
       const card = gameCard(required(games[index]));
       card.addEventListener("pointerenter", () => {
-        if (selectedIndex === index) return;
-        selectedIndex = index;
+        if (!selectDashboardIndex(index)) return;
+        playSoundIfUnlocked("dashboardMove");
+        renderSelection();
+      });
+      card.addEventListener("focus", () => {
+        if (!selectDashboardIndex(index)) return;
+        playSound("dashboardMove");
         renderSelection();
       });
       return card;
@@ -111,7 +125,12 @@ function wrapIndex(index: number, length: number): number {
   return (index + length) % length;
 }
 
-function moveDashboardVertical(index: number, step: 1 | -1, columns: number, length: number): number {
+function moveDashboardVertical(
+  index: number,
+  step: 1 | -1,
+  columns: number,
+  length: number,
+): number {
   const verticalOrder = Array.from({ length }, (_, itemIndex) => itemIndex).sort((a, b) => {
     const columnDiff = (a % columns) - (b % columns);
     return columnDiff || Math.floor(a / columns) - Math.floor(b / columns);

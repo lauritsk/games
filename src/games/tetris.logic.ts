@@ -77,7 +77,9 @@ const kicks: TetrisPoint[] = [
 ];
 
 export function newTetrisBoard(): TetrisBoard {
-  return Array.from({ length: tetrisRows }, () => Array.from({ length: tetrisColumns }, () => "" as TetrisCell));
+  return Array.from({ length: tetrisRows }, () =>
+    Array.from({ length: tetrisColumns }, () => "" as TetrisCell),
+  );
 }
 
 export function newTetrisState(rng: RandomSource = Math.random): TetrisState {
@@ -120,14 +122,21 @@ export function canPlaceTetrisPiece(board: TetrisBoard, piece: TetrisPiece): boo
   );
 }
 
-export function moveTetrisPiece(board: TetrisBoard, piece: TetrisPiece, direction: Direction): TetrisPiece {
+export function moveTetrisPiece(
+  board: TetrisBoard,
+  piece: TetrisPiece,
+  direction: Direction,
+): TetrisPiece {
   const delta =
     direction === "left"
       ? { row: 0, column: -1 }
       : direction === "right"
         ? { row: 0, column: 1 }
         : { row: 1, column: 0 };
-  const moved = { ...piece, origin: { row: piece.origin.row + delta.row, column: piece.origin.column + delta.column } };
+  const moved = {
+    ...piece,
+    origin: { row: piece.origin.row + delta.row, column: piece.origin.column + delta.column },
+  };
   return canPlaceTetrisPiece(board, moved) ? moved : piece;
 }
 
@@ -167,7 +176,9 @@ export function lockTetrisPiece(board: TetrisBoard, piece: TetrisPiece): TetrisB
 export function clearTetrisLines(board: TetrisBoard): { board: TetrisBoard; cleared: number } {
   const remaining = board.filter((row) => row.some((cell) => cell === ""));
   const cleared = tetrisRows - remaining.length;
-  const empty = Array.from({ length: cleared }, () => Array.from({ length: tetrisColumns }, () => "" as TetrisCell));
+  const empty = Array.from({ length: cleared }, () =>
+    Array.from({ length: tetrisColumns }, () => "" as TetrisCell),
+  );
   return { board: [...empty, ...remaining], cleared };
 }
 
@@ -183,7 +194,16 @@ export function tetrisDrop(state: TetrisState, rng: RandomSource = Math.random):
   const lines = state.lines + cleared;
   const level = Math.floor(lines / 10) + 1;
   const score = state.score + tetrisLineScore(cleared, state.level);
-  return { ...state, board, piece, next, lines, level, score, over: !canPlaceTetrisPiece(board, piece) };
+  return {
+    ...state,
+    board,
+    piece,
+    next,
+    lines,
+    level,
+    score,
+    over: !canPlaceTetrisPiece(board, piece),
+  };
 }
 
 export function tetrisHardDrop(state: TetrisState, rng: RandomSource = Math.random): TetrisState {

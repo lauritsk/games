@@ -79,7 +79,9 @@ export function mount2048(target: HTMLElement): () => void {
     difficultyButton.textContent = difficulty;
 
     const values = board.flat();
-    const tiles = syncChildren(grid, values.length, () => el("div", { className: "tile tile-2048" }));
+    const tiles = syncChildren(grid, values.length, () =>
+      el("div", { className: "tile tile-2048" }),
+    );
     values.forEach((value, index) => {
       const tile = tiles[index];
       if (!tile) return;

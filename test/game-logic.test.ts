@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { canMove2048, merge2048Line, slide2048 } from "../src/games/2048.logic";
-import { newBreakoutState, moveBreakoutPaddle, stepBreakout, circleIntersectsRect } from "../src/games/breakout.logic";
+import {
+  newBreakoutState,
+  moveBreakoutPaddle,
+  stepBreakout,
+  circleIntersectsRect,
+} from "../src/games/breakout.logic";
 import {
   connect4Human,
   dropConnect4DiscInPlace,
@@ -17,7 +22,12 @@ import {
   seededMinesweeperBoard,
   type MinesweeperConfig,
 } from "../src/games/minesweeper.logic";
-import { allMemoryMatched, newMemoryDeck, openUnmatchedMemoryCards, type MemoryCard } from "../src/games/memory.logic";
+import {
+  allMemoryMatched,
+  newMemoryDeck,
+  openUnmatchedMemoryCards,
+  type MemoryCard,
+} from "../src/games/memory.logic";
 import {
   moveSnakePoint,
   nextSnakeDirection,
@@ -25,7 +35,12 @@ import {
   snakePointsEqual,
   startSnakeBody,
 } from "../src/games/snake.logic";
-import { fireInvaderShot, newInvaderState, nextInvaderWave, stepInvaders } from "../src/games/space-invaders.logic";
+import {
+  fireInvaderShot,
+  newInvaderState,
+  nextInvaderWave,
+  stepInvaders,
+} from "../src/games/space-invaders.logic";
 import {
   canPlaceTetrisPiece,
   clearTetrisLines,
@@ -87,9 +102,12 @@ describe("breakout logic", () => {
     const state = newBreakoutState(config);
     expect(moveBreakoutPaddle(state, -50).paddle.x).toBe(0);
     expect(moveBreakoutPaddle(state, 150).paddle.x).toBe(80);
-    expect(circleIntersectsRect({ x: 5, y: 5, vx: 0, vy: 0, radius: 2 }, { x: 6, y: 6, width: 5, height: 5 })).toBe(
-      true,
-    );
+    expect(
+      circleIntersectsRect(
+        { x: 5, y: 5, vx: 0, vy: 0, radius: 2 },
+        { x: 6, y: 6, width: 5, height: 5 },
+      ),
+    ).toBe(true);
   });
 
   test("breaks bricks, wins, and loses lives", () => {
@@ -145,12 +163,22 @@ describe("breakout logic", () => {
 });
 
 describe("space invaders logic", () => {
-  const config = { alienRows: 1, alienColumns: 2, lives: 2, playerSpeed: 4, alienStepEvery: 2, alienShotEvery: 99 };
+  const config = {
+    alienRows: 1,
+    alienColumns: 2,
+    lives: 2,
+    playerSpeed: 4,
+    alienStepEvery: 2,
+    alienShotEvery: 99,
+  };
 
   test("fires, destroys aliens, and advances waves", () => {
     const state = newInvaderState(config);
     const alien = state.aliens[0]!;
-    const aimed = { ...state, player: { ...state.player, x: alien.x + alien.width / 2 - state.player.width / 2 } };
+    const aimed = {
+      ...state,
+      player: { ...state.player, x: alien.x + alien.width / 2 - state.player.width / 2 },
+    };
     const fired = fireInvaderShot(aimed);
     expect(fired.shots.some((shot) => shot.owner === "player")).toBe(true);
     expect(fired.tick).toBe(state.tick);
@@ -159,14 +187,25 @@ describe("space invaders logic", () => {
     const hit = stepInvaders(
       {
         ...state,
-        shots: [{ x: alien.x + alien.width / 2, y: alien.y + alien.height / 2 + 2, vy: -2, owner: "player" }],
+        shots: [
+          {
+            x: alien.x + alien.width / 2,
+            y: alien.y + alien.height / 2 + 2,
+            vy: -2,
+            owner: "player",
+          },
+        ],
       },
       config,
     );
     expect(hit.score).toBe(20);
     expect(hit.aliens.filter((candidate) => candidate.alive)).toHaveLength(1);
 
-    const won = { ...hit, aliens: hit.aliens.map((candidate) => ({ ...candidate, alive: false })), won: true };
+    const won = {
+      ...hit,
+      aliens: hit.aliens.map((candidate) => ({ ...candidate, alive: false })),
+      won: true,
+    };
     const next = nextInvaderWave(won, config);
     expect(next.wave).toBe(2);
     expect(next.score).toBe(won.score);
@@ -198,7 +237,12 @@ describe("space invaders logic", () => {
         ...state,
         aliens: finalAlien,
         shots: [
-          { x: alien.x + alien.width / 2, y: alien.y + alien.height / 2 + 2, vy: -2, owner: "player" },
+          {
+            x: alien.x + alien.width / 2,
+            y: alien.y + alien.height / 2 + 2,
+            vy: -2,
+            owner: "player",
+          },
           { x: state.player.x + 1, y: state.player.y + 1, vy: 1, owner: "alien" },
         ],
       },
@@ -249,7 +293,10 @@ describe("minesweeper logic", () => {
 
   test("first board keeps safe area mine-free", () => {
     const board = seededMinesweeperBoard(config, 2, 2);
-    for (const [row, column] of [...minesweeperNeighbors(config, 2, 2), [2, 2] as [number, number]]) {
+    for (const [row, column] of [
+      ...minesweeperNeighbors(config, 2, 2),
+      [2, 2] as [number, number],
+    ]) {
       expect(board[row]![column]!.mine).toBe(false);
     }
     expect(board.flat().filter((cell) => cell.mine)).toHaveLength(config.mines);
@@ -296,7 +343,11 @@ describe("tetris logic", () => {
     const piece = spawnTetrisPiece("I");
     expect(rotateTetrisPiece(board, piece).rotation).toBe(1);
 
-    const againstLeftWall = { ...spawnTetrisPiece("I"), origin: { row: 2, column: 0 }, rotation: 1 };
+    const againstLeftWall = {
+      ...spawnTetrisPiece("I"),
+      origin: { row: 2, column: 0 },
+      rotation: 1,
+    };
     const rotated = rotateTetrisPiece(board, againstLeftWall);
     expect(rotated.rotation).toBe(2);
     expect(canPlaceTetrisPiece(board, rotated)).toBe(true);
@@ -304,7 +355,10 @@ describe("tetris logic", () => {
 
   test("locks pieces, clears lines, and scores by level", () => {
     const board = newTetrisBoard();
-    const locked = lockTetrisPiece(board, { ...spawnTetrisPiece("O"), origin: { row: 19, column: 4 } });
+    const locked = lockTetrisPiece(board, {
+      ...spawnTetrisPiece("O"),
+      origin: { row: 19, column: 4 },
+    });
     expect(locked[19]?.filter(Boolean)).toHaveLength(2);
 
     const fullBoard: TetrisBoard = newTetrisBoard();

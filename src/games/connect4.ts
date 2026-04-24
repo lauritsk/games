@@ -167,7 +167,8 @@ export function mountConnect4(target: HTMLElement): () => void {
     handleStandardGameKey(event, {
       onDirection: (direction) => {
         if (direction === "left") selectedColumn = Math.max(0, selectedColumn - 1);
-        else if (direction === "right") selectedColumn = Math.min(connect4Columns - 1, selectedColumn + 1);
+        else if (direction === "right")
+          selectedColumn = Math.min(connect4Columns - 1, selectedColumn + 1);
         else if (direction === "down") playTurn(selectedColumn);
         render();
       },

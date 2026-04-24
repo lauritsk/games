@@ -14,13 +14,18 @@ export function newConnect4Board(): Connect4Cell[][] {
   return Array.from({ length: connect4Rows }, () => Array<Connect4Cell>(connect4Columns).fill(0));
 }
 
-export function chooseConnect4BotColumn(board: Connect4Cell[][], difficulty: Difficulty, rng?: RandomSource): number {
+export function chooseConnect4BotColumn(
+  board: Connect4Cell[][],
+  difficulty: Difficulty,
+  rng?: RandomSource,
+): number {
   assertConnect4Board(board);
   const valid = playableConnect4Columns(board);
   if (difficulty === "Easy") return randomMove(valid, rng);
 
   const tactical =
-    findConnect4TacticalMove(board, connect4Bot, valid) ?? findConnect4TacticalMove(board, connect4Human, valid);
+    findConnect4TacticalMove(board, connect4Bot, valid) ??
+    findConnect4TacticalMove(board, connect4Human, valid);
   if (tactical !== null) return tactical;
 
   if (difficulty === "Hard")
@@ -30,7 +35,9 @@ export function chooseConnect4BotColumn(board: Connect4Cell[][], difficulty: Dif
 
 export function playableConnect4Columns(board: Connect4Cell[][]): number[] {
   assertConnect4Board(board);
-  return Array.from({ length: connect4Columns }, (_, column) => column).filter((column) => board[0]?.[column] === 0);
+  return Array.from({ length: connect4Columns }, (_, column) => column).filter(
+    (column) => board[0]?.[column] === 0,
+  );
 }
 
 export function findConnect4TacticalMove(
@@ -96,7 +103,8 @@ function safeShapeMove(board: Connect4Cell[][], valid: number[]): number | null 
   return (
     valid
       .filter((column) => !givesImmediateWin(board, column))
-      .sort((a, b) => scoreMove(board, b, connect4Bot) - scoreMove(board, a, connect4Bot))[0] ?? null
+      .sort((a, b) => scoreMove(board, b, connect4Bot) - scoreMove(board, a, connect4Bot))[0] ??
+    null
   );
 }
 
@@ -122,10 +130,17 @@ function scoreMove(board: Connect4Cell[][], column: number, player: Connect4Play
   const test = cloneConnect4Board(board);
   const row = dropConnect4DiscInPlace(test, column, player);
   if (row === null) return -Infinity;
-  return longestLine(test, row, column, player) * 10 - Math.abs(column - Math.floor(connect4Columns / 2));
+  return (
+    longestLine(test, row, column, player) * 10 - Math.abs(column - Math.floor(connect4Columns / 2))
+  );
 }
 
-function longestLine(board: Connect4Cell[][], row: number, column: number, player: Connect4Player): number {
+function longestLine(
+  board: Connect4Cell[][],
+  row: number,
+  column: number,
+  player: Connect4Player,
+): number {
   const directions = [
     [0, 1],
     [1, 0],
@@ -135,7 +150,9 @@ function longestLine(board: Connect4Cell[][], row: number, column: number, playe
   return Math.max(
     ...directions.map(
       ([dr, dc]) =>
-        1 + walk(board, row, column, dr, dc, player).length + walk(board, row, column, -dr, -dc, player).length,
+        1 +
+        walk(board, row, column, dr, dc, player).length +
+        walk(board, row, column, -dr, -dc, player).length,
     ),
   );
 }

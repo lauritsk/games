@@ -103,7 +103,9 @@ export function mountSnake(target: HTMLElement): () => void {
 
     const body = new Set(snake.map(snakePointKey));
     const head = snakePointKey(required(snake[0]));
-    const cells = syncChildren(grid, config.size * config.size, () => el("div", { className: "snake-cell" }));
+    const cells = syncChildren(grid, config.size * config.size, () =>
+      el("div", { className: "snake-cell" }),
+    );
     cells.forEach((cell, index) => {
       const point = { row: Math.floor(index / config.size), column: index % config.size };
       const key = snakePointKey(point);
@@ -118,7 +120,8 @@ export function mountSnake(target: HTMLElement): () => void {
     handleStandardGameKey(event, {
       onDirection: (next) => {
         if (queueDirection(next)) playSound("gameMove");
-        else if (state === "playing" && next === oppositeSnakeDirection[direction]) invalidMove.trigger();
+        else if (state === "playing" && next === oppositeSnakeDirection[direction])
+          invalidMove.trigger();
         start();
       },
       onActivate: start,
@@ -155,7 +158,10 @@ export function mountSnake(target: HTMLElement): () => void {
     const ate = snakePointsEqual(next, food);
     const bodyToCheck = ate ? snake : snake.slice(0, -1);
 
-    if (snakeOutOfBounds(next, config.size) || bodyToCheck.some((part) => snakePointsEqual(part, next))) {
+    if (
+      snakeOutOfBounds(next, config.size) ||
+      bodyToCheck.some((part) => snakePointsEqual(part, next))
+    ) {
       state = "lost";
       markGameFinished(shell);
       stopTimer();
@@ -193,7 +199,8 @@ export function mountSnake(target: HTMLElement): () => void {
       return `Row ${point.row + 1}, column ${point.column + 1}, snake head`;
     if (snake.some((part) => snakePointsEqual(part, point)))
       return `Row ${point.row + 1}, column ${point.column + 1}, snake body`;
-    if (snakePointsEqual(point, food)) return `Row ${point.row + 1}, column ${point.column + 1}, food`;
+    if (snakePointsEqual(point, food))
+      return `Row ${point.row + 1}, column ${point.column + 1}, food`;
     return `Row ${point.row + 1}, column ${point.column + 1}, empty`;
   }
 

@@ -13,7 +13,9 @@ export function empty2048Board(size: number): Board2048 {
 export function addRandom2048Tile(board: Board2048, rng: RandomSource = Math.random): Board2048 {
   assert2048Board(board);
   const next = clone2048Board(board);
-  const empty = next.flatMap((row, r) => row.map((value, c) => ({ value, r, c }))).filter((cell) => cell.value === 0);
+  const empty = next
+    .flatMap((row, r) => row.map((value, c) => ({ value, r, c })))
+    .filter((cell) => cell.value === 0);
   const cell = empty[Math.floor(rng() * empty.length)];
   if (cell) required(next[cell.r])[cell.c] = rng() < 0.9 ? 2 : 4;
   return next;
@@ -60,7 +62,9 @@ export function merge2048Line(line: number[]): { line: number[]; score: number }
 export function canMove2048(board: Board2048): boolean {
   assert2048Board(board);
   if (board.flat().includes(0)) return true;
-  return (["up", "right", "down", "left"] as const).some((direction) => slide2048(board, direction).changed);
+  return (["up", "right", "down", "left"] as const).some(
+    (direction) => slide2048(board, direction).changed,
+  );
 }
 
 function readLine(board: Board2048, direction: Direction, index: number): number[] {
@@ -85,12 +89,15 @@ function writeLine(board: Board2048, direction: Direction, index: number, line: 
 }
 
 function boards2048Equal(a: Board2048, b: Board2048): boolean {
-  return a.every((row, rowIndex) => row.every((value, columnIndex) => value === b[rowIndex]?.[columnIndex]));
+  return a.every((row, rowIndex) =>
+    row.every((value, columnIndex) => value === b[rowIndex]?.[columnIndex]),
+  );
 }
 
 export function assert2048Board(board: Board2048): void {
   const size = board.length;
-  if (size === 0 || board.some((row) => row.length !== size)) throw new Error("Invalid 2048 board shape");
+  if (size === 0 || board.some((row) => row.length !== size))
+    throw new Error("Invalid 2048 board shape");
 }
 
 function clone2048Board(board: Board2048): Board2048 {

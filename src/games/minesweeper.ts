@@ -97,7 +97,10 @@ export function mountMinesweeper(target: HTMLElement): () => void {
 
   function render(): void {
     const shape = minesweeperShape(config);
-    applyGameLayout(shell, config.layout === "scroll" ? gameLayouts.scrollGrid : gameLayouts.squareFit);
+    applyGameLayout(
+      shell,
+      config.layout === "scroll" ? gameLayouts.scrollGrid : gameLayouts.squareFit,
+    );
     setBoardGrid(grid, {
       columns: shape.columns,
       rows: shape.rows,
@@ -108,7 +111,9 @@ export function mountMinesweeper(target: HTMLElement): () => void {
 
     const tiles = syncChildren(grid, shape.rows * shape.columns, () => {
       const tile = el("button", { className: "mine-cell", type: "button" });
-      tile.addEventListener("click", () => openCell(Number(tile.dataset.row), Number(tile.dataset.column)));
+      tile.addEventListener("click", () =>
+        openCell(Number(tile.dataset.row), Number(tile.dataset.column)),
+      );
       tile.addEventListener("pointerenter", () => {
         const row = Number(tile.dataset.row);
         const column = Number(tile.dataset.column);
@@ -154,7 +159,12 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     handleStandardGameKey(event, {
       onDirection: (direction) => {
         const shape = minesweeperShape(config);
-        const next = moveGridPoint({ row: selectedRow, column: selectedColumn }, direction, shape.rows, shape.columns);
+        const next = moveGridPoint(
+          { row: selectedRow, column: selectedColumn },
+          direction,
+          shape.rows,
+          shape.columns,
+        );
         selectedRow = next.row;
         selectedColumn = next.column;
         render();
@@ -202,7 +212,8 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     } else {
       floodOpenMinesweeperInPlace(board, config, row, column);
       const shape = minesweeperShape(config);
-      if (openSafeMinesweeperCount(board) === shape.rows * shape.columns - config.mines) state = "won";
+      if (openSafeMinesweeperCount(board) === shape.rows * shape.columns - config.mines)
+        state = "won";
     }
     if (state !== "playing") markGameFinished(shell);
     if (state === "won") playSound("gameWin");
@@ -241,7 +252,10 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       }
     }
     const shape = minesweeperShape(config);
-    if (state !== "lost" && openSafeMinesweeperCount(board) === shape.rows * shape.columns - config.mines)
+    if (
+      state !== "lost" &&
+      openSafeMinesweeperCount(board) === shape.rows * shape.columns - config.mines
+    )
       state = "won";
     if (state !== "playing") markGameFinished(shell);
     if (state === "won") playSound("gameWin");
@@ -282,6 +296,12 @@ function cellText(cell: MinesweeperCell): string {
 }
 
 function labelFor(row: number, column: number, cell: MinesweeperCell): string {
-  const value = cell.flag ? "flagged" : cell.open ? (cell.mine ? "mine" : `${cell.nearby} nearby mines`) : "closed";
+  const value = cell.flag
+    ? "flagged"
+    : cell.open
+      ? cell.mine
+        ? "mine"
+        : `${cell.nearby} nearby mines`
+      : "closed";
   return `Row ${row + 1}, column ${column + 1}, ${value}`;
 }

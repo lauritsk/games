@@ -52,7 +52,13 @@ export function newBreakoutBricks(rows: number, columns: number): BreakoutBrick[
   return Array.from({ length: rows * columns }, (_, index) => {
     const row = Math.floor(index / columns);
     const column = index % columns;
-    return { x: margin + column * (width + gap), y: top + row * (height + gap), width, height, alive: true };
+    return {
+      x: margin + column * (width + gap),
+      y: top + row * (height + gap),
+      width,
+      height,
+      alive: true,
+    };
   });
 }
 
@@ -77,7 +83,8 @@ export function stepBreakout(state: BreakoutState): BreakoutState {
   }
 
   const crossedPaddleTop =
-    previousBall.y + previousBall.radius <= state.paddle.y && ball.y + ball.radius >= state.paddle.y;
+    previousBall.y + previousBall.radius <= state.paddle.y &&
+    ball.y + ball.radius >= state.paddle.y;
   if (crossedPaddleTop && circleIntersectsRect(ball, state.paddle) && ball.vy > 0) {
     const hit = ((ball.x - state.paddle.x) / state.paddle.width - 0.5) * 2;
     const speed = Math.hypot(ball.vx, ball.vy);
@@ -92,7 +99,9 @@ export function stepBreakout(state: BreakoutState): BreakoutState {
   const hitIndex = bricks.findIndex((brick) => brick.alive && circleIntersectsRect(ball, brick));
   if (hitIndex >= 0) {
     const brick = bricks[hitIndex]!;
-    bricks = bricks.map((candidate, index) => (index === hitIndex ? { ...candidate, alive: false } : candidate));
+    bricks = bricks.map((candidate, index) =>
+      index === hitIndex ? { ...candidate, alive: false } : candidate,
+    );
     score += 10 * state.level;
     const fromSide = ball.x < brick.x || ball.x > brick.x + brick.width;
     ball = fromSide ? { ...ball, vx: -ball.vx } : { ...ball, vy: -ball.vy };

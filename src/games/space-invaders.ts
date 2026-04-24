@@ -41,9 +41,30 @@ import {
 type Mode = "ready" | "playing" | "paused" | "wave" | "lost";
 
 const configs: Record<Difficulty, InvaderConfig> = {
-  Easy: { alienRows: 3, alienColumns: 7, lives: 4, playerSpeed: 2.8, alienStepEvery: 32, alienShotEvery: 62 },
-  Medium: { alienRows: 4, alienColumns: 8, lives: 3, playerSpeed: 2.5, alienStepEvery: 26, alienShotEvery: 48 },
-  Hard: { alienRows: 5, alienColumns: 9, lives: 2, playerSpeed: 2.2, alienStepEvery: 21, alienShotEvery: 36 },
+  Easy: {
+    alienRows: 3,
+    alienColumns: 7,
+    lives: 4,
+    playerSpeed: 2.8,
+    alienStepEvery: 32,
+    alienShotEvery: 62,
+  },
+  Medium: {
+    alienRows: 4,
+    alienColumns: 8,
+    lives: 3,
+    playerSpeed: 2.5,
+    alienStepEvery: 26,
+    alienShotEvery: 48,
+  },
+  Hard: {
+    alienRows: 5,
+    alienColumns: 9,
+    lives: 2,
+    playerSpeed: 2.2,
+    alienStepEvery: 21,
+    alienShotEvery: 36,
+  },
 };
 
 export const spaceInvaders: GameDefinition = {
@@ -83,7 +104,11 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   board.append(aliens, barriers, shots, player);
   const hud = createArcadeHud(board);
   const overlay = createPauseOverlay(board, togglePause);
-  createTouchControls(shell, { left: () => moveByDirection("left"), right: () => moveByDirection("right"), fire });
+  createTouchControls(shell, {
+    left: () => moveByDirection("left"),
+    right: () => moveByDirection("right"),
+    fire,
+  });
 
   const difficultyControl = {
     get: () => difficulty,
@@ -93,7 +118,11 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
-  const pauseButton = el("button", { className: "button pill surface interactive", text: "Pause", type: "button" });
+  const pauseButton = el("button", {
+    className: "button pill surface interactive",
+    text: "Pause",
+    type: "button",
+  });
   pauseButton.addEventListener("click", togglePause);
   actions.append(pauseButton);
   const requestReset = createResetControl(actions, shell, resetGame);
@@ -170,10 +199,14 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
 
   function moveByDirection(direction: Direction): void {
     if (direction !== "left" && direction !== "right") return;
-    const delta = direction === "left" ? -configs[difficulty].playerSpeed : configs[difficulty].playerSpeed;
+    const delta =
+      direction === "left" ? -configs[difficulty].playerSpeed : configs[difficulty].playerSpeed;
     state = {
       ...state,
-      player: { ...state.player, x: clamp(state.player.x + delta, 0, state.width - state.player.width) },
+      player: {
+        ...state.player,
+        x: clamp(state.player.x + delta, 0, state.width - state.player.width),
+      },
     };
     start();
     render();
@@ -221,7 +254,10 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     const center = ((event.clientX - rect.left) / rect.width) * state.width;
     state = {
       ...state,
-      player: { ...state.player, x: clamp(center - state.player.width / 2, 0, state.width - state.player.width) },
+      player: {
+        ...state.player,
+        x: clamp(center - state.player.width / 2, 0, state.width - state.player.width),
+      },
     };
     render();
   }
@@ -244,7 +280,10 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
       if (!alien) return;
       position(child, alien.x, alien.y, alien.width, alien.height);
       child.dataset.alive = String(alien.alive);
-      child.setAttribute("aria-label", alien.alive ? `Alien ${index + 1}` : `Destroyed alien ${index + 1}`);
+      child.setAttribute(
+        "aria-label",
+        alien.alive ? `Alien ${index + 1}` : `Destroyed alien ${index + 1}`,
+      );
     });
   }
 
@@ -276,7 +315,13 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     syncPositionedChildren(container, count, className, apply);
   }
 
-  function position(element: HTMLElement, x: number, y: number, width: number, height: number): void {
+  function position(
+    element: HTMLElement,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): void {
     positionPercent(element, { x, y, width, height });
   }
 

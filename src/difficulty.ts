@@ -12,5 +12,7 @@ export function previousDifficulty(difficulty: Difficulty): Difficulty {
 
 function cycleDifficulty(difficulty: Difficulty, step: 1 | -1): Difficulty {
   const index = difficultyOrder.indexOf(difficulty);
-  return difficultyOrder[(index + step + difficultyOrder.length) % difficultyOrder.length] ?? "Easy";
+  return (
+    difficultyOrder[(index + step + difficultyOrder.length) % difficultyOrder.length] ?? "Easy"
+  );
 }

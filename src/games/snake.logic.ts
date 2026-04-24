@@ -26,7 +26,11 @@ export function moveSnakePoint(point: SnakePoint, direction: Direction): SnakePo
   return { row: point.row, column: point.column - 1 };
 }
 
-export function randomSnakeFood(size: number, snake: SnakePoint[], rng: RandomSource = Math.random): SnakePoint {
+export function randomSnakeFood(
+  size: number,
+  snake: SnakePoint[],
+  rng: RandomSource = Math.random,
+): SnakePoint {
   const occupied = new Set(snake.map(snakePointKey));
   const empty = Array.from({ length: size * size }, (_, index) => ({
     row: Math.floor(index / size),
@@ -47,7 +51,11 @@ export function snakePointKey(point: SnakePoint): string {
   return `${point.row}:${point.column}`;
 }
 
-export function nextSnakeDirection(current: Direction, queued: Direction, next: Direction): Direction {
+export function nextSnakeDirection(
+  current: Direction,
+  queued: Direction,
+  next: Direction,
+): Direction {
   if (next === oppositeSnakeDirection[current] || next === queued) return queued;
   return next;
 }

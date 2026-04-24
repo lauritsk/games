@@ -5,7 +5,12 @@ export function required<T>(value: T | null | undefined, message = "Missing requ
   return value;
 }
 
-export function gridCell<T>(grid: T[][], row: number, column: number, message = "Missing grid cell"): T {
+export function gridCell<T>(
+  grid: T[][],
+  row: number,
+  column: number,
+  message = "Missing grid cell",
+): T {
   return required(grid[row]?.[column], message);
 }
 

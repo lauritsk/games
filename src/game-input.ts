@@ -11,7 +11,10 @@ export type StandardGameKeyHandlers = {
   onReset?: (event: KeyboardEvent) => void;
 };
 
-export function handleStandardGameKey(event: KeyboardEvent, handlers: StandardGameKeyHandlers): boolean {
+export function handleStandardGameKey(
+  event: KeyboardEvent,
+  handlers: StandardGameKeyHandlers,
+): boolean {
   if (isConfirmOpen()) return true;
   const direction = directionFromKey(event);
   if (direction && handlers.onDirection) {
@@ -42,7 +45,10 @@ export function handleStandardGameKey(event: KeyboardEvent, handlers: StandardGa
   return false;
 }
 
-export function createDifficultyButton(actions: HTMLElement, onClick: () => void): HTMLButtonElement {
+export function createDifficultyButton(
+  actions: HTMLElement,
+  onClick: () => void,
+): HTMLButtonElement {
   const difficultyButton = button("", "button pill surface interactive");
   difficultyButton.addEventListener("click", onClick);
   actions.append(difficultyButton);

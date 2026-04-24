@@ -1,4 +1,11 @@
-import { button, directionFromKey, el, syncChildren, type Direction, type MountScope } from "./core";
+import {
+  button,
+  directionFromKey,
+  el,
+  syncChildren,
+  type Direction,
+  type MountScope,
+} from "./core";
 
 export type FixedStepLoop = {
   start(): void;
@@ -9,7 +16,11 @@ export type FixedStepLoop = {
   readonly running: boolean;
 };
 
-export function startFixedStepLoop(update: () => void, render: () => void, fps: number): FixedStepLoop {
+export function startFixedStepLoop(
+  update: () => void,
+  render: () => void,
+  fps: number,
+): FixedStepLoop {
   let timer: ReturnType<typeof setInterval> | null = null;
   const delay = Math.max(1, Math.round(1000 / fps));
 
@@ -114,7 +125,8 @@ export function startArcadeMode<TMode extends string>(
     return null;
   }
   if (mode === options.ready) options.onFirstStart();
-  if (mode === options.playing || mode === options.ready || mode === options.paused) return options.playing;
+  if (mode === options.playing || mode === options.ready || mode === options.paused)
+    return options.playing;
   return mode;
 }
 
@@ -179,7 +191,10 @@ export type ArcadeHud = {
   setStats(stats: Record<string, string | number>): void;
 };
 
-export function createArcadeHud(target: HTMLElement, stats: Record<string, string | number> = {}): ArcadeHud {
+export function createArcadeHud(
+  target: HTMLElement,
+  stats: Record<string, string | number> = {},
+): ArcadeHud {
   const element = el("div", { className: "arcade-hud surface" });
   target.prepend(element);
   const hud = { element, setStats };

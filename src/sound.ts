@@ -73,6 +73,14 @@ export function playSound(cue: SoundCue): void {
     });
     return;
   }
+  unlocked = audio.state === "running";
+  playCue(audio, cue);
+}
+
+export function playSoundIfUnlocked(cue: SoundCue): void {
+  const audio = context;
+  if (!audio || audio.state !== "running") return;
+  unlocked = true;
   playCue(audio, cue);
 }
 

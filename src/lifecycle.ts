@@ -11,6 +11,9 @@ export function createMountScope(): MountScope {
   };
 }
 
-export function onDocumentKeyDown(handler: (event: KeyboardEvent) => void, scope: MountScope): void {
+export function onDocumentKeyDown(
+  handler: (event: KeyboardEvent) => void,
+  scope: MountScope,
+): void {
   document.addEventListener("keydown", handler, { signal: scope.signal });
 }

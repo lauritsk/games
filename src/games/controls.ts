@@ -23,12 +23,17 @@ export type ToggleControl<TValue extends string> = {
   reset(): void;
 };
 
-export function createDifficultyControl(actions: HTMLElement, control: DifficultyControl): HTMLButtonElement {
+export function createDifficultyControl(
+  actions: HTMLElement,
+  control: DifficultyControl,
+): HTMLButtonElement {
   return createDifficultyButton(actions, () => changeDifficulty(control, "next"));
 }
 
 export function changeDifficulty(control: DifficultyControl, direction: "next" | "previous"): void {
-  control.set(direction === "next" ? nextDifficulty(control.get()) : previousDifficulty(control.get()));
+  control.set(
+    direction === "next" ? nextDifficulty(control.get()) : previousDifficulty(control.get()),
+  );
   playSound("uiToggle");
   control.reset();
 }
@@ -49,7 +54,11 @@ export function toggleMode<TValue extends string>(control: ToggleControl<TValue>
   control.reset();
 }
 
-export function createResetControl(actions: HTMLElement, shell: HTMLElement, resetGame: () => void): () => void {
+export function createResetControl(
+  actions: HTMLElement,
+  shell: HTMLElement,
+  resetGame: () => void,
+): () => void {
   const requestReset = (): void => {
     playSound("uiReset");
     requestGameReset(shell, resetGame);

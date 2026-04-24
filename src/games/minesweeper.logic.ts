@@ -15,7 +15,12 @@ export function minesweeperShape(config: MinesweeperConfig): MinesweeperShape {
 export function newMinesweeperBoard(config: MinesweeperConfig): MinesweeperCell[][] {
   const shape = minesweeperShape(config);
   return Array.from({ length: shape.rows }, () =>
-    Array.from({ length: shape.columns }, () => ({ mine: false, open: false, flag: false, nearby: 0 })),
+    Array.from({ length: shape.columns }, () => ({
+      mine: false,
+      open: false,
+      flag: false,
+      nearby: 0,
+    })),
   );
 }
 
@@ -70,14 +75,19 @@ export function floodOpenMinesweeperInPlace(
   }
 }
 
-export function minesweeperNeighbors(config: MinesweeperConfig, row: number, column: number): [number, number][] {
+export function minesweeperNeighbors(
+  config: MinesweeperConfig,
+  row: number,
+  column: number,
+): [number, number][] {
   const shape = minesweeperShape(config);
   const found: [number, number][] = [];
   for (let dr = -1; dr <= 1; dr += 1) {
     for (let dc = -1; dc <= 1; dc += 1) {
       const r = row + dr;
       const c = column + dc;
-      if ((dr !== 0 || dc !== 0) && r >= 0 && r < shape.rows && c >= 0 && c < shape.columns) found.push([r, c]);
+      if ((dr !== 0 || dc !== 0) && r >= 0 && r < shape.rows && c >= 0 && c < shape.columns)
+        found.push([r, c]);
     }
   }
   return found;
@@ -94,8 +104,13 @@ export function openSafeMinesweeperCount(board: MinesweeperCell[][]): number {
 export function assertMinesweeperConfig(config: MinesweeperConfig): void {
   const shape = minesweeperShape(config);
   if (!Number.isInteger(shape.rows) || shape.rows <= 0) throw new Error("Invalid Minesweeper rows");
-  if (!Number.isInteger(shape.columns) || shape.columns <= 0) throw new Error("Invalid Minesweeper columns");
-  if (!Number.isInteger(config.mines) || config.mines < 0 || config.mines >= shape.rows * shape.columns)
+  if (!Number.isInteger(shape.columns) || shape.columns <= 0)
+    throw new Error("Invalid Minesweeper columns");
+  if (
+    !Number.isInteger(config.mines) ||
+    config.mines < 0 ||
+    config.mines >= shape.rows * shape.columns
+  )
     throw new Error("Invalid Minesweeper mine count");
 }
 
