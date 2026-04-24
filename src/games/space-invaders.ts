@@ -1,0 +1,288 @@
+import { Keys, createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, matchesKey, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createInvalidMoveFeedback } from "../feedback";
+import { playSound } from "../sound";
+import { fireInvaderShot, newInvaderState, nextInvaderWave, stepInvaders, type InvaderConfig, type InvaderState } from "./space-invaders.logic";
+
+type Mode = "ready" | "playing" | "paused" | "wave" | "lost";
+
+const configs: Record<Difficulty, InvaderConfig> = {
+  Easy: { alienRows: 3, alienColumns: 7, lives: 4, playerSpeed: 2.8, alienStepEvery: 32, alienShotEvery: 62 },
+  Medium: { alienRows: 4, alienColumns: 8, lives: 3, playerSpeed: 2.5, alienStepEvery: 26, alienShotEvery: 48 },
+  Hard: { alienRows: 5, alienColumns: 9, lives: 2, playerSpeed: 2.2, alienStepEvery: 21, alienShotEvery: 36 },
+};
+
+export const spaceInvaders: GameDefinition = {
+  id: "space-invaders",
+  name: "Space Invaders",
+  tagline: "Hold the line against descending waves.",
+  players: "Solo",
+  theme: "outer-space",
+  mount: mountSpaceInvaders,
+};
+
+export function mountSpaceInvaders(target: HTMLElement): () => void {
+  let difficulty: Difficulty = "Medium";
+  let state = newInvaderState(configs[difficulty]);
+  let mode: Mode = "ready";
+  let timer: ReturnType<typeof setInterval> | null = null;
+  let waveTimer: ReturnType<typeof setTimeout> | null = null;
+  const heldKeys = new Set<"left" | "right">();
+
+  const { shell, status, actions, board, remove } = createGameShell(target, {
+    gameClass: "invaders-game",
+    boardClass: "board--invaders",
+    boardLabel: "Space Invaders playfield",
+    layout: gameLayouts.portraitFit,
+  });
+  shell.tabIndex = 0;
+
+  const scope = createMountScope();
+  const invalidMove = createInvalidMoveFeedback(shell);
+  const player = el("div", { className: "invader-player", ariaLabel: "Player cannon" });
+  const aliens = el("div", { className: "invader-aliens" });
+  const barriers = el("div", { className: "invader-barriers" });
+  const shots = el("div", { className: "invader-shots" });
+  board.append(aliens, barriers, shots, player);
+
+  const difficultyButton = createDifficultyButton(actions, () => {
+    difficulty = nextDifficulty(difficulty);
+    playSound("uiToggle");
+    resetGame();
+  });
+  const pauseButton = el("button", { className: "button pill surface interactive", text: "Pause", type: "button" });
+  pauseButton.addEventListener("click", togglePause);
+  actions.append(pauseButton);
+  createResetButton(actions, requestReset);
+
+  onDocumentKeyDown(onKeyDown, scope);
+  document.addEventListener("keyup", onKeyUp, { signal: scope.signal });
+  window.addEventListener("blur", () => heldKeys.clear(), { signal: scope.signal });
+  board.addEventListener("pointerdown", (event) => {
+    movePointer(event);
+    start();
+    fire();
+  }, { signal: scope.signal });
+  board.addEventListener("pointermove", movePointer, { signal: scope.signal });
+
+  function requestReset(): void {
+    playSound("uiReset");
+    requestGameReset(shell, resetGame);
+  }
+
+  function resetGame(): void {
+    stopTimer();
+    stopWaveTimer();
+    resetGameProgress(shell);
+    state = newInvaderState(configs[difficulty]);
+    mode = "ready";
+    heldKeys.clear();
+    render();
+  }
+
+  function start(): void {
+    if (mode === "lost") {
+      invalidMove.trigger();
+      return;
+    }
+    if (mode === "ready") {
+      mode = "playing";
+      markGameStarted(shell);
+      playSound("gameMajor");
+    }
+    if (mode === "paused") mode = "playing";
+    restartTimer();
+    render();
+  }
+
+  function togglePause(): void {
+    if (mode === "lost" || mode === "wave") return;
+    if (mode === "playing") {
+      mode = "paused";
+      stopTimer();
+      playSound("uiToggle");
+    } else start();
+    render();
+  }
+
+  function onKeyDown(event: KeyboardEvent): void {
+    if (isConfirmOpen()) return;
+    if (event.key.toLowerCase() === "p") {
+      event.preventDefault();
+      togglePause();
+      return;
+    }
+    if (matchesKey(event, [...Keys.left, "a"])) {
+      event.preventDefault();
+      heldKeys.add("left");
+      start();
+      return;
+    }
+    if (matchesKey(event, [...Keys.right, "d"])) {
+      event.preventDefault();
+      heldKeys.add("right");
+      start();
+      return;
+    }
+    handleStandardGameKey(event, {
+      onDirection: moveByDirection,
+      onActivate: () => {
+        start();
+        fire();
+      },
+      onNextDifficulty: () => {
+        difficulty = nextDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onPreviousDifficulty: () => {
+        difficulty = previousDifficulty(difficulty);
+        playSound("uiToggle");
+        resetGame();
+      },
+      onReset: requestReset,
+    });
+  }
+
+  function onKeyUp(event: KeyboardEvent): void {
+    if (matchesKey(event, [...Keys.left, "a"])) heldKeys.delete("left");
+    if (matchesKey(event, [...Keys.right, "d"])) heldKeys.delete("right");
+  }
+
+  function moveByDirection(direction: Direction): void {
+    if (direction !== "left" && direction !== "right") return;
+    heldKeys.add(direction);
+    start();
+  }
+
+  function fire(): void {
+    if (mode !== "playing") return;
+    const before = state.shots.length;
+    state = fireInvaderShot(state);
+    if (state.shots.length > before) playSound("uiToggle");
+    render();
+  }
+
+  function tick(): void {
+    const move = heldKeys.has("left") === heldKeys.has("right") ? 0 : heldKeys.has("left") ? -1 : 1;
+    const beforeScore = state.score;
+    const beforeLives = state.lives;
+    state = stepInvaders(state, configs[difficulty], { move });
+    if (state.score > beforeScore) playSound("gameGood");
+    if (state.lives < beforeLives) playSound("gameLose");
+    if (state.lost) {
+      mode = "lost";
+      markGameFinished(shell);
+      stopTimer();
+      heldKeys.clear();
+      playSound("gameLose");
+    } else if (state.won) {
+      mode = "wave";
+      stopTimer();
+      heldKeys.clear();
+      playSound("gameWin");
+      waveTimer = setTimeout(() => {
+        waveTimer = null;
+        state = nextInvaderWave(state, configs[difficulty]);
+        mode = "playing";
+        restartTimer();
+        render();
+      }, 900);
+    }
+    render();
+  }
+
+  function movePointer(event: PointerEvent): void {
+    const rect = board.getBoundingClientRect();
+    const center = ((event.clientX - rect.left) / rect.width) * state.width;
+    state = { ...state, player: { ...state.player, x: Math.max(0, Math.min(state.width - state.player.width, center - state.player.width / 2)) } };
+    render();
+  }
+
+  function render(): void {
+    difficultyButton.textContent = difficulty;
+    pauseButton.textContent = mode === "paused" ? "Resume" : "Pause";
+    status.textContent = statusText();
+    position(player, state.player.x, state.player.y, state.player.width, state.player.height);
+    syncAliens(state);
+    syncBarriers(state);
+    syncShots(state);
+  }
+
+  function syncAliens(next: InvaderState): void {
+    syncPositioned(aliens, next.aliens.length, "invader-alien", (child, index) => {
+      const alien = next.aliens[index];
+      if (!alien) return;
+      position(child, alien.x, alien.y, alien.width, alien.height);
+      child.dataset.alive = String(alien.alive);
+      child.setAttribute("aria-label", alien.alive ? `Alien ${index + 1}` : `Destroyed alien ${index + 1}`);
+    });
+  }
+
+  function syncBarriers(next: InvaderState): void {
+    syncPositioned(barriers, next.barriers.length, "invader-barrier", (child, index) => {
+      const barrier = next.barriers[index];
+      if (!barrier) return;
+      position(child, barrier.x, barrier.y, barrier.width, barrier.height);
+      child.dataset.hp = String(barrier.hp);
+      child.setAttribute("aria-label", `Barrier ${index + 1}, ${barrier.hp} strength`);
+    });
+  }
+
+  function syncShots(next: InvaderState): void {
+    syncPositioned(shots, next.shots.length, "invader-shot", (child, index) => {
+      const shot = next.shots[index];
+      if (!shot) return;
+      child.dataset.owner = shot.owner;
+      position(child, shot.x - 0.35, shot.y - 1.3, 0.7, 2.6);
+    });
+  }
+
+  function syncPositioned(container: HTMLElement, count: number, className: string, apply: (child: HTMLElement, index: number) => void): void {
+    while (container.children.length > count) container.lastElementChild?.remove();
+    while (container.children.length < count) container.append(el("div", { className }));
+    Array.from(container.children).forEach((child, index) => {
+      if (child instanceof HTMLElement) apply(child, index);
+    });
+  }
+
+  function position(element: HTMLElement, x: number, y: number, width: number, height: number): void {
+    element.style.left = `${x}%`;
+    element.style.top = `${y}%`;
+    element.style.width = `${width}%`;
+    element.style.height = `${height}%`;
+  }
+
+  function statusText(): string {
+    if (mode === "ready") return "Ready";
+    if (mode === "paused") return "Paused";
+    if (mode === "wave") return `Wave ${state.wave + 1}`;
+    if (mode === "lost") return `Over · ${state.score}`;
+    return `${state.score} · W${state.wave} · ${"♥".repeat(state.lives)}`;
+  }
+
+  function restartTimer(): void {
+    if (mode !== "playing" || timer) return;
+    timer = setInterval(tick, 32);
+  }
+
+  function stopTimer(): void {
+    if (!timer) return;
+    clearInterval(timer);
+    timer = null;
+  }
+
+  function stopWaveTimer(): void {
+    if (!waveTimer) return;
+    clearTimeout(waveTimer);
+    waveTimer = null;
+  }
+
+  render();
+  return () => {
+    stopTimer();
+    stopWaveTimer();
+    invalidMove.cleanup();
+    scope.cleanup();
+    remove();
+  };
+}

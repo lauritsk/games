@@ -34,7 +34,7 @@ Build these first because they fit current patterns or unlock reusable systems f
   - Shared playfield/collision helpers where useful.
   - Later: power-ups and multi-ball.
 
-- [ ] Space Invaders
+- [x] Space Invaders
   - Player cannon vs descending alien formation.
   - Shots, barriers, waves, level speed-up.
   - Reuse fixed-step loop and keyboard helpers.

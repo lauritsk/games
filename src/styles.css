@@ -294,13 +294,34 @@
     background: #070514;
   }
 
-  .board--breakout {
+  .board--breakout,
+  .board--invaders {
     position: relative;
     display: block;
     touch-action: none;
+  }
+
+  .board--breakout {
     background:
       radial-gradient(circle at 50% 90%, rgba(240, 168, 93, 0.18), transparent 38%),
       #160d08;
+  }
+
+  .board--invaders {
+    background:
+      radial-gradient(circle at 50% 100%, rgba(197, 179, 255, 0.18), transparent 42%),
+      linear-gradient(180deg, rgba(103, 216, 255, 0.08), transparent 32%),
+      #070514;
+  }
+
+  .board--invaders::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.7) 0 1px, transparent 1.5px);
+    background-size: 23px 29px;
+    opacity: 0.16;
+    pointer-events: none;
   }
 
   .slot,
@@ -456,7 +477,11 @@
 
   .breakout-ball,
   .breakout-paddle,
-  .breakout-brick {
+  .breakout-brick,
+  .invader-player,
+  .invader-alien,
+  .invader-barrier,
+  .invader-shot {
     position: absolute;
     display: block;
   }
@@ -480,6 +505,54 @@
   }
 
   .breakout-brick[data-alive="false"] { opacity: 0; }
+
+  .invader-player {
+    clip-path: polygon(50% 0, 64% 36%, 100% 42%, 100% 100%, 0 100%, 0 42%, 36% 36%);
+    background: var(--accent);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--accent), transparent 40%);
+  }
+
+  .invader-alien {
+    border-radius: 35% 35% 12% 12%;
+    background: #a7f06d;
+    box-shadow: inset 0 -4px 0 rgba(0,0,0,0.2), 0 0 13px rgba(167, 240, 109, 0.35);
+  }
+
+  .invader-alien::before,
+  .invader-alien::after {
+    content: "";
+    position: absolute;
+    top: 34%;
+    width: 12%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: #070514;
+  }
+
+  .invader-alien::before { left: 28%; }
+  .invader-alien::after { right: 28%; }
+  .invader-alien[data-alive="false"] { opacity: 0; }
+
+  .invader-barrier {
+    border-radius: 7px 7px 12px 12px;
+    background: #67d8ff;
+    box-shadow: inset 0 -5px 0 rgba(0,0,0,0.18);
+  }
+
+  .invader-barrier[data-hp="2"] { opacity: 0.72; }
+  .invader-barrier[data-hp="1"] { opacity: 0.42; clip-path: polygon(0 18%, 24% 0, 52% 24%, 84% 4%, 100% 32%, 78% 100%, 8% 86%); }
+  .invader-barrier[data-hp="0"] { opacity: 0; }
+
+  .invader-shot {
+    border-radius: 999px;
+    background: #f7efe1;
+    box-shadow: 0 0 10px rgba(247, 239, 225, 0.6);
+  }
+
+  .invader-shot[data-owner="alien"] {
+    background: #ff6b6b;
+    box-shadow: 0 0 10px rgba(255, 107, 107, 0.6);
+  }
 
   .breakout-game[data-life-lost="true"] .board--breakout::after {
     content: "Life lost";

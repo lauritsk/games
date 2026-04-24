@@ -5,6 +5,7 @@ import { connect4Human, dropConnect4DiscInPlace, findConnect4TacticalMove, findC
 import { floodOpenMinesweeperInPlace, minesweeperNeighbors, minesweeperShape, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperConfig } from "../src/games/minesweeper.logic";
 import { allMemoryMatched, newMemoryDeck, openUnmatchedMemoryCards, type MemoryCard } from "../src/games/memory.logic";
 import { moveSnakePoint, nextSnakeDirection, snakeOutOfBounds, snakePointsEqual, startSnakeBody } from "../src/games/snake.logic";
+import { fireInvaderShot, newInvaderState, nextInvaderWave, stepInvaders } from "../src/games/space-invaders.logic";
 import { canPlaceTetrisPiece, clearTetrisLines, lockTetrisPiece, moveTetrisPiece, newTetrisBoard, rotateTetrisPiece, spawnTetrisPiece, tetrisDrop, tetrisGhostPiece, tetrisLineScore, tetrisRows, type TetrisBoard } from "../src/games/tetris.logic";
 import { chooseTicTacToeBotMove, getTicTacToeWinner, humanMark, newTicTacToeBoard, winningTicTacToeMove, type TicTacToeCell } from "../src/games/tictactoe.logic";
 
@@ -77,6 +78,56 @@ describe("breakout logic", () => {
       ball: { x: 50, y: state.paddle.y - 2.4, vx: 0, vy: 1, radius: 1.6 },
     });
     expect(caught.ball.vy).toBeLessThan(0);
+  });
+});
+
+describe("space invaders logic", () => {
+  const config = { alienRows: 1, alienColumns: 2, lives: 2, playerSpeed: 4, alienStepEvery: 2, alienShotEvery: 99 };
+
+  test("fires, destroys aliens, and advances waves", () => {
+    const state = newInvaderState(config);
+    const alien = state.aliens[0]!;
+    const aimed = { ...state, player: { ...state.player, x: alien.x + alien.width / 2 - state.player.width / 2 } };
+    const fired = fireInvaderShot(aimed);
+    expect(fired.shots.some((shot) => shot.owner === "player")).toBe(true);
+    expect(fired.tick).toBe(state.tick);
+    expect(fired.aliens).toEqual(state.aliens);
+
+    const hit = stepInvaders({ ...state, shots: [{ x: alien.x + alien.width / 2, y: alien.y + alien.height / 2 + 2, vy: -2, owner: "player" }] }, config);
+    expect(hit.score).toBe(20);
+    expect(hit.aliens.filter((candidate) => candidate.alive)).toHaveLength(1);
+
+    const won = { ...hit, aliens: hit.aliens.map((candidate) => ({ ...candidate, alive: false })), won: true };
+    const next = nextInvaderWave(won, config);
+    expect(next.wave).toBe(2);
+    expect(next.score).toBe(won.score);
+  });
+
+  test("barriers absorb shots and invaders can defeat player", () => {
+    const state = newInvaderState(config);
+    const barrier = state.barriers[0]!;
+    const blocked = stepInvaders({ ...state, shots: [{ x: barrier.x + 1, y: barrier.y + 1, vy: 1, owner: "alien" }] }, config);
+    expect(blocked.barriers[0]?.hp).toBe(2);
+    expect(blocked.shots).toHaveLength(0);
+
+    const invaded = stepInvaders({ ...state, aliens: state.aliens.map((alien) => ({ ...alien, y: state.player.y })) }, config);
+    expect(invaded.lost).toBe(true);
+  });
+
+  test("winning takes priority over simultaneous loss", () => {
+    const state = newInvaderState({ ...config, lives: 1 });
+    const alien = state.aliens[0]!;
+    const finalAlien = [{ ...alien, alive: true }];
+    const resolved = stepInvaders({
+      ...state,
+      aliens: finalAlien,
+      shots: [
+        { x: alien.x + alien.width / 2, y: alien.y + alien.height / 2 + 2, vy: -2, owner: "player" },
+        { x: state.player.x + 1, y: state.player.y + 1, vy: 1, owner: "alien" },
+      ],
+    }, config);
+    expect(resolved.won).toBe(true);
+    expect(resolved.lost).toBe(false);
   });
 });
 
