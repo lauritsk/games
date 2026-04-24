@@ -1,4 +1,4 @@
-import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
+import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type GameDefinition } from "../core";
 import { playSound } from "../sound";
 
 type Player = 1 | 2;
@@ -40,6 +40,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     boardLabel: "Connect 4 board",
   });
   shell.tabIndex = 0;
+  setBoardGrid(grid, columns, rows);
   document.addEventListener("keydown", onKeyDown);
 
   const modeButton = button("", "button pill surface interactive");

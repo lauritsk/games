@@ -1,8 +1,7 @@
-import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
+import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { playSound } from "../sound";
 
 type Point = { row: number; column: number };
-type Direction = "up" | "right" | "down" | "left";
 type State = "ready" | "playing" | "won" | "lost";
 type Config = { size: number; speed: number };
 
@@ -76,7 +75,7 @@ export function mountSnake(target: HTMLElement): () => void {
 
   function render(): void {
     clearNode(grid);
-    grid.style.setProperty("--snake-size", String(config.size));
+    setBoardGrid(grid, config.size);
     status.textContent = statusText();
     difficultyButton.textContent = difficulty;
 
@@ -97,7 +96,7 @@ export function mountSnake(target: HTMLElement): () => void {
 
   function onKeyDown(event: KeyboardEvent): void {
     if (isConfirmOpen()) return;
-    const next = keyDirection(event);
+    const next = directionFromKey(event);
     if (next) {
       event.preventDefault();
       if (queueDirection(next)) playSound("gameMove");
@@ -206,14 +205,6 @@ function startSnake(size: number): Point[] {
     { row, column: column - 1 },
     { row, column: column - 2 },
   ];
-}
-
-function keyDirection(event: KeyboardEvent): Direction | null {
-  if (matchesKey(event, ["arrowup", "w", "k"])) return "up";
-  if (matchesKey(event, ["arrowright", "d", "l"])) return "right";
-  if (matchesKey(event, ["arrowdown", "s", "j"])) return "down";
-  if (matchesKey(event, ["arrowleft", "a", "h"])) return "left";
-  return null;
 }
 
 function movePoint(point: Point, direction: Direction): Point {

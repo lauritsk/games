@@ -1,4 +1,4 @@
-import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
+import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, moveGridPoint, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, shuffle, type Difficulty, type GameDefinition } from "../core";
 import { playSound } from "../sound";
 
 type Cell = { mine: boolean; open: boolean; flag: boolean; nearby: number };
@@ -66,7 +66,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
 
   function render(): void {
     clearNode(grid);
-    grid.style.setProperty("--mine-size", String(config.size));
+    setBoardGrid(grid, config.size);
     status.textContent = statusText();
     difficultyButton.textContent = difficulty;
 
@@ -93,21 +93,12 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   function onKeyDown(event: KeyboardEvent): void {
     if (isConfirmOpen()) return;
     const key = event.key.toLowerCase();
-    if (matchesKey(event, Keys.up)) {
+    const direction = directionFromKey(event);
+    if (direction) {
       event.preventDefault();
-      selectedRow = Math.max(0, selectedRow - 1);
-      render();
-    } else if (matchesKey(event, Keys.right)) {
-      event.preventDefault();
-      selectedColumn = Math.min(config.size - 1, selectedColumn + 1);
-      render();
-    } else if (matchesKey(event, Keys.down)) {
-      event.preventDefault();
-      selectedRow = Math.min(config.size - 1, selectedRow + 1);
-      render();
-    } else if (matchesKey(event, Keys.left)) {
-      event.preventDefault();
-      selectedColumn = Math.max(0, selectedColumn - 1);
+      const next = moveGridPoint({ row: selectedRow, column: selectedColumn }, direction, config.size, config.size);
+      selectedRow = next.row;
+      selectedColumn = next.column;
       render();
     } else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
@@ -256,14 +247,6 @@ function neighbors(config: Config, row: number, column: number): [number, number
 }
 
 function key(row: number, column: number): string { return `${row}:${column}`; }
-
-function shuffle<T>(items: T[]): T[] {
-  for (let index = items.length - 1; index > 0; index -= 1) {
-    const swap = Math.floor(Math.random() * (index + 1));
-    [items[index], items[swap]] = [items[swap]!, items[index]!];
-  }
-  return items;
-}
 
 function cellText(cell: Cell): string {
   if (cell.flag) return "⚑";

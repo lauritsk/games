@@ -1,4 +1,4 @@
-import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
+import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, moveGridIndex, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, shuffle, type Difficulty, type GameDefinition } from "../core";
 import { playSound } from "../sound";
 
 type Card = { id: number; symbol: string; open: boolean; matched: boolean };
@@ -67,8 +67,7 @@ export function mountMemory(target: HTMLElement): () => void {
 
   function render(): void {
     clearNode(grid);
-    grid.style.setProperty("--memory-columns", String(config.columns));
-    grid.style.setProperty("--memory-rows", String(config.rows));
+    setBoardGrid(grid, config.columns, config.rows);
     status.textContent = allMatched() ? `Won · ${moves}` : `Moves ${moves}`;
     difficultyButton.textContent = difficulty;
 
@@ -87,21 +86,10 @@ export function mountMemory(target: HTMLElement): () => void {
 
   function onKeyDown(event: KeyboardEvent): void {
     if (isConfirmOpen()) return;
-    if (matchesKey(event, Keys.up)) {
+    const direction = directionFromKey(event);
+    if (direction) {
       event.preventDefault();
-      selected = Math.max(0, selected - config.columns);
-      render();
-    } else if (matchesKey(event, Keys.right)) {
-      event.preventDefault();
-      selected = Math.min(cards.length - 1, selected + 1);
-      render();
-    } else if (matchesKey(event, Keys.down)) {
-      event.preventDefault();
-      selected = Math.min(cards.length - 1, selected + config.columns);
-      render();
-    } else if (matchesKey(event, Keys.left)) {
-      event.preventDefault();
-      selected = Math.max(0, selected - 1);
+      selected = moveGridIndex(selected, direction, config.columns, cards.length);
       render();
     } else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
@@ -190,12 +178,4 @@ function newDeck(pairs: number): Card[] {
     { id: id * 2, symbol, open: false, matched: false },
     { id: id * 2 + 1, symbol, open: false, matched: false },
   ]));
-}
-
-function shuffle<T>(items: T[]): T[] {
-  for (let index = items.length - 1; index > 0; index -= 1) {
-    const swap = Math.floor(Math.random() * (index + 1));
-    [items[index], items[swap]] = [items[swap]!, items[index]!];
-  }
-  return items;
 }

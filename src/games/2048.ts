@@ -1,7 +1,6 @@
-import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
+import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { playSound } from "../sound";
 
-type Direction = "up" | "right" | "down" | "left";
 type Board = number[][];
 
 const sizes: Record<Difficulty, number> = { Easy: 3, Medium: 4, Hard: 5 };
@@ -57,7 +56,7 @@ export function mount2048(target: HTMLElement): () => void {
 
   function render(): void {
     clearNode(grid);
-    grid.style.setProperty("--tile-size", String(size));
+    setBoardGrid(grid, size);
     status.textContent = over ? `Done · ${score}` : String(score);
     difficultyButton.textContent = difficulty;
 
@@ -71,7 +70,7 @@ export function mount2048(target: HTMLElement): () => void {
   function onKeyDown(event: KeyboardEvent): void {
     if (isConfirmOpen()) return;
     const key = event.key.toLowerCase();
-    const direction = keyDirection(event.key);
+    const direction = directionFromKey(event);
     if (direction && !over) {
       event.preventDefault();
       move(direction);
@@ -127,14 +126,6 @@ function addRandomTile(board: Board): Board {
   const cell = empty[Math.floor(Math.random() * empty.length)];
   if (cell) next[cell.r]![cell.c] = Math.random() < 0.9 ? 2 : 4;
   return next;
-}
-
-function keyDirection(key: string): Direction | null {
-  if (key === "ArrowUp" || ["w", "k"].includes(key.toLowerCase())) return "up";
-  if (key === "ArrowRight" || ["d", "l"].includes(key.toLowerCase())) return "right";
-  if (key === "ArrowDown" || ["s", "j"].includes(key.toLowerCase())) return "down";
-  if (key === "ArrowLeft" || ["a", "h"].includes(key.toLowerCase())) return "left";
-  return null;
 }
 
 function slide(board: Board, direction: Direction): { board: Board; score: number; changed: boolean } {
@@ -197,7 +188,7 @@ function boardsEqual(a: Board, b: Board): boolean {
 
 function canMove(board: Board): boolean {
   if (board.flat().includes(0)) return true;
-  return ["up", "right", "down", "left"].some((direction) => slide(board, direction as Direction).changed);
+  return (["up", "right", "down", "left"] as const).some((direction) => slide(board, direction).changed);
 }
 
 function clone(board: Board): Board {

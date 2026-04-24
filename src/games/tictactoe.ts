@@ -1,4 +1,4 @@
-import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type GameDefinition } from "../core";
+import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, moveGridIndex, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type GameDefinition } from "../core";
 import { playSound } from "../sound";
 
 type Mark = "X" | "O";
@@ -44,6 +44,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     boardLabel: "Tic-Tac-Toe board",
   });
   shell.tabIndex = 0;
+  setBoardGrid(grid, size);
   document.addEventListener("keydown", onKeyDown);
 
   const modeButton = button("", "button pill surface interactive");
@@ -99,21 +100,10 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   function onKeyDown(event: KeyboardEvent): void {
     if (isConfirmOpen()) return;
     const key = event.key.toLowerCase();
-    if (matchesKey(event, Keys.up)) {
+    const direction = directionFromKey(event);
+    if (direction) {
       event.preventDefault();
-      selected = Math.max(0, selected - size);
-      render();
-    } else if (matchesKey(event, Keys.right)) {
-      event.preventDefault();
-      selected = Math.min(board.length - 1, selected + 1);
-      render();
-    } else if (matchesKey(event, Keys.down)) {
-      event.preventDefault();
-      selected = Math.min(board.length - 1, selected + size);
-      render();
-    } else if (matchesKey(event, Keys.left)) {
-      event.preventDefault();
-      selected = Math.max(0, selected - 1);
+      selected = moveGridIndex(selected, direction, size, board.length);
       render();
     } else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();

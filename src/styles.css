@@ -197,7 +197,7 @@
   }
 
   .board--connect4 {
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(var(--board-columns, 7), minmax(0, 1fr));
     gap: clamp(5px, 1.2vmin, 10px);
     aspect-ratio: 7 / 6;
     background: #083a5a;
@@ -209,35 +209,35 @@
   }
 
   .board--minesweeper {
-    grid-template-columns: repeat(var(--mine-size, 9), 1fr);
+    grid-template-columns: repeat(var(--board-columns, 9), minmax(0, 1fr));
     gap: clamp(3px, 0.8vmin, 7px);
     background: #241712;
   }
 
   .board--2048 {
-    grid-template-columns: repeat(var(--tile-size, 4), 1fr);
+    grid-template-columns: repeat(var(--board-columns, 4), minmax(0, 1fr));
     gap: clamp(7px, 1.4vmin, 12px);
     background: #151126;
     contain: layout paint;
   }
 
   .board--tictactoe {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(var(--board-columns, 3), minmax(0, 1fr));
     gap: clamp(8px, 1.6vmin, 14px);
     aspect-ratio: 1;
     background: #102116;
   }
 
   .board--snake {
-    grid-template-columns: repeat(var(--snake-size, 18), 1fr);
+    grid-template-columns: repeat(var(--board-columns, 18), minmax(0, 1fr));
     gap: 2px;
     aspect-ratio: 1;
     background: #08150d;
   }
 
   .board--memory {
-    grid-template-columns: repeat(var(--memory-columns, 4), minmax(0, 1fr));
-    grid-template-rows: repeat(var(--memory-rows, 4), minmax(0, 1fr));
+    grid-template-columns: repeat(var(--board-columns, 4), minmax(0, 1fr));
+    grid-template-rows: repeat(var(--board-rows, 4), minmax(0, 1fr));
     gap: clamp(7px, 1.3vmin, 12px);
     aspect-ratio: 1;
     background: #071c2c;
