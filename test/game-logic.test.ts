@@ -4,6 +4,7 @@ import { connect4Human, dropConnect4DiscInPlace, findConnect4TacticalMove, findC
 import { floodOpenMinesweeperInPlace, minesweeperNeighbors, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperConfig } from "../src/games/minesweeper.logic";
 import { allMemoryMatched, newMemoryDeck, openUnmatchedMemoryCards, type MemoryCard } from "../src/games/memory.logic";
 import { moveSnakePoint, nextSnakeDirection, snakeOutOfBounds, snakePointsEqual, startSnakeBody } from "../src/games/snake.logic";
+import { canPlaceTetrisPiece, clearTetrisLines, lockTetrisPiece, moveTetrisPiece, newTetrisBoard, rotateTetrisPiece, spawnTetrisPiece, tetrisDrop, tetrisLineScore, tetrisRows, type TetrisBoard } from "../src/games/tetris.logic";
 import { chooseTicTacToeBotMove, getTicTacToeWinner, humanMark, newTicTacToeBoard, winningTicTacToeMove, type TicTacToeCell } from "../src/games/tictactoe.logic";
 
 describe("2048 logic", () => {
@@ -75,6 +76,44 @@ describe("snake logic", () => {
     expect(nextSnakeDirection("right", "right", "left")).toBe("right");
     expect(snakeOutOfBounds({ row: -1, column: 0 }, 10)).toBe(true);
     expect(snakePointsEqual({ row: 1, column: 2 }, { row: 1, column: 2 })).toBe(true);
+  });
+});
+
+describe("tetris logic", () => {
+  test("rotates pieces and uses wall kicks", () => {
+    const board = newTetrisBoard();
+    const piece = spawnTetrisPiece("I");
+    expect(rotateTetrisPiece(board, piece).rotation).toBe(1);
+
+    const againstLeftWall = { ...spawnTetrisPiece("I"), origin: { row: 2, column: 0 }, rotation: 1 };
+    const rotated = rotateTetrisPiece(board, againstLeftWall);
+    expect(rotated.rotation).toBe(2);
+    expect(canPlaceTetrisPiece(board, rotated)).toBe(true);
+  });
+
+  test("locks pieces, clears lines, and scores by level", () => {
+    const board = newTetrisBoard();
+    const locked = lockTetrisPiece(board, { ...spawnTetrisPiece("O"), origin: { row: 19, column: 4 } });
+    expect(locked[19]?.filter(Boolean)).toHaveLength(2);
+
+    const fullBoard: TetrisBoard = newTetrisBoard();
+    fullBoard[tetrisRows - 1] = Array.from({ length: 10 }, () => "T");
+    const cleared = clearTetrisLines(fullBoard);
+    expect(cleared.cleared).toBe(1);
+    expect(cleared.board[0]?.every((cell) => cell === "")).toBe(true);
+    expect(tetrisLineScore(4, 3)).toBe(2400);
+  });
+
+  test("drops until lock and detects game over", () => {
+    const board = newTetrisBoard();
+    const state = { board, piece: { ...spawnTetrisPiece("O"), origin: { row: 19, column: 4 } }, next: "I" as const, bag: ["T" as const], score: 0, lines: 0, level: 1, over: false };
+    expect(tetrisDrop(state).board[19]?.filter(Boolean)).toHaveLength(2);
+
+    const blocked = newTetrisBoard();
+    blocked[1] = Array.from({ length: 10 }, () => "Z");
+    const blockedState = { ...state, board: blocked, piece: spawnTetrisPiece("O") };
+    expect(tetrisDrop(blockedState).over).toBe(true);
+    expect(moveTetrisPiece(board, spawnTetrisPiece("T"), "down").origin.row).toBe(2);
   });
 });
 

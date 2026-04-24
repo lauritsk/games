@@ -249,12 +249,21 @@
     background: #071c2c;
   }
 
+  .board--tetris {
+    grid-template-columns: repeat(var(--board-columns, 10), minmax(0, 1fr));
+    grid-template-rows: repeat(var(--board-rows, 20), minmax(0, 1fr));
+    gap: 2px;
+    aspect-ratio: 1 / 2;
+    background: #070514;
+  }
+
   .slot,
   .mine-cell,
   .tile,
   .ttt-cell,
   .snake-cell,
-  .memory-card {
+  .memory-card,
+  .tetris-cell {
     aspect-ratio: 1;
     min-width: 0;
     min-height: 0;
@@ -349,6 +358,20 @@
   .snake-cell[data-snake="true"] { background: var(--accent); box-shadow: none; }
   .snake-cell[data-head="true"] { background: #f7efe1; transform: scale(1.04); }
   .snake-cell[data-food="true"] { background: #ff6b6b; border-radius: 50%; box-shadow: 0 0 16px rgba(255, 107, 107, 0.45); }
+
+  .tetris-cell {
+    border-radius: 5px;
+    transition: background var(--ease), transform var(--ease), opacity var(--ease);
+  }
+
+  .tetris-cell[data-value="I"] { background: #67d8ff; }
+  .tetris-cell[data-value="J"] { background: #6b8cff; }
+  .tetris-cell[data-value="L"] { background: #f0a85d; }
+  .tetris-cell[data-value="O"] { background: #ffd766; }
+  .tetris-cell[data-value="S"] { background: #a7f06d; }
+  .tetris-cell[data-value="T"] { background: #c5b3ff; }
+  .tetris-cell[data-value="Z"] { background: #ff6b6b; }
+  .tetris-cell[data-active="true"] { transform: scale(1.06); box-shadow: 0 0 14px color-mix(in srgb, var(--accent), transparent 48%); }
 
   .memory-card {
     display: grid;

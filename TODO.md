@@ -22,7 +22,7 @@ Implemented games:
 
 Build these first because they fit current patterns or unlock reusable systems for later games.
 
-- [ ] Tetris
+- [x] Tetris
   - Pure logic: board, tetromino bag, rotate, collide, lock, clear lines.
   - Tests: rotation, wall kicks, line clears, level speed, game over.
   - UI: board renderer, next-piece preview, score, level, pause.
