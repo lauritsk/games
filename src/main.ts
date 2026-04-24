@@ -70,7 +70,15 @@ function renderDashboard(): void {
   }
 
   function renderSelection(): void {
-    const cards = syncChildren(list, games.length, (index) => gameCard(required(games[index])));
+    const cards = syncChildren(list, games.length, (index) => {
+      const card = gameCard(required(games[index]));
+      card.addEventListener("pointerenter", () => {
+        if (selectedIndex === index) return;
+        selectedIndex = index;
+        renderSelection();
+      });
+      return card;
+    });
     games.forEach((game, index) => {
       const card = required(cards[index]);
       card.href = `#/${game.id}`;

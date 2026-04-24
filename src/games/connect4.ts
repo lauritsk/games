@@ -81,6 +81,11 @@ export function mountConnect4(target: HTMLElement): () => void {
       const column = index % connect4Columns;
       const cell = el("button", { className: "slot", type: "button" });
       cell.addEventListener("click", () => playTurn(column));
+      cell.addEventListener("pointerenter", () => {
+        if (selectedColumn === column) return;
+        selectedColumn = column;
+        render();
+      });
       return cell;
     });
     cells.forEach((cell, index) => {

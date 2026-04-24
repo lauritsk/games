@@ -70,6 +70,14 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     const tiles = syncChildren(grid, config.size * config.size, () => {
       const tile = el("button", { className: "mine-cell", type: "button" });
       tile.addEventListener("click", () => openCell(Number(tile.dataset.row), Number(tile.dataset.column)));
+      tile.addEventListener("pointerenter", () => {
+        const row = Number(tile.dataset.row);
+        const column = Number(tile.dataset.column);
+        if (selectedRow === row && selectedColumn === column) return;
+        selectedRow = row;
+        selectedColumn = column;
+        render();
+      });
       tile.addEventListener("contextmenu", (event) => {
         event.preventDefault();
         toggleFlag(Number(tile.dataset.row), Number(tile.dataset.column));

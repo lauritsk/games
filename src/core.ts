@@ -256,6 +256,8 @@ export function confirmChoice(message: string, onYes: () => void, onClose?: () =
   const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   yes.addEventListener("click", yesAction);
   no.addEventListener("click", close);
+  yes.addEventListener("pointerenter", () => select(0));
+  no.addEventListener("pointerenter", () => select(1));
   dialog.addEventListener("cancel", (event) => {
     event.preventDefault();
     close();
@@ -269,17 +271,13 @@ export function confirmChoice(message: string, onYes: () => void, onClose?: () =
     const key = event.key.toLowerCase();
     if (key === "tab") {
       event.preventDefault();
-      selected = selected === 0 ? 1 : 0;
-      render();
-      (selected === 0 ? yes : no).focus();
+      select(selected === 0 ? 1 : 0);
     } else if (matchesKey(event, Keys.previous)) {
       event.preventDefault();
-      selected = 0;
-      render();
+      select(0);
     } else if (matchesKey(event, Keys.next)) {
       event.preventDefault();
-      selected = 1;
-      render();
+      select(1);
     } else if (key === "y") {
       event.preventDefault();
       yesAction();
@@ -290,6 +288,12 @@ export function confirmChoice(message: string, onYes: () => void, onClose?: () =
       event.preventDefault();
       selected === 0 ? yesAction() : close();
     }
+  }
+
+  function select(next: number): void {
+    if (selected === next) return;
+    selected = next;
+    render();
   }
 
   function render(): void {

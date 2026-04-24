@@ -73,6 +73,11 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     const cells = syncChildren(grid, board.length, (index) => {
       const cell = el("button", { className: "ttt-cell", type: "button" });
       cell.addEventListener("click", () => playTurn(index));
+      cell.addEventListener("pointerenter", () => {
+        if (selected === index) return;
+        selected = index;
+        render();
+      });
       return cell;
     });
     board.forEach((value, index) => {

@@ -69,6 +69,11 @@ export function mountMemory(target: HTMLElement): () => void {
     const tiles = syncChildren(grid, cards.length, (index) => {
       const tile = el("button", { className: "memory-card", type: "button" });
       tile.addEventListener("click", () => flip(index));
+      tile.addEventListener("pointerenter", () => {
+        if (selected === index) return;
+        selected = index;
+        render();
+      });
       return tile;
     });
     cards.forEach((card, index) => {
