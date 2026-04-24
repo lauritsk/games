@@ -119,8 +119,18 @@
     z-index: 10;
     display: grid;
     place-items: center;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
     background: rgba(0, 0, 0, 0.42);
+    color: inherit;
   }
+
+  .confirm::backdrop { background: transparent; }
 
   .confirm__panel {
     display: grid;
