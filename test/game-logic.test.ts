@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { canMove2048, merge2048Line, slide2048 } from "../src/games/2048.logic";
 import { newBreakoutState, moveBreakoutPaddle, stepBreakout, circleIntersectsRect } from "../src/games/breakout.logic";
 import { connect4Human, dropConnect4DiscInPlace, findConnect4TacticalMove, findConnect4Win, newConnect4Board } from "../src/games/connect4.logic";
-import { floodOpenMinesweeperInPlace, minesweeperNeighbors, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperConfig } from "../src/games/minesweeper.logic";
+import { floodOpenMinesweeperInPlace, minesweeperNeighbors, minesweeperShape, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperConfig } from "../src/games/minesweeper.logic";
 import { allMemoryMatched, newMemoryDeck, openUnmatchedMemoryCards, type MemoryCard } from "../src/games/memory.logic";
 import { moveSnakePoint, nextSnakeDirection, snakeOutOfBounds, snakePointsEqual, startSnakeBody } from "../src/games/snake.logic";
 import { canPlaceTetrisPiece, clearTetrisLines, lockTetrisPiece, moveTetrisPiece, newTetrisBoard, rotateTetrisPiece, spawnTetrisPiece, tetrisDrop, tetrisGhostPiece, tetrisLineScore, tetrisRows, type TetrisBoard } from "../src/games/tetris.logic";
@@ -126,6 +126,16 @@ describe("minesweeper logic", () => {
     const board = newMinesweeperBoard({ size: 3, mines: 0 });
     floodOpenMinesweeperInPlace(board, { size: 3, mines: 0 }, 1, 1);
     expect(openSafeMinesweeperCount(board)).toBe(9);
+  });
+
+  test("supports rectangular scroll-ready boards", () => {
+    const rectangle: MinesweeperConfig = { rows: 3, columns: 5, mines: 2, layout: "scroll" };
+    const board = seededMinesweeperBoard(rectangle, 0, 0, () => 0.9);
+    expect(minesweeperShape(rectangle)).toEqual({ rows: 3, columns: 5 });
+    expect(board).toHaveLength(3);
+    expect(board[0]).toHaveLength(5);
+    expect(board.flat().filter((cell) => cell.mine)).toHaveLength(2);
+    expect(minesweeperNeighbors(rectangle, 2, 4)).toEqual([[1, 3], [1, 4], [2, 3]]);
   });
 });
 

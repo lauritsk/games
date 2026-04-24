@@ -1,14 +1,14 @@
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, moveGridPoint, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import { applyGameLayout, createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, moveGridPoint, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
-import { flagMinesweeperCount, floodOpenMinesweeperInPlace, minesweeperNeighbors, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperCell, type MinesweeperConfig } from "./minesweeper.logic";
+import { flagMinesweeperCount, floodOpenMinesweeperInPlace, minesweeperNeighbors, minesweeperShape, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperCell, type MinesweeperConfig } from "./minesweeper.logic";
 
 type State = "playing" | "won" | "lost";
 
 const configs: Record<Difficulty, MinesweeperConfig> = {
-  Easy: { size: 8, mines: 8 },
-  Medium: { size: 12, mines: 24 },
-  Hard: { size: 16, mines: 56 },
+  Easy: { rows: 8, columns: 8, mines: 8, layout: "fit" },
+  Medium: { rows: 12, columns: 12, mines: 24, layout: "fit" },
+  Hard: { rows: 16, columns: 16, mines: 56, layout: "fit" },
 };
 
 export const minesweeper: GameDefinition = {
@@ -33,6 +33,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     gameClass: "minesweeper",
     boardClass: "board--minesweeper",
     boardLabel: "Minesweeper board",
+    layout: gameLayouts.squareFit,
   });
   shell.tabIndex = 0;
   const scope = createMountScope();
@@ -63,11 +64,13 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   }
 
   function render(): void {
-    setBoardGrid(grid, config.size);
+    const shape = minesweeperShape(config);
+    applyGameLayout(shell, config.layout === "scroll" ? gameLayouts.scrollGrid : gameLayouts.squareFit);
+    setBoardGrid(grid, { columns: shape.columns, rows: shape.rows, cellSize: config.layout === "scroll" ? gameLayouts.scrollGrid.cellSize : undefined });
     status.textContent = statusText();
     difficultyButton.textContent = difficulty;
 
-    const tiles = syncChildren(grid, config.size * config.size, () => {
+    const tiles = syncChildren(grid, shape.rows * shape.columns, () => {
       const tile = el("button", { className: "mine-cell", type: "button" });
       tile.addEventListener("click", () => openCell(Number(tile.dataset.row), Number(tile.dataset.column)));
       tile.addEventListener("pointerenter", () => {
@@ -85,20 +88,23 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       return tile;
     });
     tiles.forEach((tile, index) => {
-        const row = Math.floor(index / config.size);
-        const column = index % config.size;
-        const cell = board[row]?.[column];
-        if (!cell) return;
-        tile.dataset.row = String(row);
-        tile.dataset.column = String(column);
-        tile.setAttribute("aria-label", labelFor(row, column, cell));
-        tile.dataset.open = String(cell.open);
-        tile.dataset.flag = String(cell.flag);
-        tile.dataset.mine = String(cell.mine && (cell.open || state === "lost"));
-        tile.dataset.selected = String(row === selectedRow && column === selectedColumn);
-        tile.textContent = cellText(cell);
-        tile.disabled = false;
-        tile.setAttribute("aria-disabled", String(state !== "playing"));
+      const row = Math.floor(index / shape.columns);
+      const column = index % shape.columns;
+      const cell = board[row]?.[column];
+      if (!cell) return;
+      tile.dataset.row = String(row);
+      tile.dataset.column = String(column);
+      tile.setAttribute("aria-label", labelFor(row, column, cell));
+      tile.dataset.open = String(cell.open);
+      tile.dataset.flag = String(cell.flag);
+      tile.dataset.mine = String(cell.mine && (cell.open || state === "lost"));
+      tile.dataset.selected = String(row === selectedRow && column === selectedColumn);
+      tile.textContent = cellText(cell);
+      tile.disabled = false;
+      tile.setAttribute("aria-disabled", String(state !== "playing"));
+      if (row === selectedRow && column === selectedColumn && config.layout === "scroll") {
+        tile.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
     });
   }
 
@@ -111,7 +117,8 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     }
     handleStandardGameKey(event, {
       onDirection: (direction) => {
-        const next = moveGridPoint({ row: selectedRow, column: selectedColumn }, direction, config.size, config.size);
+        const shape = minesweeperShape(config);
+        const next = moveGridPoint({ row: selectedRow, column: selectedColumn }, direction, shape.rows, shape.columns);
         selectedRow = next.row;
         selectedColumn = next.column;
         render();
@@ -166,7 +173,8 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       state = "lost";
     } else {
       floodOpenMinesweeperInPlace(board, config, row, column);
-      if (openSafeMinesweeperCount(board) === config.size * config.size - config.mines) state = "won";
+      const shape = minesweeperShape(config);
+      if (openSafeMinesweeperCount(board) === shape.rows * shape.columns - config.mines) state = "won";
     }
     if (state !== "playing") markGameFinished(shell);
     if (state === "won") playSound("gameWin");
@@ -204,7 +212,8 @@ export function mountMinesweeper(target: HTMLElement): () => void {
         floodOpenMinesweeperInPlace(board, config, r, c);
       }
     }
-    if (state !== "lost" && openSafeMinesweeperCount(board) === config.size * config.size - config.mines) state = "won";
+    const shape = minesweeperShape(config);
+    if (state !== "lost" && openSafeMinesweeperCount(board) === shape.rows * shape.columns - config.mines) state = "won";
     if (state !== "playing") markGameFinished(shell);
     if (state === "won") playSound("gameWin");
     else if (state === "lost") playSound("gameLose");

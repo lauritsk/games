@@ -70,7 +70,8 @@
   .dashboard,
   .game-screen,
   .game-host,
-  .game { min-width: 0; width: 100%; }
+  .game,
+  .board-viewport { min-width: 0; width: 100%; }
 
   .dashboard,
   .game-screen,
@@ -150,13 +151,19 @@
 @layer game {
   .game {
     --game-top: 44px;
-    --board-max: calc(100svh - (2 * var(--pad)) - var(--game-top) - 48px - (3 * var(--gap)) - 18px);
+    --board-fit-block: var(--board-max-block, 100%);
+    --game-fit-inline: 100%;
     display: grid;
     grid-template-rows: var(--game-top) minmax(0, 1fr);
     gap: var(--gap);
-    max-width: min(82vmin, 720px, var(--board-max));
-    height: min(100%, calc(var(--game-top) + var(--gap) + var(--board-max)));
-    max-height: 100%;
+    inline-size: min(100%, var(--game-max-inline, 720px), var(--game-fit-inline));
+    min-inline-size: min(100%, var(--game-min-inline, 0px), var(--game-fit-inline));
+    block-size: 100%;
+    max-block-size: 100%;
+  }
+
+  .game[data-board-mode="scroll"] {
+    inline-size: min(100%, var(--game-max-inline, 900px));
   }
 
   .game__top {
@@ -171,6 +178,19 @@
     min-width: 0;
     justify-content: end;
     overflow: visible;
+  }
+
+  .board-viewport {
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .game[data-board-mode="scroll"] .board-viewport {
+    place-items: start center;
+    overflow: auto;
+    overscroll-behavior: contain;
   }
 
   .status,
@@ -201,10 +221,8 @@
   }
 
   .board {
-    place-self: start center;
     display: grid;
     min-width: 0;
-    width: min(100%, var(--board-max));
     max-width: 100%;
     max-height: 100%;
     overflow: hidden;
@@ -214,22 +232,33 @@
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), var(--shadow);
   }
 
+  .game[data-board-mode="fit"] .board {
+    width: min(100%, var(--board-max-inline, 100%));
+    aspect-ratio: var(--board-aspect, 1 / 1);
+  }
+
+  .game[data-board-mode="scroll"] .board {
+    width: max-content;
+    height: max-content;
+    max-width: none;
+    max-height: none;
+  }
+
   .board--connect4 {
     grid-template-columns: repeat(var(--board-columns, 7), minmax(0, 1fr));
     gap: clamp(5px, 1.2vmin, 10px);
-    aspect-ratio: 7 / 6;
     background: #083a5a;
-  }
-
-  .board--minesweeper,
-  .board--2048 {
-    aspect-ratio: 1;
   }
 
   .board--minesweeper {
     grid-template-columns: repeat(var(--board-columns, 9), minmax(0, 1fr));
     gap: clamp(3px, 0.8vmin, 7px);
     background: #241712;
+  }
+
+  .game[data-board-mode="scroll"] .board--minesweeper {
+    grid-template-columns: repeat(var(--board-columns, 9), var(--board-cell-size, 30px));
+    grid-template-rows: repeat(var(--board-rows, 9), var(--board-cell-size, 30px));
   }
 
   .board--2048 {
@@ -242,14 +271,12 @@
   .board--tictactoe {
     grid-template-columns: repeat(var(--board-columns, 3), minmax(0, 1fr));
     gap: clamp(8px, 1.6vmin, 14px);
-    aspect-ratio: 1;
     background: #102116;
   }
 
   .board--snake {
     grid-template-columns: repeat(var(--board-columns, 18), minmax(0, 1fr));
     gap: 2px;
-    aspect-ratio: 1;
     background: #08150d;
   }
 
@@ -257,7 +284,6 @@
     grid-template-columns: repeat(var(--board-columns, 4), minmax(0, 1fr));
     grid-template-rows: repeat(var(--board-rows, 4), minmax(0, 1fr));
     gap: clamp(7px, 1.3vmin, 12px);
-    aspect-ratio: 1;
     background: #071c2c;
   }
 
@@ -265,16 +291,12 @@
     grid-template-columns: repeat(var(--board-columns, 10), minmax(0, 1fr));
     grid-template-rows: repeat(var(--board-rows, 20), minmax(0, 1fr));
     gap: 2px;
-    width: min(100%, calc(var(--board-max) / 2));
-    aspect-ratio: 1 / 2;
     background: #070514;
   }
 
   .board--breakout {
     position: relative;
     display: block;
-    width: min(100%, calc(var(--board-max) * 0.8));
-    aspect-ratio: 4 / 5;
     touch-action: none;
     background:
       radial-gradient(circle at 50% 90%, rgba(240, 168, 93, 0.18), transparent 38%),

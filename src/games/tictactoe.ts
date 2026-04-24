@@ -1,4 +1,4 @@
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, isConfirmOpen, moveGridIndex, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, moveGridIndex, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { botMark, chooseTicTacToeBotMove, getTicTacToeWinner, humanMark, newTicTacToeBoard, ticTacToeSize, type Mark, type TicTacToeCell } from "./tictactoe.logic";
@@ -28,6 +28,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     gameClass: "tictactoe",
     boardClass: "board--tictactoe",
     boardLabel: "Tic-Tac-Toe board",
+    layout: gameLayouts.squareFit,
   });
   shell.tabIndex = 0;
   setBoardGrid(grid, ticTacToeSize);

@@ -1,4 +1,4 @@
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, required, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, required, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { moveSnakePoint, nextSnakeDirection, oppositeSnakeDirection, randomSnakeFood, snakeOutOfBounds, snakePointKey, snakePointsEqual, startSnakeBody, type SnakePoint } from "./snake.logic";
@@ -34,6 +34,7 @@ export function mountSnake(target: HTMLElement): () => void {
     gameClass: "snake-game",
     boardClass: "board--snake",
     boardLabel: "Snake board",
+    layout: gameLayouts.squareFit,
   });
   shell.tabIndex = 0;
 

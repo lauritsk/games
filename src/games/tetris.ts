@@ -1,4 +1,4 @@
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { moveTetrisPiece, newTetrisState, rotateTetrisPiece, tetrisColumns, tetrisDrop, tetrisGhostPiece, tetrisHardDrop, tetrisPieceCells, tetrisRows, type TetrisCell, type TetrisPoint, type TetrisState } from "./tetris.logic";
@@ -31,6 +31,7 @@ export function mountTetris(target: HTMLElement): () => void {
     gameClass: "tetris-game",
     boardClass: "board--tetris",
     boardLabel: "Tetris board",
+    layout: gameLayouts.tallFit,
   });
   shell.tabIndex = 0;
 

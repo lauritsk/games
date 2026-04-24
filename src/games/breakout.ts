@@ -1,4 +1,4 @@
-import { Keys, createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, matchesKey, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { Keys, createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, matchesKey, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { moveBreakoutPaddle, newBreakoutState, stepBreakout, type BreakoutConfig, type BreakoutState } from "./breakout.logic";
@@ -32,6 +32,7 @@ export function mountBreakout(target: HTMLElement): () => void {
     gameClass: "breakout-game",
     boardClass: "board--breakout",
     boardLabel: "Breakout playfield",
+    layout: gameLayouts.portraitFit,
   });
   shell.tabIndex = 0;
 

@@ -1,4 +1,4 @@
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { chooseConnect4BotColumn, connect4Bot, connect4Columns, connect4Human, connect4Rows, dropConnect4DiscInPlace, findConnect4Win, newConnect4Board, type Connect4Cell, type Connect4Player, type Connect4WinLine } from "./connect4.logic";
@@ -31,6 +31,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     gameClass: "connect4",
     boardClass: "board--connect4",
     boardLabel: "Connect 4 board",
+    layout: gameLayouts.wideFit,
   });
   shell.tabIndex = 0;
   setBoardGrid(grid, connect4Columns, connect4Rows);

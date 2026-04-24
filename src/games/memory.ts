@@ -1,4 +1,4 @@
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, markGameFinished, markGameStarted, moveGridIndex, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, markGameFinished, markGameStarted, moveGridIndex, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { allMemoryMatched, newMemoryDeck, openUnmatchedMemoryCards, type MemoryCard } from "./memory.logic";
@@ -32,6 +32,7 @@ export function mountMemory(target: HTMLElement): () => void {
     gameClass: "memory-game",
     boardClass: "board--memory",
     boardLabel: "Memory board",
+    layout: gameLayouts.squareFit,
   });
   shell.tabIndex = 0;
 

@@ -1,4 +1,4 @@
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, handleStandardGameKey, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { addRandom2048Tile, canMove2048, slide2048, start2048Board } from "./2048.logic";
@@ -25,6 +25,7 @@ export function mount2048(target: HTMLElement): () => void {
     gameClass: "game-2048",
     boardClass: "board--2048",
     boardLabel: "2048 board",
+    layout: gameLayouts.squareFit,
   });
   shell.tabIndex = 0;
 
