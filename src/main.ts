@@ -54,8 +54,8 @@ function renderDashboard(): void {
 
     if (matchesKey(event, Keys.left)) nextIndex = selectedIndex - 1;
     else if (matchesKey(event, Keys.right)) nextIndex = selectedIndex + 1;
-    else if (matchesKey(event, Keys.up)) nextIndex = selectedIndex - columns;
-    else if (matchesKey(event, Keys.down)) nextIndex = selectedIndex + columns;
+    else if (matchesKey(event, Keys.up)) nextIndex = moveDashboardVertical(selectedIndex, -1, columns, games.length);
+    else if (matchesKey(event, Keys.down)) nextIndex = moveDashboardVertical(selectedIndex, 1, columns, games.length);
     else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
       playSound("dashboardSelect");
@@ -82,6 +82,15 @@ function getDashboardColumns(list: HTMLElement): number {
 
 function wrapIndex(index: number, length: number): number {
   return (index + length) % length;
+}
+
+function moveDashboardVertical(index: number, step: 1 | -1, columns: number, length: number): number {
+  const verticalOrder = Array.from({ length }, (_, itemIndex) => itemIndex).sort((a, b) => {
+    const columnDiff = (a % columns) - (b % columns);
+    return columnDiff || Math.floor(a / columns) - Math.floor(b / columns);
+  });
+  const orderIndex = verticalOrder.indexOf(index);
+  return verticalOrder[wrapIndex(orderIndex + step, length)]!;
 }
 
 function gameCard(game: GameDefinition, selected = false): HTMLAnchorElement {
