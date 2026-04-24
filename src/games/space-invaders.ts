@@ -1,4 +1,4 @@
-import { clamp, createArcadeHud, createHeldKeyInput, createPauseOverlay, createTouchControls, startFixedStepLoop, type FixedStepLoop } from "../arcade";
+import { clamp, createArcadeHud, createHeldKeyInput, createPauseOverlay, createTouchControls, positionPercent, startFixedStepLoop, syncPositionedChildren, type FixedStepLoop } from "../arcade";
 import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
@@ -219,18 +219,11 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function syncPositioned(container: HTMLElement, count: number, className: string, apply: (child: HTMLElement, index: number) => void): void {
-    while (container.children.length > count) container.lastElementChild?.remove();
-    while (container.children.length < count) container.append(el("div", { className }));
-    Array.from(container.children).forEach((child, index) => {
-      if (child instanceof HTMLElement) apply(child, index);
-    });
+    syncPositionedChildren(container, count, className, apply);
   }
 
   function position(element: HTMLElement, x: number, y: number, width: number, height: number): void {
-    element.style.left = `${x}%`;
-    element.style.top = `${y}%`;
-    element.style.width = `${width}%`;
-    element.style.height = `${height}%`;
+    positionPercent(element, { x, y, width, height });
   }
 
   function statusText(): string {

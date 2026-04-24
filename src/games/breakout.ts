@@ -1,4 +1,4 @@
-import { createArcadeHud, createHeldKeyInput, createPauseOverlay, startFixedStepLoop, type FixedStepLoop } from "../arcade";
+import { createArcadeHud, createHeldKeyInput, createPauseOverlay, positionPercent, startFixedStepLoop, syncPositionedChildren, type FixedStepLoop } from "../arcade";
 import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
@@ -180,12 +180,10 @@ export function mountBreakout(target: HTMLElement): () => void {
   }
 
   function syncBricks(next: BreakoutState): void {
-    while (bricks.children.length > next.bricks.length) bricks.lastElementChild?.remove();
-    while (bricks.children.length < next.bricks.length) bricks.append(el("div", { className: "breakout-brick" }));
-    Array.from(bricks.children).forEach((child, index) => {
+    syncPositionedChildren(bricks, next.bricks.length, "breakout-brick", (child, index) => {
       const brick = next.bricks[index];
-      if (!(child instanceof HTMLElement) || !brick) return;
-      position(child, brick.x, brick.y, brick.width, brick.height);
+      if (!brick) return;
+      positionPercent(child, brick);
       child.dataset.alive = String(brick.alive);
       child.setAttribute("aria-label", brick.alive ? `Brick ${index + 1}` : `Destroyed brick ${index + 1}`);
     });
@@ -194,17 +192,16 @@ export function mountBreakout(target: HTMLElement): () => void {
   function positionBall(): void {
     const diameter = state.ball.radius * 2;
     const visualDiameterY = diameter * 0.8;
-    ball.style.left = `${state.ball.x - state.ball.radius}%`;
-    ball.style.top = `${state.ball.y - visualDiameterY / 2}%`;
-    ball.style.width = `${diameter}%`;
-    ball.style.height = `${visualDiameterY}%`;
+    positionPercent(ball, {
+      x: state.ball.x - state.ball.radius,
+      y: state.ball.y - visualDiameterY / 2,
+      width: diameter,
+      height: visualDiameterY,
+    });
   }
 
   function position(element: HTMLElement, x: number, y: number, width: number, height: number): void {
-    element.style.left = `${x}%`;
-    element.style.top = `${y}%`;
-    element.style.width = `${width}%`;
-    element.style.height = `${height}%`;
+    positionPercent(element, { x, y, width, height });
   }
 
   function statusText(): string {

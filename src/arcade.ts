@@ -1,4 +1,4 @@
-import { button, directionFromKey, el, type Direction, type MountScope } from "./core";
+import { button, directionFromKey, el, syncChildren, type Direction, type MountScope } from "./core";
 
 export type FixedStepLoop = {
   start(): void;
@@ -78,6 +78,24 @@ export function vectorAdd(a: Vector, b: Vector): Vector {
 
 export function vectorScale(vector: Vector, scale: number): Vector {
   return { x: vector.x * scale, y: vector.y * scale };
+}
+
+export function positionPercent(element: HTMLElement, rect: Rect): void {
+  element.style.left = `${rect.x}%`;
+  element.style.top = `${rect.y}%`;
+  element.style.width = `${rect.width}%`;
+  element.style.height = `${rect.height}%`;
+}
+
+export function syncPositionedChildren(
+  container: HTMLElement,
+  count: number,
+  className: string,
+  apply: (child: HTMLElement, index: number) => void,
+): HTMLElement[] {
+  const children = syncChildren(container, count, () => el("div", { className }));
+  children.forEach(apply);
+  return children;
 }
 
 export type HeldKeyInput = {
