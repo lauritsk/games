@@ -1,8 +1,35 @@
-import { applyGameLayout, createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, moveGridPoint, onDocumentKeyDown, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import {
+  applyGameLayout,
+  createGameShell,
+  createMountScope,
+  el,
+  gameLayouts,
+  handleStandardGameKey,
+  isConfirmOpen,
+  markGameFinished,
+  markGameStarted,
+  moveGridPoint,
+  onDocumentKeyDown,
+  resetGameProgress,
+  setBoardGrid,
+  syncChildren,
+  type Difficulty,
+  type GameDefinition,
+} from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
-import { flagMinesweeperCount, floodOpenMinesweeperInPlace, minesweeperNeighbors, minesweeperShape, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperCell, type MinesweeperConfig } from "./minesweeper.logic";
+import {
+  flagMinesweeperCount,
+  floodOpenMinesweeperInPlace,
+  minesweeperNeighbors,
+  minesweeperShape,
+  newMinesweeperBoard,
+  openSafeMinesweeperCount,
+  seededMinesweeperBoard,
+  type MinesweeperCell,
+  type MinesweeperConfig,
+} from "./minesweeper.logic";
 
 type State = "playing" | "won" | "lost";
 
@@ -30,7 +57,13 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   let selectedRow = 0;
   let selectedColumn = 0;
 
-  const { shell, status, actions, board: grid, remove } = createGameShell(target, {
+  const {
+    shell,
+    status,
+    actions,
+    board: grid,
+    remove,
+  } = createGameShell(target, {
     gameClass: "minesweeper",
     boardClass: "board--minesweeper",
     boardLabel: "Minesweeper board",
@@ -43,7 +76,9 @@ export function mountMinesweeper(target: HTMLElement): () => void {
 
   const difficultyControl = {
     get: () => difficulty,
-    set: (next: Difficulty) => { difficulty = next; },
+    set: (next: Difficulty) => {
+      difficulty = next;
+    },
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
@@ -63,7 +98,11 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   function render(): void {
     const shape = minesweeperShape(config);
     applyGameLayout(shell, config.layout === "scroll" ? gameLayouts.scrollGrid : gameLayouts.squareFit);
-    setBoardGrid(grid, { columns: shape.columns, rows: shape.rows, cellSize: config.layout === "scroll" ? gameLayouts.scrollGrid.cellSize : undefined });
+    setBoardGrid(grid, {
+      columns: shape.columns,
+      rows: shape.rows,
+      cellSize: config.layout === "scroll" ? gameLayouts.scrollGrid.cellSize : undefined,
+    });
     status.textContent = statusText();
     difficultyButton.textContent = difficulty;
 
@@ -202,7 +241,8 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       }
     }
     const shape = minesweeperShape(config);
-    if (state !== "lost" && openSafeMinesweeperCount(board) === shape.rows * shape.columns - config.mines) state = "won";
+    if (state !== "lost" && openSafeMinesweeperCount(board) === shape.rows * shape.columns - config.mines)
+      state = "won";
     if (state !== "playing") markGameFinished(shell);
     if (state === "won") playSound("gameWin");
     else if (state === "lost") playSound("gameLose");
@@ -242,7 +282,6 @@ function cellText(cell: MinesweeperCell): string {
 }
 
 function labelFor(row: number, column: number, cell: MinesweeperCell): string {
-  const value = cell.flag ? "flagged" : cell.open ? cell.mine ? "mine" : `${cell.nearby} nearby mines` : "closed";
+  const value = cell.flag ? "flagged" : cell.open ? (cell.mine ? "mine" : `${cell.nearby} nearby mines`) : "closed";
   return `Row ${row + 1}, column ${column + 1}, ${value}`;
 }
-

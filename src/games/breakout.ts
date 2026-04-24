@@ -1,9 +1,39 @@
-import { arcadePauseTransition, createArcadeHud, createHeldKeyInput, createPauseOverlay, positionPercent, startArcadeMode, startFixedStepLoop, syncPositionedChildren, type FixedStepLoop } from "../arcade";
-import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
+import {
+  arcadePauseTransition,
+  createArcadeHud,
+  createHeldKeyInput,
+  createPauseOverlay,
+  positionPercent,
+  startArcadeMode,
+  startFixedStepLoop,
+  syncPositionedChildren,
+  type FixedStepLoop,
+} from "../arcade";
+import {
+  createGameShell,
+  createMountScope,
+  el,
+  gameLayouts,
+  handleStandardGameKey,
+  isConfirmOpen,
+  markGameFinished,
+  markGameStarted,
+  onDocumentKeyDown,
+  resetGameProgress,
+  type Difficulty,
+  type Direction,
+  type GameDefinition,
+} from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
-import { moveBreakoutPaddle, newBreakoutState, stepBreakout, type BreakoutConfig, type BreakoutState } from "./breakout.logic";
+import {
+  moveBreakoutPaddle,
+  newBreakoutState,
+  stepBreakout,
+  type BreakoutConfig,
+  type BreakoutState,
+} from "./breakout.logic";
 
 type Mode = "ready" | "playing" | "paused" | "won" | "lost";
 
@@ -52,7 +82,9 @@ export function mountBreakout(target: HTMLElement): () => void {
 
   const difficultyControl = {
     get: () => difficulty,
-    set: (next: Difficulty) => { difficulty = next; },
+    set: (next: Difficulty) => {
+      difficulty = next;
+    },
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
@@ -63,10 +95,14 @@ export function mountBreakout(target: HTMLElement): () => void {
 
   onDocumentKeyDown(onKeyDown, scope);
   board.addEventListener("pointermove", onPointerMove, { signal: scope.signal });
-  board.addEventListener("pointerdown", (event) => {
-    onPointerMove(event);
-    start();
-  }, { signal: scope.signal });
+  board.addEventListener(
+    "pointerdown",
+    (event) => {
+      onPointerMove(event);
+      start();
+    },
+    { signal: scope.signal },
+  );
 
   function resetGame(): void {
     stopTimer();

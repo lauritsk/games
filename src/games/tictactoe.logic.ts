@@ -26,7 +26,11 @@ export function chooseTicTacToeBotMove(board: TicTacToeCell[], difficulty: Diffi
   assertTicTacToeBoard(board);
   const open = openTicTacToeCells(board);
   if (difficulty === "Easy") return random(open, rng);
-  return winningTicTacToeMove(board, botMark) ?? winningTicTacToeMove(board, humanMark) ?? (difficulty === "Hard" ? minimaxMove(board) : centerCornerSide(board, open, rng));
+  return (
+    winningTicTacToeMove(board, botMark) ??
+    winningTicTacToeMove(board, humanMark) ??
+    (difficulty === "Hard" ? minimaxMove(board) : centerCornerSide(board, open, rng))
+  );
 }
 
 export function winningTicTacToeMove(board: TicTacToeCell[], mark: Mark): number | null {
@@ -41,7 +45,7 @@ export function winningTicTacToeMove(board: TicTacToeCell[], mark: Mark): number
 
 export function openTicTacToeCells(board: TicTacToeCell[]): number[] {
   assertTicTacToeBoard(board);
-  return board.flatMap((value, index) => value ? [] : [index]);
+  return board.flatMap((value, index) => (value ? [] : [index]));
 }
 
 export function getTicTacToeWinner(board: TicTacToeCell[]): { winner: Mark; line: readonly number[] } | null {

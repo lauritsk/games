@@ -25,7 +25,11 @@ export function button(text: string, className = "button"): HTMLButtonElement {
   return el("button", { className, text, type: "button" });
 }
 
-export function syncChildren<T extends HTMLElement>(container: HTMLElement, count: number, create: (index: number) => T): T[] {
+export function syncChildren<T extends HTMLElement>(
+  container: HTMLElement,
+  count: number,
+  create: (index: number) => T,
+): T[] {
   while (container.children.length > count) container.lastElementChild?.remove();
   while (container.children.length < count) container.append(create(container.children.length));
   return Array.from(container.children) as T[];

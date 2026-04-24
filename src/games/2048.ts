@@ -1,4 +1,19 @@
-import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
+import {
+  createGameShell,
+  createMountScope,
+  el,
+  gameLayouts,
+  handleStandardGameKey,
+  markGameFinished,
+  markGameStarted,
+  onDocumentKeyDown,
+  resetGameProgress,
+  setBoardGrid,
+  syncChildren,
+  type Difficulty,
+  type Direction,
+  type GameDefinition,
+} from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
@@ -22,7 +37,13 @@ export function mount2048(target: HTMLElement): () => void {
   let score = 0;
   let over = false;
 
-  const { shell, status, actions, board: grid, remove } = createGameShell(target, {
+  const {
+    shell,
+    status,
+    actions,
+    board: grid,
+    remove,
+  } = createGameShell(target, {
     gameClass: "game-2048",
     boardClass: "board--2048",
     boardLabel: "2048 board",
@@ -34,7 +55,9 @@ export function mount2048(target: HTMLElement): () => void {
   const invalidMove = createInvalidMoveFeedback(shell);
   const difficultyControl = {
     get: () => difficulty,
-    set: (next: Difficulty) => { difficulty = next; },
+    set: (next: Difficulty) => {
+      difficulty = next;
+    },
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
@@ -101,4 +124,3 @@ export function mount2048(target: HTMLElement): () => void {
     remove();
   };
 }
-

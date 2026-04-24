@@ -1,8 +1,43 @@
-import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, onDocumentKeyDown, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import {
+  createGameShell,
+  createMountScope,
+  el,
+  gameLayouts,
+  handleStandardGameKey,
+  isConfirmOpen,
+  Keys,
+  markGameFinished,
+  markGameStarted,
+  matchesKey,
+  onDocumentKeyDown,
+  resetGameProgress,
+  setBoardGrid,
+  syncChildren,
+  type Difficulty,
+  type GameDefinition,
+} from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
-import { changeDifficulty, createDifficultyControl, createModeControl, createResetControl, toggleMode } from "./controls";
-import { chooseConnect4BotColumn, connect4Bot, connect4Columns, connect4Human, connect4Rows, dropConnect4DiscInPlace, findConnect4Win, newConnect4Board, type Connect4Cell, type Connect4Player, type Connect4WinLine } from "./connect4.logic";
+import {
+  changeDifficulty,
+  createDifficultyControl,
+  createModeControl,
+  createResetControl,
+  toggleMode,
+} from "./controls";
+import {
+  chooseConnect4BotColumn,
+  connect4Bot,
+  connect4Columns,
+  connect4Human,
+  connect4Rows,
+  dropConnect4DiscInPlace,
+  findConnect4Win,
+  newConnect4Board,
+  type Connect4Cell,
+  type Connect4Player,
+  type Connect4WinLine,
+} from "./connect4.logic";
 
 type Mode = "bot" | "local";
 
@@ -28,7 +63,13 @@ export function mountConnect4(target: HTMLElement): () => void {
   let selectedColumn = Math.floor(connect4Columns / 2);
   let botTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const { shell, status, actions, board: grid, remove } = createGameShell(target, {
+  const {
+    shell,
+    status,
+    actions,
+    board: grid,
+    remove,
+  } = createGameShell(target, {
     gameClass: "connect4",
     boardClass: "board--connect4",
     boardLabel: "Connect 4 board",
@@ -42,8 +83,10 @@ export function mountConnect4(target: HTMLElement): () => void {
 
   const modeControl = {
     get: () => mode,
-    set: (next: Mode) => { mode = next; },
-    next: (current: Mode) => current === "bot" ? "local" : "bot",
+    set: (next: Mode) => {
+      mode = next;
+    },
+    next: (current: Mode) => (current === "bot" ? "local" : "bot"),
     label: modeLabel,
     reset: resetGame,
   };
@@ -51,7 +94,9 @@ export function mountConnect4(target: HTMLElement): () => void {
 
   const difficultyControl = {
     get: () => difficulty,
-    set: (next: Difficulty) => { difficulty = next; },
+    set: (next: Difficulty) => {
+      difficulty = next;
+    },
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
@@ -88,19 +133,22 @@ export function mountConnect4(target: HTMLElement): () => void {
       return cell;
     });
     cells.forEach((cell, index) => {
-        const row = Math.floor(index / connect4Columns);
-        const column = index % connect4Columns;
-        const value = board[row]?.[column] ?? 0;
-        cell.setAttribute("aria-label", labelFor(row, column, value));
-        cell.dataset.player = String(value);
-        cell.dataset.row = String(row);
-        cell.dataset.column = String(column);
-        if (column === selectedColumn) cell.dataset.selected = "true";
-        else delete cell.dataset.selected;
-        if (winningLine.some(([r, c]) => r === row && c === column)) cell.dataset.win = "true";
-        else delete cell.dataset.win;
-        cell.disabled = isLocked();
-        cell.setAttribute("aria-disabled", String(Boolean(winner) || moves === connect4Rows * connect4Columns || !canPlay(column)));
+      const row = Math.floor(index / connect4Columns);
+      const column = index % connect4Columns;
+      const value = board[row]?.[column] ?? 0;
+      cell.setAttribute("aria-label", labelFor(row, column, value));
+      cell.dataset.player = String(value);
+      cell.dataset.row = String(row);
+      cell.dataset.column = String(column);
+      if (column === selectedColumn) cell.dataset.selected = "true";
+      else delete cell.dataset.selected;
+      if (winningLine.some(([r, c]) => r === row && c === column)) cell.dataset.win = "true";
+      else delete cell.dataset.win;
+      cell.disabled = isLocked();
+      cell.setAttribute(
+        "aria-disabled",
+        String(Boolean(winner) || moves === connect4Rows * connect4Columns || !canPlay(column)),
+      );
     });
   }
 
@@ -208,4 +256,3 @@ function labelFor(row: number, column: number, value: Connect4Cell): string {
   const token = value === 0 ? "empty" : `${names[value]} disc`;
   return `Row ${row + 1}, column ${column + 1}, ${token}`;
 }
-

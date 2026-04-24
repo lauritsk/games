@@ -72,14 +72,22 @@ export function fireInvaderShot(state: InvaderState): InvaderState {
   if (state.won || state.lost || state.shots.some((shot) => shot.owner === "player")) return state;
   return {
     ...state,
-    shots: [...state.shots, { x: state.player.x + state.player.width / 2, y: state.player.y - 1, vy: -2.4, owner: "player" }],
+    shots: [
+      ...state.shots,
+      { x: state.player.x + state.player.width / 2, y: state.player.y - 1, vy: -2.4, owner: "player" },
+    ],
   };
 }
 
 export function stepInvaders(state: InvaderState, config: InvaderConfig, input: InvaderInput = {}): InvaderState {
   if (state.won || state.lost) return state;
-  let player = { ...state.player, x: clamp(state.player.x + (input.move ?? 0) * config.playerSpeed, 0, state.width - state.player.width) };
-  let shots = state.shots.map((shot) => ({ ...shot, y: shot.y + shot.vy })).filter((shot) => shot.y > -4 && shot.y < state.height + 4);
+  let player = {
+    ...state.player,
+    x: clamp(state.player.x + (input.move ?? 0) * config.playerSpeed, 0, state.width - state.player.width),
+  };
+  let shots = state.shots
+    .map((shot) => ({ ...shot, y: shot.y + shot.vy }))
+    .filter((shot) => shot.y > -4 && shot.y < state.height + 4);
   let aliens = state.aliens;
   let barriers = state.barriers;
   let score = state.score;
@@ -90,27 +98,38 @@ export function stepInvaders(state: InvaderState, config: InvaderConfig, input: 
   const stepEvery = Math.max(5, config.alienStepEvery - (state.wave - 1) * 3 - clearedAlienCount(aliens));
   if (tick % stepEvery === 0) {
     const alive = aliens.filter((alien) => alien.alive);
-    const edge = alienDirection === 1
-      ? Math.max(...alive.map((alien) => alien.x + alien.width), 0)
-      : Math.min(...alive.map((alien) => alien.x), state.width);
+    const edge =
+      alienDirection === 1
+        ? Math.max(...alive.map((alien) => alien.x + alien.width), 0)
+        : Math.min(...alive.map((alien) => alien.x), state.width);
     if ((alienDirection === 1 && edge >= 94) || (alienDirection === -1 && edge <= 6)) {
       alienDirection = alienDirection === 1 ? -1 : 1;
-      aliens = aliens.map((alien) => alien.alive ? { ...alien, y: alien.y + 4 } : alien);
+      aliens = aliens.map((alien) => (alien.alive ? { ...alien, y: alien.y + 4 } : alien));
     } else {
-      aliens = aliens.map((alien) => alien.alive ? { ...alien, x: alien.x + alienDirection * 2 } : alien);
+      aliens = aliens.map((alien) => (alien.alive ? { ...alien, x: alien.x + alienDirection * 2 } : alien));
     }
   }
 
   if (tick % Math.max(12, config.alienShotEvery - state.wave * 4) === 0) {
     const shooter = chooseAlienShooter(aliens, tick);
-    if (shooter) shots.push({ x: shooter.x + shooter.width / 2, y: shooter.y + shooter.height, vy: 1.65 + state.wave * 0.08, owner: "alien" });
+    if (shooter)
+      shots.push({
+        x: shooter.x + shooter.width / 2,
+        y: shooter.y + shooter.height,
+        vy: 1.65 + state.wave * 0.08,
+        owner: "alien",
+      });
   }
 
   ({ shots, barriers } = resolveBarrierHits(shots, barriers));
-  const alienHit = shots.findIndex((shot) => shot.owner === "player" && aliens.some((alien) => alien.alive && pointInRect(shot.x, shot.y, alien)));
+  const alienHit = shots.findIndex(
+    (shot) => shot.owner === "player" && aliens.some((alien) => alien.alive && pointInRect(shot.x, shot.y, alien)),
+  );
   if (alienHit >= 0) {
     const shot = shots[alienHit]!;
-    aliens = aliens.map((alien) => alien.alive && pointInRect(shot.x, shot.y, alien) ? { ...alien, alive: false } : alien);
+    aliens = aliens.map((alien) =>
+      alien.alive && pointInRect(shot.x, shot.y, alien) ? { ...alien, alive: false } : alien,
+    );
     shots = shots.filter((_, index) => index !== alienHit);
     score += 20 * state.wave;
   }
@@ -132,13 +151,19 @@ export function nextInvaderWave(state: InvaderState, config: InvaderConfig): Inv
   return { ...next, score: state.score, lives: state.lives };
 }
 
-function resolveBarrierHits(shots: InvaderShot[], barriers: InvaderBarrier[]): { shots: InvaderShot[]; barriers: InvaderBarrier[] } {
+function resolveBarrierHits(
+  shots: InvaderShot[],
+  barriers: InvaderBarrier[],
+): { shots: InvaderShot[]; barriers: InvaderBarrier[] } {
   const nextShots: InvaderShot[] = [];
   let nextBarriers = barriers;
   for (const shot of shots) {
     const hitIndex = nextBarriers.findIndex((barrier) => barrier.hp > 0 && pointInRect(shot.x, shot.y, barrier));
     if (hitIndex < 0) nextShots.push(shot);
-    else nextBarriers = nextBarriers.map((barrier, index) => index === hitIndex ? { ...barrier, hp: barrier.hp - 1 } : barrier);
+    else
+      nextBarriers = nextBarriers.map((barrier, index) =>
+        index === hitIndex ? { ...barrier, hp: barrier.hp - 1 } : barrier,
+      );
   }
   return { shots: nextShots, barriers: nextBarriers };
 }
@@ -152,4 +177,3 @@ function chooseAlienShooter(aliens: InvaderAlien[], tick: number): InvaderAlien 
 function clearedAlienCount(aliens: InvaderAlien[]): number {
   return aliens.filter((alien) => !alien.alive).length;
 }
-

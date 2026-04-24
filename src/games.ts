@@ -9,4 +9,14 @@ import { spaceInvaders } from "./games/space-invaders";
 import { tetris } from "./games/tetris";
 import { tictactoe } from "./games/tictactoe";
 
-export const games = [connect4, minesweeper, game2048, tictactoe, snake, memory, tetris, breakout, spaceInvaders] satisfies GameDefinition[];
+export const games = [
+  connect4,
+  minesweeper,
+  game2048,
+  tictactoe,
+  snake,
+  memory,
+  tetris,
+  breakout,
+  spaceInvaders,
+] satisfies GameDefinition[];

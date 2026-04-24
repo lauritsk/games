@@ -1,8 +1,39 @@
-import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, moveGridIndex, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import {
+  createGameShell,
+  createMountScope,
+  el,
+  gameLayouts,
+  handleStandardGameKey,
+  isConfirmOpen,
+  moveGridIndex,
+  markGameFinished,
+  markGameStarted,
+  onDocumentKeyDown,
+  resetGameProgress,
+  setBoardGrid,
+  syncChildren,
+  type Difficulty,
+  type GameDefinition,
+} from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
-import { changeDifficulty, createDifficultyControl, createModeControl, createResetControl, toggleMode } from "./controls";
-import { botMark, chooseTicTacToeBotMove, getTicTacToeWinner, humanMark, newTicTacToeBoard, ticTacToeSize, type Mark, type TicTacToeCell } from "./tictactoe.logic";
+import {
+  changeDifficulty,
+  createDifficultyControl,
+  createModeControl,
+  createResetControl,
+  toggleMode,
+} from "./controls";
+import {
+  botMark,
+  chooseTicTacToeBotMove,
+  getTicTacToeWinner,
+  humanMark,
+  newTicTacToeBoard,
+  ticTacToeSize,
+  type Mark,
+  type TicTacToeCell,
+} from "./tictactoe.logic";
 
 type Mode = "bot" | "local";
 
@@ -25,7 +56,13 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   let winLine: readonly number[] = [];
   let botTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const { shell, status, actions, board: grid, remove } = createGameShell(target, {
+  const {
+    shell,
+    status,
+    actions,
+    board: grid,
+    remove,
+  } = createGameShell(target, {
     gameClass: "tictactoe",
     boardClass: "board--tictactoe",
     boardLabel: "Tic-Tac-Toe board",
@@ -39,15 +76,19 @@ export function mountTicTacToe(target: HTMLElement): () => void {
 
   const modeControl = {
     get: () => mode,
-    set: (next: Mode) => { mode = next; },
-    next: (current: Mode) => current === "bot" ? "local" : "bot",
+    set: (next: Mode) => {
+      mode = next;
+    },
+    next: (current: Mode) => (current === "bot" ? "local" : "bot"),
     label: modeLabel,
     reset: resetGame,
   };
   const modeButton = createModeControl(actions, modeControl);
   const difficultyControl = {
     get: () => difficulty,
-    set: (next: Difficulty) => { difficulty = next; },
+    set: (next: Difficulty) => {
+      difficulty = next;
+    },
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);

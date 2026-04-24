@@ -135,7 +135,10 @@ export type HeldKeyInput = {
   destroy(): void;
 };
 
-export function createHeldKeyInput(scope: MountScope, onPress?: (direction: Direction, event: KeyboardEvent) => void): HeldKeyInput {
+export function createHeldKeyInput(
+  scope: MountScope,
+  onPress?: (direction: Direction, event: KeyboardEvent) => void,
+): HeldKeyInput {
   const held = new Set<Direction>();
   document.addEventListener("keydown", onKeyDown, { signal: scope.signal });
   document.addEventListener("keyup", onKeyUp, { signal: scope.signal });
@@ -160,8 +163,8 @@ export function createHeldKeyInput(scope: MountScope, onPress?: (direction: Dire
 
   return {
     isHeld: (direction) => held.has(direction),
-    horizontal: () => held.has("left") === held.has("right") ? 0 : held.has("left") ? -1 : 1,
-    vertical: () => held.has("up") === held.has("down") ? 0 : held.has("up") ? -1 : 1,
+    horizontal: () => (held.has("left") === held.has("right") ? 0 : held.has("left") ? -1 : 1),
+    vertical: () => (held.has("up") === held.has("down") ? 0 : held.has("up") ? -1 : 1),
     clear,
     destroy: clear,
   };
@@ -184,10 +187,12 @@ export function createArcadeHud(target: HTMLElement, stats: Record<string, strin
   return hud;
 
   function setStats(next: Record<string, string | number>): void {
-    element.replaceChildren(...Object.entries(next).map(([label, value]) => {
-      const item = el("span", { className: "arcade-hud__item", text: `${label}: ${value}` });
-      return item;
-    }));
+    element.replaceChildren(
+      ...Object.entries(next).map(([label, value]) => {
+        const item = el("span", { className: "arcade-hud__item", text: `${label}: ${value}` });
+        return item;
+      }),
+    );
   }
 }
 
@@ -210,9 +215,16 @@ export function createPauseOverlay(board: HTMLElement, onResume: () => void): Pa
   };
 }
 
-export function createTouchControls(target: HTMLElement, handlers: Partial<Record<Direction | "fire", () => void>>): HTMLElement {
+export function createTouchControls(
+  target: HTMLElement,
+  handlers: Partial<Record<Direction | "fire", () => void>>,
+): HTMLElement {
   const controls = el("div", { className: "touch-controls" });
-  const entries: Array<[Direction | "fire", string]> = [["left", "◀"], ["fire", "●"], ["right", "▶"]];
+  const entries: Array<[Direction | "fire", string]> = [
+    ["left", "◀"],
+    ["fire", "●"],
+    ["right", "▶"],
+  ];
   for (const [action, label] of entries) {
     if (!handlers[action]) continue;
     const control = button(label, "touch-control pill surface interactive");

@@ -19,7 +19,10 @@ export function addRandom2048Tile(board: Board2048, rng: RandomSource = Math.ran
   return next;
 }
 
-export function slide2048(board: Board2048, direction: Direction): { board: Board2048; score: number; changed: boolean } {
+export function slide2048(
+  board: Board2048,
+  direction: Direction,
+): { board: Board2048; score: number; changed: boolean } {
   assert2048Board(board);
   const size = board.length;
   const next = empty2048Board(size);

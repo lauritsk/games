@@ -1,4 +1,12 @@
-import { button, createDifficultyButton, createResetButton, nextDifficulty, previousDifficulty, requestGameReset, type Difficulty } from "../core";
+import {
+  button,
+  createDifficultyButton,
+  createResetButton,
+  nextDifficulty,
+  previousDifficulty,
+  requestGameReset,
+  type Difficulty,
+} from "../core";
 import { playSound } from "../sound";
 
 export type DifficultyControl = {
@@ -25,7 +33,10 @@ export function changeDifficulty(control: DifficultyControl, direction: "next" |
   control.reset();
 }
 
-export function createModeControl<TValue extends string>(actions: HTMLElement, control: ToggleControl<TValue>): HTMLButtonElement {
+export function createModeControl<TValue extends string>(
+  actions: HTMLElement,
+  control: ToggleControl<TValue>,
+): HTMLButtonElement {
   const modeButton = button(control.label(control.get()), "button pill surface interactive");
   modeButton.addEventListener("click", () => toggleMode(control));
   actions.append(modeButton);

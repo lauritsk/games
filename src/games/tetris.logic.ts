@@ -22,13 +22,48 @@ export type TetrisState = {
 export const tetrominoes: Tetromino[] = ["I", "J", "L", "O", "S", "T", "Z"];
 
 const shapes: Record<Tetromino, TetrisPoint[]> = {
-  I: [{ row: 0, column: -1 }, { row: 0, column: 0 }, { row: 0, column: 1 }, { row: 0, column: 2 }],
-  J: [{ row: -1, column: -1 }, { row: 0, column: -1 }, { row: 0, column: 0 }, { row: 0, column: 1 }],
-  L: [{ row: -1, column: 1 }, { row: 0, column: -1 }, { row: 0, column: 0 }, { row: 0, column: 1 }],
-  O: [{ row: -1, column: 0 }, { row: -1, column: 1 }, { row: 0, column: 0 }, { row: 0, column: 1 }],
-  S: [{ row: -1, column: 0 }, { row: -1, column: 1 }, { row: 0, column: -1 }, { row: 0, column: 0 }],
-  T: [{ row: -1, column: 0 }, { row: 0, column: -1 }, { row: 0, column: 0 }, { row: 0, column: 1 }],
-  Z: [{ row: -1, column: -1 }, { row: -1, column: 0 }, { row: 0, column: 0 }, { row: 0, column: 1 }],
+  I: [
+    { row: 0, column: -1 },
+    { row: 0, column: 0 },
+    { row: 0, column: 1 },
+    { row: 0, column: 2 },
+  ],
+  J: [
+    { row: -1, column: -1 },
+    { row: 0, column: -1 },
+    { row: 0, column: 0 },
+    { row: 0, column: 1 },
+  ],
+  L: [
+    { row: -1, column: 1 },
+    { row: 0, column: -1 },
+    { row: 0, column: 0 },
+    { row: 0, column: 1 },
+  ],
+  O: [
+    { row: -1, column: 0 },
+    { row: -1, column: 1 },
+    { row: 0, column: 0 },
+    { row: 0, column: 1 },
+  ],
+  S: [
+    { row: -1, column: 0 },
+    { row: -1, column: 1 },
+    { row: 0, column: -1 },
+    { row: 0, column: 0 },
+  ],
+  T: [
+    { row: -1, column: 0 },
+    { row: 0, column: -1 },
+    { row: 0, column: 0 },
+    { row: 0, column: 1 },
+  ],
+  Z: [
+    { row: -1, column: -1 },
+    { row: -1, column: 0 },
+    { row: 0, column: 0 },
+    { row: 0, column: 1 },
+  ],
 };
 
 const kicks: TetrisPoint[] = [
@@ -76,16 +111,22 @@ export function tetrisPieceCells(piece: TetrisPiece): TetrisPoint[] {
 }
 
 export function canPlaceTetrisPiece(board: TetrisBoard, piece: TetrisPiece): boolean {
-  return tetrisPieceCells(piece).every((cell) =>
-    cell.column >= 0 &&
-    cell.column < tetrisColumns &&
-    cell.row < tetrisRows &&
-    (cell.row < 0 || board[cell.row]?.[cell.column] === ""),
+  return tetrisPieceCells(piece).every(
+    (cell) =>
+      cell.column >= 0 &&
+      cell.column < tetrisColumns &&
+      cell.row < tetrisRows &&
+      (cell.row < 0 || board[cell.row]?.[cell.column] === ""),
   );
 }
 
 export function moveTetrisPiece(board: TetrisBoard, piece: TetrisPiece, direction: Direction): TetrisPiece {
-  const delta = direction === "left" ? { row: 0, column: -1 } : direction === "right" ? { row: 0, column: 1 } : { row: 1, column: 0 };
+  const delta =
+    direction === "left"
+      ? { row: 0, column: -1 }
+      : direction === "right"
+        ? { row: 0, column: 1 }
+        : { row: 1, column: 0 };
   const moved = { ...piece, origin: { row: piece.origin.row + delta.row, column: piece.origin.column + delta.column } };
   return canPlaceTetrisPiece(board, moved) ? moved : piece;
 }
@@ -94,7 +135,11 @@ export function rotateTetrisPiece(board: TetrisBoard, piece: TetrisPiece): Tetri
   if (piece.type === "O") return piece;
   const rotation = (piece.rotation + 1) % 4;
   for (const kick of kicks) {
-    const rotated = { ...piece, rotation, origin: { row: piece.origin.row + kick.row, column: piece.origin.column + kick.column } };
+    const rotated = {
+      ...piece,
+      rotation,
+      origin: { row: piece.origin.row + kick.row, column: piece.origin.column + kick.column },
+    };
     if (canPlaceTetrisPiece(board, rotated)) return rotated;
   }
   return piece;

@@ -1,4 +1,17 @@
-import { clearNode, confirmChoice, createMountScope, el, isGameInProgress, Keys, matchesKey, onDocumentKeyDown, required, syncChildren, type GameDefinition, type MountScope } from "./core";
+import {
+  clearNode,
+  confirmChoice,
+  createMountScope,
+  el,
+  isGameInProgress,
+  Keys,
+  matchesKey,
+  onDocumentKeyDown,
+  required,
+  syncChildren,
+  type GameDefinition,
+  type MountScope,
+} from "./core";
 import { games } from "./games";
 import { playSound, unlockSound } from "./sound";
 
@@ -31,7 +44,7 @@ function renderRoute(): void {
 
 function getRouteGame(): GameDefinition | null {
   const id = window.location.hash.replace(/^#\/?/, "");
-  return id ? games.find((game) => game.id === id) ?? null : null;
+  return id ? (games.find((game) => game.id === id) ?? null) : null;
 }
 
 function renderDashboard(): void {

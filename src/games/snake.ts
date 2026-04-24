@@ -1,8 +1,34 @@
-import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, required, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
+import {
+  createGameShell,
+  createMountScope,
+  el,
+  gameLayouts,
+  handleStandardGameKey,
+  markGameFinished,
+  markGameStarted,
+  onDocumentKeyDown,
+  resetGameProgress,
+  required,
+  setBoardGrid,
+  syncChildren,
+  type Difficulty,
+  type Direction,
+  type GameDefinition,
+} from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
-import { moveSnakePoint, nextSnakeDirection, oppositeSnakeDirection, randomSnakeFood, snakeOutOfBounds, snakePointKey, snakePointsEqual, startSnakeBody, type SnakePoint } from "./snake.logic";
+import {
+  moveSnakePoint,
+  nextSnakeDirection,
+  oppositeSnakeDirection,
+  randomSnakeFood,
+  snakeOutOfBounds,
+  snakePointKey,
+  snakePointsEqual,
+  startSnakeBody,
+  type SnakePoint,
+} from "./snake.logic";
 type State = "ready" | "playing" | "won" | "lost";
 type Config = { size: number; speed: number };
 
@@ -31,7 +57,13 @@ export function mountSnake(target: HTMLElement): () => void {
   let state: State = "ready";
   let timer: ReturnType<typeof setInterval> | null = null;
 
-  const { shell, status, actions, board: grid, remove } = createGameShell(target, {
+  const {
+    shell,
+    status,
+    actions,
+    board: grid,
+    remove,
+  } = createGameShell(target, {
     gameClass: "snake-game",
     boardClass: "board--snake",
     boardLabel: "Snake board",
@@ -43,7 +75,9 @@ export function mountSnake(target: HTMLElement): () => void {
   const invalidMove = createInvalidMoveFeedback(shell);
   const difficultyControl = {
     get: () => difficulty,
-    set: (next: Difficulty) => { difficulty = next; },
+    set: (next: Difficulty) => {
+      difficulty = next;
+    },
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
@@ -155,8 +189,10 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function labelFor(point: SnakePoint): string {
-    if (snakePointsEqual(point, required(snake[0]))) return `Row ${point.row + 1}, column ${point.column + 1}, snake head`;
-    if (snake.some((part) => snakePointsEqual(part, point))) return `Row ${point.row + 1}, column ${point.column + 1}, snake body`;
+    if (snakePointsEqual(point, required(snake[0])))
+      return `Row ${point.row + 1}, column ${point.column + 1}, snake head`;
+    if (snake.some((part) => snakePointsEqual(part, point)))
+      return `Row ${point.row + 1}, column ${point.column + 1}, snake body`;
     if (snakePointsEqual(point, food)) return `Row ${point.row + 1}, column ${point.column + 1}, food`;
     return `Row ${point.row + 1}, column ${point.column + 1}, empty`;
   }
@@ -175,4 +211,3 @@ export function mountSnake(target: HTMLElement): () => void {
     remove();
   };
 }
-

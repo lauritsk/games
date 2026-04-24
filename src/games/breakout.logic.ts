@@ -76,17 +76,23 @@ export function stepBreakout(state: BreakoutState): BreakoutState {
     ball = { ...ball, y: ball.radius, vy: Math.abs(ball.vy) };
   }
 
-  const crossedPaddleTop = previousBall.y + previousBall.radius <= state.paddle.y && ball.y + ball.radius >= state.paddle.y;
+  const crossedPaddleTop =
+    previousBall.y + previousBall.radius <= state.paddle.y && ball.y + ball.radius >= state.paddle.y;
   if (crossedPaddleTop && circleIntersectsRect(ball, state.paddle) && ball.vy > 0) {
     const hit = ((ball.x - state.paddle.x) / state.paddle.width - 0.5) * 2;
     const speed = Math.hypot(ball.vx, ball.vy);
-    ball = { ...ball, y: state.paddle.y - ball.radius, vx: hit * speed * 0.82, vy: -Math.max(speed * 0.45, Math.abs(ball.vy)) };
+    ball = {
+      ...ball,
+      y: state.paddle.y - ball.radius,
+      vx: hit * speed * 0.82,
+      vy: -Math.max(speed * 0.45, Math.abs(ball.vy)),
+    };
   }
 
   const hitIndex = bricks.findIndex((brick) => brick.alive && circleIntersectsRect(ball, brick));
   if (hitIndex >= 0) {
     const brick = bricks[hitIndex]!;
-    bricks = bricks.map((candidate, index) => index === hitIndex ? { ...candidate, alive: false } : candidate);
+    bricks = bricks.map((candidate, index) => (index === hitIndex ? { ...candidate, alive: false } : candidate));
     score += 10 * state.level;
     const fromSide = ball.x < brick.x || ball.x > brick.x + brick.width;
     ball = fromSide ? { ...ball, vx: -ball.vx } : { ...ball, vy: -ball.vy };
@@ -95,7 +101,13 @@ export function stepBreakout(state: BreakoutState): BreakoutState {
   if (ball.y - ball.radius > state.height) {
     lives -= 1;
     if (lives <= 0) return { ...state, lives, lost: true };
-    ball = { x: state.paddle.x + state.paddle.width / 2, y: 72, vx: Math.abs(state.ball.vx), vy: -Math.abs(state.ball.vy), radius: state.ball.radius };
+    ball = {
+      x: state.paddle.x + state.paddle.width / 2,
+      y: 72,
+      vx: Math.abs(state.ball.vx),
+      vy: -Math.abs(state.ball.vy),
+      radius: state.ball.radius,
+    };
   }
 
   return { ...state, ball, bricks, score, lives, won: bricks.every((brick) => !brick.alive) };

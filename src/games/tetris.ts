@@ -1,9 +1,38 @@
 import { arcadePauseTransition, startArcadeMode } from "../arcade";
-import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
+import {
+  createGameShell,
+  createMountScope,
+  el,
+  gameLayouts,
+  handleStandardGameKey,
+  isConfirmOpen,
+  markGameFinished,
+  markGameStarted,
+  onDocumentKeyDown,
+  resetGameProgress,
+  setBoardGrid,
+  syncChildren,
+  type Difficulty,
+  type Direction,
+  type GameDefinition,
+} from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
-import { moveTetrisPiece, newTetrisState, rotateTetrisPiece, tetrisColumns, tetrisDrop, tetrisGhostPiece, tetrisHardDrop, tetrisPieceCells, tetrisRows, type TetrisCell, type TetrisPoint, type TetrisState } from "./tetris.logic";
+import {
+  moveTetrisPiece,
+  newTetrisState,
+  rotateTetrisPiece,
+  tetrisColumns,
+  tetrisDrop,
+  tetrisGhostPiece,
+  tetrisHardDrop,
+  tetrisPieceCells,
+  tetrisRows,
+  type TetrisCell,
+  type TetrisPoint,
+  type TetrisState,
+} from "./tetris.logic";
 
 type Mode = "ready" | "playing" | "paused" | "over";
 type Config = { speed: number };
@@ -41,7 +70,9 @@ export function mountTetris(target: HTMLElement): () => void {
   const invalidMove = createInvalidMoveFeedback(shell);
   const difficultyControl = {
     get: () => difficulty,
-    set: (next: Difficulty) => { difficulty = next; },
+    set: (next: Difficulty) => {
+      difficulty = next;
+    },
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);

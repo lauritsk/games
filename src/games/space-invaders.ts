@@ -1,9 +1,42 @@
-import { arcadePauseTransition, clamp, createArcadeHud, createHeldKeyInput, createPauseOverlay, createTouchControls, positionPercent, startArcadeMode, startFixedStepLoop, syncPositionedChildren, type FixedStepLoop } from "../arcade";
-import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
+import {
+  arcadePauseTransition,
+  clamp,
+  createArcadeHud,
+  createHeldKeyInput,
+  createPauseOverlay,
+  createTouchControls,
+  positionPercent,
+  startArcadeMode,
+  startFixedStepLoop,
+  syncPositionedChildren,
+  type FixedStepLoop,
+} from "../arcade";
+import {
+  createGameShell,
+  createMountScope,
+  el,
+  gameLayouts,
+  handleStandardGameKey,
+  isConfirmOpen,
+  markGameFinished,
+  markGameStarted,
+  onDocumentKeyDown,
+  resetGameProgress,
+  type Difficulty,
+  type Direction,
+  type GameDefinition,
+} from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
-import { fireInvaderShot, newInvaderState, nextInvaderWave, stepInvaders, type InvaderConfig, type InvaderState } from "./space-invaders.logic";
+import {
+  fireInvaderShot,
+  newInvaderState,
+  nextInvaderWave,
+  stepInvaders,
+  type InvaderConfig,
+  type InvaderState,
+} from "./space-invaders.logic";
 
 type Mode = "ready" | "playing" | "paused" | "wave" | "lost";
 
@@ -54,7 +87,9 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
 
   const difficultyControl = {
     get: () => difficulty,
-    set: (next: Difficulty) => { difficulty = next; },
+    set: (next: Difficulty) => {
+      difficulty = next;
+    },
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
@@ -64,11 +99,15 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   const requestReset = createResetControl(actions, shell, resetGame);
 
   onDocumentKeyDown(onKeyDown, scope);
-  board.addEventListener("pointerdown", (event) => {
-    movePointer(event);
-    start();
-    fire();
-  }, { signal: scope.signal });
+  board.addEventListener(
+    "pointerdown",
+    (event) => {
+      movePointer(event);
+      start();
+      fire();
+    },
+    { signal: scope.signal },
+  );
   board.addEventListener("pointermove", movePointer, { signal: scope.signal });
 
   function resetGame(): void {
@@ -132,7 +171,10 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   function moveByDirection(direction: Direction): void {
     if (direction !== "left" && direction !== "right") return;
     const delta = direction === "left" ? -configs[difficulty].playerSpeed : configs[difficulty].playerSpeed;
-    state = { ...state, player: { ...state.player, x: clamp(state.player.x + delta, 0, state.width - state.player.width) } };
+    state = {
+      ...state,
+      player: { ...state.player, x: clamp(state.player.x + delta, 0, state.width - state.player.width) },
+    };
     start();
     render();
   }
@@ -177,7 +219,10 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   function movePointer(event: PointerEvent): void {
     const rect = board.getBoundingClientRect();
     const center = ((event.clientX - rect.left) / rect.width) * state.width;
-    state = { ...state, player: { ...state.player, x: clamp(center - state.player.width / 2, 0, state.width - state.player.width) } };
+    state = {
+      ...state,
+      player: { ...state.player, x: clamp(center - state.player.width / 2, 0, state.width - state.player.width) },
+    };
     render();
   }
 
@@ -222,7 +267,12 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     });
   }
 
-  function syncPositioned(container: HTMLElement, count: number, className: string, apply: (child: HTMLElement, index: number) => void): void {
+  function syncPositioned(
+    container: HTMLElement,
+    count: number,
+    className: string,
+    apply: (child: HTMLElement, index: number) => void,
+  ): void {
     syncPositionedChildren(container, count, className, apply);
   }
 

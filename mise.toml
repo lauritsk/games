@@ -1,5 +1,6 @@
 [tools]
 bun = "1.3.13"
+"npm:prettier" = "3.6.2"
 
 [tasks.dev]
 description = "Run the web app dev server"
@@ -17,6 +18,18 @@ run = "bun run build:single"
 description = "Typecheck the app"
 run = "bun run typecheck"
 
+[tasks.format]
+description = "Format source files"
+run = "prettier --write ."
+
+[tasks.format-check]
+description = "Check source formatting"
+run = "prettier --check ."
+
+[tasks.lint]
+description = "Run formatting and type checks"
+run = "prettier --check . && bun run typecheck"
+
 [tasks.test]
 description = "Run tests"
 run = "bun run test"
@@ -30,5 +43,5 @@ description = "Run tests in watch mode"
 run = "bun run test:watch"
 
 [tasks.check]
-description = "Typecheck, test, and build"
-run = "bun run check"
+description = "Format-check, typecheck, test, and build"
+run = "mise run format-check && bun run check"

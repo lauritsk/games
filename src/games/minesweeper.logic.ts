@@ -1,7 +1,10 @@
 import { gridCell, required, shuffleInPlace, type RandomSource } from "../core";
 
 export type MinesweeperCell = { mine: boolean; open: boolean; flag: boolean; nearby: number };
-export type MinesweeperConfig = { mines: number; layout?: "fit" | "scroll" } & ({ size: number } | { rows: number; columns: number });
+export type MinesweeperConfig = { mines: number; layout?: "fit" | "scroll" } & (
+  | { size: number }
+  | { rows: number; columns: number }
+);
 export type MinesweeperShape = { rows: number; columns: number };
 
 export function minesweeperShape(config: MinesweeperConfig): MinesweeperShape {
@@ -11,27 +14,52 @@ export function minesweeperShape(config: MinesweeperConfig): MinesweeperShape {
 
 export function newMinesweeperBoard(config: MinesweeperConfig): MinesweeperCell[][] {
   const shape = minesweeperShape(config);
-  return Array.from({ length: shape.rows }, () => Array.from({ length: shape.columns }, () => ({ mine: false, open: false, flag: false, nearby: 0 })));
+  return Array.from({ length: shape.rows }, () =>
+    Array.from({ length: shape.columns }, () => ({ mine: false, open: false, flag: false, nearby: 0 })),
+  );
 }
 
-export function seededMinesweeperBoard(config: MinesweeperConfig, safeRow: number, safeColumn: number, rng?: RandomSource): MinesweeperCell[][] {
+export function seededMinesweeperBoard(
+  config: MinesweeperConfig,
+  safeRow: number,
+  safeColumn: number,
+  rng?: RandomSource,
+): MinesweeperCell[][] {
   assertMinesweeperConfig(config);
   const shape = minesweeperShape(config);
   const board = newMinesweeperBoard(config);
-  const blocked = new Set(minesweeperNeighbors(config, safeRow, safeColumn).concat([[safeRow, safeColumn]]).map(([r, c]) => key(r, c)));
-  const spots = Array.from({ length: shape.rows * shape.columns }, (_, index) => [Math.floor(index / shape.columns), index % shape.columns] as const).filter(([r, c]) => !blocked.has(key(r, c)));
+  const blocked = new Set(
+    minesweeperNeighbors(config, safeRow, safeColumn)
+      .concat([[safeRow, safeColumn]])
+      .map(([r, c]) => key(r, c)),
+  );
+  const spots = Array.from(
+    { length: shape.rows * shape.columns },
+    (_, index) => [Math.floor(index / shape.columns), index % shape.columns] as const,
+  ).filter(([r, c]) => !blocked.has(key(r, c)));
 
-  shuffleInPlace(spots, rng).slice(0, config.mines).forEach(([r, c]) => { gridCell(board, r, c).mine = true; });
+  shuffleInPlace(spots, rng)
+    .slice(0, config.mines)
+    .forEach(([r, c]) => {
+      gridCell(board, r, c).mine = true;
+    });
 
   for (let row = 0; row < shape.rows; row += 1) {
     for (let column = 0; column < shape.columns; column += 1) {
-      gridCell(board, row, column).nearby = minesweeperNeighbors(config, row, column).filter(([r, c]) => board[r]?.[c]?.mine).length;
+      gridCell(board, row, column).nearby = minesweeperNeighbors(config, row, column).filter(
+        ([r, c]) => board[r]?.[c]?.mine,
+      ).length;
     }
   }
   return board;
 }
 
-export function floodOpenMinesweeperInPlace(board: MinesweeperCell[][], config: MinesweeperConfig, row: number, column: number): void {
+export function floodOpenMinesweeperInPlace(
+  board: MinesweeperCell[][],
+  config: MinesweeperConfig,
+  row: number,
+  column: number,
+): void {
   const queue: [number, number][] = [[row, column]];
   for (let index = 0; index < queue.length; index += 1) {
     const [r, c] = required(queue[index]);
@@ -67,7 +95,10 @@ export function assertMinesweeperConfig(config: MinesweeperConfig): void {
   const shape = minesweeperShape(config);
   if (!Number.isInteger(shape.rows) || shape.rows <= 0) throw new Error("Invalid Minesweeper rows");
   if (!Number.isInteger(shape.columns) || shape.columns <= 0) throw new Error("Invalid Minesweeper columns");
-  if (!Number.isInteger(config.mines) || config.mines < 0 || config.mines >= shape.rows * shape.columns) throw new Error("Invalid Minesweeper mine count");
+  if (!Number.isInteger(config.mines) || config.mines < 0 || config.mines >= shape.rows * shape.columns)
+    throw new Error("Invalid Minesweeper mine count");
 }
 
-function key(row: number, column: number): string { return `${row}:${column}`; }
+function key(row: number, column: number): string {
+  return `${row}:${column}`;
+}

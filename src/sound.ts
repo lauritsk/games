@@ -28,9 +28,7 @@ const cueNotes: Record<SoundCue, Note[]> = {
     { frequency: 783.99, start: 0.055, duration: 0.07, gain: 0.1, wave: "square" },
     { frequency: 1046.5, start: 0.12, duration: 0.1, gain: 0.09, wave: "square" },
   ],
-  gameMove: [
-    { frequency: 420, start: 0, duration: 0.04, gain: 0.035, wave: "triangle" },
-  ],
+  gameMove: [{ frequency: 420, start: 0, duration: 0.04, gain: 0.035, wave: "triangle" }],
   gameGood: [
     { frequency: 659.25, start: 0, duration: 0.055, gain: 0.065, wave: "square" },
     { frequency: 987.77, start: 0.055, duration: 0.08, gain: 0.06, wave: "square" },
