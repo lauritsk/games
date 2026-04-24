@@ -1,3 +1,4 @@
+import { arcadePauseTransition, startArcadeMode } from "../arcade";
 import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
@@ -59,23 +60,27 @@ export function mountTetris(target: HTMLElement): () => void {
   }
 
   function start(): void {
-    if (mode === "over") {
-      invalidMove.trigger();
-      return;
-    }
-    if (mode === "paused") mode = "playing";
-    if (mode === "ready") {
-      mode = "playing";
-      markGameStarted(shell);
-      playSound("gameMajor");
-    }
+    const nextMode = startArcadeMode(mode, {
+      blocked: ["over"],
+      ready: "ready",
+      playing: "playing",
+      paused: "paused",
+      onBlocked: () => invalidMove.trigger(),
+      onFirstStart: () => {
+        markGameStarted(shell);
+        playSound("gameMajor");
+      },
+    });
+    if (!nextMode) return;
+    mode = nextMode;
     restartTimer();
     render();
   }
 
   function togglePause(): void {
-    if (mode === "over") return;
-    if (mode === "playing") {
+    const transition = arcadePauseTransition(mode, ["over"], "playing");
+    if (!transition) return;
+    if (transition === "pause") {
       mode = "paused";
       stopTimer();
       playSound("uiToggle");

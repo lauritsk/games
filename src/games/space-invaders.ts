@@ -1,4 +1,4 @@
-import { clamp, createArcadeHud, createHeldKeyInput, createPauseOverlay, createTouchControls, positionPercent, startFixedStepLoop, syncPositionedChildren, type FixedStepLoop } from "../arcade";
+import { arcadePauseTransition, clamp, createArcadeHud, createHeldKeyInput, createPauseOverlay, createTouchControls, positionPercent, startArcadeMode, startFixedStepLoop, syncPositionedChildren, type FixedStepLoop } from "../arcade";
 import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
@@ -82,23 +82,27 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function start(): void {
-    if (mode === "lost") {
-      invalidMove.trigger();
-      return;
-    }
-    if (mode === "ready") {
-      mode = "playing";
-      markGameStarted(shell);
-      playSound("gameMajor");
-    }
-    if (mode === "paused") mode = "playing";
+    const nextMode = startArcadeMode(mode, {
+      blocked: ["lost"],
+      ready: "ready",
+      playing: "playing",
+      paused: "paused",
+      onBlocked: () => invalidMove.trigger(),
+      onFirstStart: () => {
+        markGameStarted(shell);
+        playSound("gameMajor");
+      },
+    });
+    if (!nextMode) return;
+    mode = nextMode;
     restartTimer();
     render();
   }
 
   function togglePause(): void {
-    if (mode === "lost" || mode === "wave") return;
-    if (mode === "playing") {
+    const transition = arcadePauseTransition(mode, ["lost", "wave"], "playing");
+    if (!transition) return;
+    if (transition === "pause") {
       mode = "paused";
       stopTimer();
       playSound("uiToggle");

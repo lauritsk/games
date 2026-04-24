@@ -1,4 +1,4 @@
-import { createArcadeHud, createHeldKeyInput, createPauseOverlay, positionPercent, startFixedStepLoop, syncPositionedChildren, type FixedStepLoop } from "../arcade";
+import { arcadePauseTransition, createArcadeHud, createHeldKeyInput, createPauseOverlay, positionPercent, startArcadeMode, startFixedStepLoop, syncPositionedChildren, type FixedStepLoop } from "../arcade";
 import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
@@ -80,23 +80,27 @@ export function mountBreakout(target: HTMLElement): () => void {
   }
 
   function start(): void {
-    if (mode === "won" || mode === "lost") {
-      invalidMove.trigger();
-      return;
-    }
-    if (mode === "ready") {
-      mode = "playing";
-      markGameStarted(shell);
-      playSound("gameMajor");
-    }
-    if (mode === "paused") mode = "playing";
+    const nextMode = startArcadeMode(mode, {
+      blocked: ["won", "lost"],
+      ready: "ready",
+      playing: "playing",
+      paused: "paused",
+      onBlocked: () => invalidMove.trigger(),
+      onFirstStart: () => {
+        markGameStarted(shell);
+        playSound("gameMajor");
+      },
+    });
+    if (!nextMode) return;
+    mode = nextMode;
     restartTimer();
     render();
   }
 
   function togglePause(): void {
-    if (mode === "won" || mode === "lost") return;
-    if (mode === "playing") {
+    const transition = arcadePauseTransition(mode, ["won", "lost"], "playing");
+    if (!transition) return;
+    if (transition === "pause") {
       mode = "paused";
       stopTimer();
       playSound("uiToggle");

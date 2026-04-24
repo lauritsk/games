@@ -98,6 +98,35 @@ export function syncPositionedChildren(
   return children;
 }
 
+export function startArcadeMode<TMode extends string>(
+  mode: TMode,
+  options: {
+    blocked: readonly TMode[];
+    ready: TMode;
+    playing: TMode;
+    paused?: TMode;
+    onBlocked(): void;
+    onFirstStart(): void;
+  },
+): TMode | null {
+  if (options.blocked.includes(mode)) {
+    options.onBlocked();
+    return null;
+  }
+  if (mode === options.ready) options.onFirstStart();
+  if (mode === options.playing || mode === options.ready || mode === options.paused) return options.playing;
+  return mode;
+}
+
+export function arcadePauseTransition<TMode extends string>(
+  mode: TMode,
+  blocked: readonly TMode[],
+  playing: TMode,
+): "pause" | "resume" | null {
+  if (blocked.includes(mode)) return null;
+  return mode === playing ? "pause" : "resume";
+}
+
 export type HeldKeyInput = {
   isHeld(direction: "left" | "right" | "up" | "down"): boolean;
   horizontal(): -1 | 0 | 1;
