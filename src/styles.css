@@ -83,6 +83,8 @@
   }
 
   .back-button {
+    position: relative;
+    z-index: 3;
     width: max-content;
     font-size: 0.92rem;
   }
@@ -271,6 +273,7 @@
   .board--breakout {
     position: relative;
     display: block;
+    width: min(100%, calc(var(--board-max) * 0.8));
     aspect-ratio: 4 / 5;
     touch-action: none;
     background:
