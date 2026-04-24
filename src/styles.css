@@ -297,12 +297,11 @@
     display: grid;
     place-items: center;
     min-width: 12ch;
-    max-width: 16ch;
-    overflow: hidden;
+    width: max-content;
+    overflow: visible;
     padding-inline: 10px;
     font-variant-numeric: tabular-nums;
     text-align: center;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
