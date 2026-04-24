@@ -162,10 +162,11 @@ export function mountBreakout(target: HTMLElement): () => void {
 
   function tick(): void {
     moveHeldPaddle();
-    const before = aliveBrickCount(state);
+    const beforeBricks = aliveBrickCount(state);
+    const beforeLives = state.lives;
     state = stepBreakout(state);
-    const after = aliveBrickCount(state);
-    if (after < before) playSound("gameGood");
+    const afterBricks = aliveBrickCount(state);
+    if (afterBricks < beforeBricks) playSound("gameGood");
     if (state.won) {
       mode = "won";
       markGameFinished(shell);
@@ -175,6 +176,12 @@ export function mountBreakout(target: HTMLElement): () => void {
       mode = "lost";
       markGameFinished(shell);
       stopTimer();
+      heldKeys.clear();
+      playSound("gameLose");
+    } else if (state.lives < beforeLives) {
+      mode = "ready";
+      stopTimer();
+      heldKeys.clear();
       playSound("gameLose");
     }
     render();
