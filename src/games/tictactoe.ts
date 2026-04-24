@@ -1,7 +1,7 @@
 import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, moveGridIndex, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
-import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
+import { changeDifficulty, createDifficultyControl, createModeControl, createResetControl, toggleMode } from "./controls";
 import { botMark, chooseTicTacToeBotMove, getTicTacToeWinner, humanMark, newTicTacToeBoard, ticTacToeSize, type Mark, type TicTacToeCell } from "./tictactoe.logic";
 
 type Mode = "bot" | "local";
@@ -37,13 +37,14 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   const invalidMove = createInvalidMoveFeedback(shell);
   onDocumentKeyDown(onKeyDown, scope);
 
-  const modeButton = el("button", { className: "button pill surface interactive", type: "button" });
-  actions.append(modeButton);
-  modeButton.addEventListener("click", () => {
-    mode = mode === "bot" ? "local" : "bot";
-    playSound("uiToggle");
-    resetGame();
-  });
+  const modeControl = {
+    get: () => mode,
+    set: (next: Mode) => { mode = next; },
+    next: (current: Mode) => current === "bot" ? "local" : "bot",
+    label: modeLabel,
+    reset: resetGame,
+  };
+  const modeButton = createModeControl(actions, modeControl);
   const difficultyControl = {
     get: () => difficulty,
     set: (next: Difficulty) => { difficulty = next; },
@@ -65,7 +66,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
 
   function render(): void {
     status.textContent = statusText();
-    modeButton.textContent = mode === "bot" ? "Vs bot" : "2 players";
+    modeButton.textContent = modeLabel(mode);
     difficultyButton.textContent = difficulty;
 
     const cells = syncChildren(grid, board.length, (index) => {
@@ -96,9 +97,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     if (isConfirmOpen()) return;
     if (event.key.toLowerCase() === "m") {
       event.preventDefault();
-      mode = mode === "bot" ? "local" : "bot";
-      playSound("uiToggle");
-      resetGame();
+      toggleMode(modeControl);
       return;
     }
     handleStandardGameKey(event, {
@@ -175,6 +174,10 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     clearBotTimer();
     remove();
   };
+}
+
+function modeLabel(mode: Mode): string {
+  return mode === "bot" ? "Vs bot" : "2 players";
 }
 
 function labelFor(index: number, value: TicTacToeCell): string {

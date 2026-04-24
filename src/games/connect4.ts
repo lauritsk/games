@@ -1,7 +1,7 @@
 import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, onDocumentKeyDown, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
-import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
+import { changeDifficulty, createDifficultyControl, createModeControl, createResetControl, toggleMode } from "./controls";
 import { chooseConnect4BotColumn, connect4Bot, connect4Columns, connect4Human, connect4Rows, dropConnect4DiscInPlace, findConnect4Win, newConnect4Board, type Connect4Cell, type Connect4Player, type Connect4WinLine } from "./connect4.logic";
 
 type Mode = "bot" | "local";
@@ -40,13 +40,14 @@ export function mountConnect4(target: HTMLElement): () => void {
   const invalidMove = createInvalidMoveFeedback(shell);
   onDocumentKeyDown(onKeyDown, scope);
 
-  const modeButton = el("button", { className: "button pill surface interactive", type: "button" });
-  actions.append(modeButton);
-  modeButton.addEventListener("click", () => {
-    mode = mode === "bot" ? "local" : "bot";
-    playSound("uiToggle");
-    resetGame();
-  });
+  const modeControl = {
+    get: () => mode,
+    set: (next: Mode) => { mode = next; },
+    next: (current: Mode) => current === "bot" ? "local" : "bot",
+    label: modeLabel,
+    reset: resetGame,
+  };
+  const modeButton = createModeControl(actions, modeControl);
 
   const difficultyControl = {
     get: () => difficulty,
@@ -72,7 +73,7 @@ export function mountConnect4(target: HTMLElement): () => void {
   function render(): void {
     shell.dataset.turn = String(current);
     status.textContent = statusText();
-    modeButton.textContent = mode === "bot" ? "Vs bot" : "2 players";
+    modeButton.textContent = modeLabel(mode);
     difficultyButton.textContent = difficulty;
 
     const cells = syncChildren(grid, connect4Rows * connect4Columns, (index) => {
@@ -107,9 +108,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     if (isConfirmOpen()) return;
     if (event.key.toLowerCase() === "m") {
       event.preventDefault();
-      mode = mode === "bot" ? "local" : "bot";
-      playSound("uiToggle");
-      resetGame();
+      toggleMode(modeControl);
       return;
     }
     if (matchesKey(event, Keys.down)) {
@@ -199,6 +198,10 @@ export function mountConnect4(target: HTMLElement): () => void {
     clearBotTimer();
     remove();
   };
+}
+
+function modeLabel(mode: Mode): string {
+  return mode === "bot" ? "Vs bot" : "2 players";
 }
 
 function labelFor(row: number, column: number, value: Connect4Cell): string {
