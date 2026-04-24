@@ -1,6 +1,6 @@
 import { button, el } from "./dom";
 import { Keys, matchesKey } from "./keyboard";
-import { playSound, playSoundIfUnlocked } from "./sound";
+import { playSound } from "./sound";
 
 export function isConfirmOpen(): boolean {
   return Boolean(document.querySelector(".confirm"));
@@ -31,8 +31,8 @@ export function confirmChoice(
     document.activeElement instanceof HTMLElement ? document.activeElement : null;
   yes.addEventListener("click", yesAction);
   no.addEventListener("click", close);
-  yes.addEventListener("pointerenter", () => select(0, "pointer"));
-  no.addEventListener("pointerenter", () => select(1, "pointer"));
+  yes.addEventListener("pointerenter", () => select(0));
+  no.addEventListener("pointerenter", () => select(1));
   dialog.addEventListener("cancel", (event) => {
     event.preventDefault();
     close();
@@ -46,13 +46,13 @@ export function confirmChoice(
     const key = event.key.toLowerCase();
     if (key === "tab") {
       event.preventDefault();
-      select(selected === 0 ? 1 : 0, "keyboard");
+      select(selected === 0 ? 1 : 0);
     } else if (matchesKey(event, Keys.previous)) {
       event.preventDefault();
-      select(0, "keyboard");
+      select(0);
     } else if (matchesKey(event, Keys.next)) {
       event.preventDefault();
-      select(1, "keyboard");
+      select(1);
     } else if (key === "y") {
       event.preventDefault();
       yesAction();
@@ -66,11 +66,10 @@ export function confirmChoice(
     }
   }
 
-  function select(next: number, source: "keyboard" | "pointer"): void {
+  function select(next: number): void {
     if (selected === next) return;
     selected = next;
-    if (source === "keyboard") playSound("dashboardMove");
-    else playSoundIfUnlocked("dashboardMove");
+    playSound("dashboardMove");
     render();
   }
 

@@ -67,29 +67,28 @@ export function playSound(cue: SoundCue): void {
   const audio = audioContext();
   if (!audio) return;
   if (audio.state === "suspended") {
-    void audio.resume().then(() => {
-      unlocked = audio.state === "running";
-      playCue(audio, cue);
-    });
+    void audio
+      .resume()
+      .then(() => {
+        unlocked = audio.state === "running";
+        playCue(audio, cue);
+      })
+      .catch(() => undefined);
     return;
   }
   unlocked = audio.state === "running";
   playCue(audio, cue);
 }
 
-export function playSoundIfUnlocked(cue: SoundCue): void {
-  const audio = context;
-  if (!audio || audio.state !== "running") return;
-  unlocked = true;
-  playCue(audio, cue);
-}
-
 export function unlockSound(): void {
   const audio = audioContext();
   if (!audio || unlocked) return;
-  void audio.resume().then(() => {
-    unlocked = audio.state === "running";
-  });
+  void audio
+    .resume()
+    .then(() => {
+      unlocked = audio.state === "running";
+    })
+    .catch(() => undefined);
 }
 
 function playCue(audio: AudioContext, cue: SoundCue): void {

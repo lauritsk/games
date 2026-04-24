@@ -13,7 +13,7 @@ import {
   type MountScope,
 } from "./core";
 import { games } from "./games";
-import { playSound, playSoundIfUnlocked, unlockSound } from "./sound";
+import { playSound, unlockSound } from "./sound";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("Missing app root");
@@ -96,7 +96,7 @@ function renderDashboard(): void {
       const card = gameCard(required(games[index]));
       card.addEventListener("pointerenter", () => {
         if (!selectDashboardIndex(index)) return;
-        playSoundIfUnlocked("dashboardMove");
+        playSound("dashboardMove");
         renderSelection();
       });
       card.addEventListener("focus", () => {
