@@ -1,11 +1,10 @@
-import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, moveGridPoint, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, shuffle, type Difficulty, type GameDefinition } from "../core";
+import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, moveGridPoint, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type GameDefinition } from "../core";
 import { playSound } from "../sound";
+import { flagMinesweeperCount, floodOpenMinesweeper, minesweeperNeighbors, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperCell, type MinesweeperConfig } from "./minesweeper.logic";
 
-type Cell = { mine: boolean; open: boolean; flag: boolean; nearby: number };
 type State = "playing" | "won" | "lost";
-type Config = { size: number; mines: number };
 
-const configs: Record<Difficulty, Config> = {
+const configs: Record<Difficulty, MinesweeperConfig> = {
   Easy: { size: 8, mines: 8 },
   Medium: { size: 12, mines: 24 },
   Hard: { size: 16, mines: 56 },
@@ -23,7 +22,7 @@ export const minesweeper: GameDefinition = {
 export function mountMinesweeper(target: HTMLElement): () => void {
   let difficulty: Difficulty = "Medium";
   let config = configs[difficulty];
-  let board = newBoard(config);
+  let board = newMinesweeperBoard(config);
   let state: State = "playing";
   let firstMove = true;
   let selectedRow = 0;
@@ -56,7 +55,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   function resetGame(): void {
     resetGameProgress(shell);
     config = configs[difficulty];
-    board = newBoard(config);
+    board = newMinesweeperBoard(config);
     state = "playing";
     firstMove = true;
     selectedRow = 0;
@@ -125,7 +124,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   function statusText(): string {
     if (state === "won") return "Cleared";
     if (state === "lost") return "Boom";
-    return `${config.mines - flagCount(board)} mines`;
+    return `${config.mines - flagMinesweeperCount(board)} mines`;
   }
 
   function openCell(row: number, column: number): void {
@@ -140,7 +139,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     markGameStarted(shell);
 
     if (firstMove) {
-      board = seededBoard(config, row, column);
+      board = seededMinesweeperBoard(config, row, column);
       firstMove = false;
     }
 
@@ -149,8 +148,8 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       current.open = true;
       state = "lost";
     } else {
-      floodOpen(board, config, row, column);
-      if (openSafeCount(board) === config.size * config.size - config.mines) state = "won";
+      floodOpenMinesweeper(board, config, row, column);
+      if (openSafeMinesweeperCount(board) === config.size * config.size - config.mines) state = "won";
     }
     if (state !== "playing") markGameFinished(shell);
     if (state === "won") playSound("gameWin");
@@ -164,7 +163,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     const cell = board[row]?.[column];
     if (!cell?.open || cell.nearby === 0) return;
 
-    const around = neighbors(config, row, column);
+    const around = minesweeperNeighbors(config, row, column);
     const flagged = around.filter(([r, c]) => board[r]?.[c]?.flag).length;
     if (flagged !== cell.nearby) return;
 
@@ -176,10 +175,10 @@ export function mountMinesweeper(target: HTMLElement): () => void {
         next.open = true;
         state = "lost";
       } else {
-        floodOpen(board, config, r, c);
+        floodOpenMinesweeper(board, config, r, c);
       }
     }
-    if (state !== "lost" && openSafeCount(board) === config.size * config.size - config.mines) state = "won";
+    if (state !== "lost" && openSafeMinesweeperCount(board) === config.size * config.size - config.mines) state = "won";
     if (state !== "playing") markGameFinished(shell);
     if (state === "won") playSound("gameWin");
     else if (state === "lost") playSound("gameLose");
@@ -204,61 +203,15 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   };
 }
 
-function newBoard(config: Config): Cell[][] {
-  return Array.from({ length: config.size }, () => Array.from({ length: config.size }, () => ({ mine: false, open: false, flag: false, nearby: 0 })));
-}
-
-function seededBoard(config: Config, safeRow: number, safeColumn: number): Cell[][] {
-  const board = newBoard(config);
-  const blocked = new Set(neighbors(config, safeRow, safeColumn).concat([[safeRow, safeColumn]]).map(([r, c]) => key(r, c)));
-  const spots = Array.from({ length: config.size * config.size }, (_, index) => [Math.floor(index / config.size), index % config.size] as const).filter(([r, c]) => !blocked.has(key(r, c)));
-
-  shuffle(spots).slice(0, config.mines).forEach(([r, c]) => { board[r]![c]!.mine = true; });
-
-  for (let row = 0; row < config.size; row += 1) {
-    for (let column = 0; column < config.size; column += 1) {
-      board[row]![column]!.nearby = neighbors(config, row, column).filter(([r, c]) => board[r]?.[c]?.mine).length;
-    }
-  }
-  return board;
-}
-
-function floodOpen(board: Cell[][], config: Config, row: number, column: number): void {
-  const queue: [number, number][] = [[row, column]];
-  for (let index = 0; index < queue.length; index += 1) {
-    const [r, c] = queue[index]!;
-    const cell = board[r]?.[c];
-    if (!cell || cell.open || cell.flag) continue;
-    cell.open = true;
-    if (cell.nearby === 0) queue.push(...neighbors(config, r, c));
-  }
-}
-
-function neighbors(config: Config, row: number, column: number): [number, number][] {
-  const found: [number, number][] = [];
-  for (let dr = -1; dr <= 1; dr += 1) {
-    for (let dc = -1; dc <= 1; dc += 1) {
-      const r = row + dr;
-      const c = column + dc;
-      if ((dr !== 0 || dc !== 0) && r >= 0 && r < config.size && c >= 0 && c < config.size) found.push([r, c]);
-    }
-  }
-  return found;
-}
-
-function key(row: number, column: number): string { return `${row}:${column}`; }
-
-function cellText(cell: Cell): string {
+function cellText(cell: MinesweeperCell): string {
   if (cell.flag) return "⚑";
   if (!cell.open) return "";
   if (cell.mine) return "✹";
   return cell.nearby > 0 ? String(cell.nearby) : "";
 }
 
-function labelFor(row: number, column: number, cell: Cell): string {
+function labelFor(row: number, column: number, cell: MinesweeperCell): string {
   const value = cell.flag ? "flagged" : cell.open ? cell.mine ? "mine" : `${cell.nearby} nearby mines` : "closed";
   return `Row ${row + 1}, column ${column + 1}, ${value}`;
 }
 
-function flagCount(board: Cell[][]): number { return board.flat().filter((cell) => cell.flag).length; }
-function openSafeCount(board: Cell[][]): number { return board.flat().filter((cell) => cell.open && !cell.mine).length; }

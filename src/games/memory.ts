@@ -1,7 +1,6 @@
-import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, moveGridIndex, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, shuffle, type Difficulty, type GameDefinition } from "../core";
+import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, moveGridIndex, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type GameDefinition } from "../core";
 import { playSound } from "../sound";
-
-type Card = { id: number; symbol: string; open: boolean; matched: boolean };
+import { allMemoryMatched, newMemoryDeck, openUnmatchedMemoryCards, type MemoryCard } from "./memory.logic";
 type Config = { pairs: number; columns: number; rows: number };
 
 const configs: Record<Difficulty, Config> = {
@@ -9,8 +8,6 @@ const configs: Record<Difficulty, Config> = {
   Medium: { pairs: 8, columns: 4, rows: 4 },
   Hard: { pairs: 12, columns: 6, rows: 4 },
 };
-
-const symbols = ["★", "◆", "●", "▲", "☽", "✿", "♣", "☀", "♥", "✦", "⬟", "☂"];
 
 export const memory: GameDefinition = {
   id: "memory",
@@ -24,7 +21,7 @@ export const memory: GameDefinition = {
 export function mountMemory(target: HTMLElement): () => void {
   let difficulty: Difficulty = "Medium";
   let config = configs[difficulty];
-  let cards = newDeck(config.pairs);
+  let cards = newMemoryDeck(config.pairs);
   let selected = 0;
   let moves = 0;
   let lock = false;
@@ -58,7 +55,7 @@ export function mountMemory(target: HTMLElement): () => void {
     clearPending();
     resetGameProgress(shell);
     config = configs[difficulty];
-    cards = newDeck(config.pairs);
+    cards = newMemoryDeck(config.pairs);
     selected = 0;
     moves = 0;
     lock = false;
@@ -68,7 +65,7 @@ export function mountMemory(target: HTMLElement): () => void {
   function render(): void {
     clearNode(grid);
     setBoardGrid(grid, config.columns, config.rows);
-    status.textContent = allMatched() ? `Won · ${moves}` : `Moves ${moves}`;
+    status.textContent = allMemoryMatched(cards) ? `Won · ${moves}` : `Moves ${moves}`;
     difficultyButton.textContent = difficulty;
 
     cards.forEach((card, index) => {
@@ -117,7 +114,7 @@ export function mountMemory(target: HTMLElement): () => void {
 
     markGameStarted(shell);
     card.open = true;
-    const open = cards.filter((item) => item.open && !item.matched);
+    const open = openUnmatchedMemoryCards(cards);
 
     if (open.length === 2) {
       moves += 1;
@@ -127,7 +124,7 @@ export function mountMemory(target: HTMLElement): () => void {
         b!.matched = true;
         a!.open = false;
         b!.open = false;
-        if (allMatched()) {
+        if (allMemoryMatched(cards)) {
           markGameFinished(shell);
           playSound("gameWin");
         } else playSound("gameGood");
@@ -147,11 +144,7 @@ export function mountMemory(target: HTMLElement): () => void {
     render();
   }
 
-  function allMatched(): boolean {
-    return cards.every((card) => card.matched);
-  }
-
-  function labelFor(card: Card, index: number): string {
+  function labelFor(card: MemoryCard, index: number): string {
     const row = Math.floor(index / config.columns) + 1;
     const column = (index % config.columns) + 1;
     if (card.matched) return `Row ${row}, column ${column}, matched ${card.symbol}`;
@@ -173,9 +166,3 @@ export function mountMemory(target: HTMLElement): () => void {
   };
 }
 
-function newDeck(pairs: number): Card[] {
-  return shuffle(symbols.slice(0, pairs).flatMap((symbol, id) => [
-    { id: id * 2, symbol, open: false, matched: false },
-    { id: id * 2 + 1, symbol, open: false, matched: false },
-  ]));
-}

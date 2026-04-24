@@ -1,18 +1,10 @@
 import { button, clearNode, createGameShell, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type GameDefinition } from "../core";
 import { playSound } from "../sound";
+import { chooseConnect4BotColumn, connect4Bot, connect4Columns, connect4Human, connect4Rows, dropConnect4Disc, findConnect4Win, newConnect4Board, type Connect4Cell, type Connect4Player, type Connect4WinLine } from "./connect4.logic";
 
-type Player = 1 | 2;
-type Cell = Player | 0;
-type WinLine = [number, number][];
 type Mode = "bot" | "local";
 
-const rows = 6;
-const columns = 7;
-const connect = 4;
-
-const human: Player = 1;
-const bot: Player = 2;
-const names: Record<Player, string> = { 1: "Red", 2: "Gold" };
+const names: Record<Connect4Player, string> = { 1: "Red", 2: "Gold" };
 
 export const connect4: GameDefinition = {
   id: "connect4",
@@ -24,14 +16,14 @@ export const connect4: GameDefinition = {
 };
 
 export function mountConnect4(target: HTMLElement): () => void {
-  let board = newBoard();
-  let current: Player = 1;
-  let winner: Player | null = null;
-  let winningLine: WinLine = [];
+  let board = newConnect4Board();
+  let current: Connect4Player = 1;
+  let winner: Connect4Player | null = null;
+  let winningLine: Connect4WinLine = [];
   let moves = 0;
   let mode: Mode = "bot";
   let difficulty: Difficulty = "Medium";
-  let selectedColumn = Math.floor(columns / 2);
+  let selectedColumn = Math.floor(connect4Columns / 2);
   let botTimer: ReturnType<typeof setTimeout> | null = null;
 
   const { shell, status, actions, board: grid, remove } = createGameShell(target, {
@@ -40,7 +32,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     boardLabel: "Connect 4 board",
   });
   shell.tabIndex = 0;
-  setBoardGrid(grid, columns, rows);
+  setBoardGrid(grid, connect4Columns, connect4Rows);
   document.addEventListener("keydown", onKeyDown);
 
   const modeButton = button("", "button pill surface interactive");
@@ -70,12 +62,12 @@ export function mountConnect4(target: HTMLElement): () => void {
   function resetGame(): void {
     clearBotTimer();
     resetGameProgress(shell);
-    board = newBoard();
-    current = human;
+    board = newConnect4Board();
+    current = connect4Human;
     winner = null;
     winningLine = [];
     moves = 0;
-    selectedColumn = Math.floor(columns / 2);
+    selectedColumn = Math.floor(connect4Columns / 2);
     render();
   }
 
@@ -86,8 +78,8 @@ export function mountConnect4(target: HTMLElement): () => void {
     modeButton.textContent = mode === "bot" ? "Vs bot" : "2 players";
     difficultyButton.textContent = difficulty;
 
-    for (let row = 0; row < rows; row += 1) {
-      for (let column = 0; column < columns; column += 1) {
+    for (let row = 0; row < connect4Rows; row += 1) {
+      for (let column = 0; column < connect4Columns; column += 1) {
         const value = board[row]?.[column] ?? 0;
         const cell = el("button", {
           className: "slot",
@@ -99,7 +91,7 @@ export function mountConnect4(target: HTMLElement): () => void {
         cell.dataset.column = String(column);
         if (column === selectedColumn) cell.dataset.selected = "true";
         if (winningLine.some(([r, c]) => r === row && c === column)) cell.dataset.win = "true";
-        cell.disabled = isLocked() || Boolean(winner) || moves === rows * columns || !canPlay(column);
+        cell.disabled = isLocked() || Boolean(winner) || moves === connect4Rows * connect4Columns || !canPlay(column);
         cell.addEventListener("click", () => playTurn(column));
         grid.append(cell);
       }
@@ -115,7 +107,7 @@ export function mountConnect4(target: HTMLElement): () => void {
       render();
     } else if (matchesKey(event, Keys.right)) {
       event.preventDefault();
-      selectedColumn = Math.min(columns - 1, selectedColumn + 1);
+      selectedColumn = Math.min(connect4Columns - 1, selectedColumn + 1);
       render();
     } else if (matchesKey(event, [...Keys.activate, ...Keys.down])) {
       event.preventDefault();
@@ -142,40 +134,40 @@ export function mountConnect4(target: HTMLElement): () => void {
   }
 
   function statusText(): string {
-    if (moves === rows * columns) return "Draw";
+    if (moves === connect4Rows * connect4Columns) return "Draw";
     if (mode === "local") return winner ? `${names[winner]} wins` : `${names[current]} turn`;
-    if (winner === human) return "You win";
-    if (winner === bot) return "Bot wins";
-    return current === human ? "Your turn" : "Bot thinking";
+    if (winner === connect4Human) return "You win";
+    if (winner === connect4Bot) return "Bot wins";
+    return current === connect4Human ? "Your turn" : "Bot thinking";
   }
 
   function isLocked(): boolean {
-    return mode === "bot" && current === bot;
+    return mode === "bot" && current === connect4Bot;
   }
 
   function playTurn(column: number): void {
     if (isLocked()) return;
     play(column);
-    if (mode === "bot" && !winner && current === bot) scheduleBot();
+    if (mode === "bot" && !winner && current === connect4Bot) scheduleBot();
   }
 
   function play(column: number): void {
     if (winner || !canPlay(column)) return;
-    const row = dropDisc(board, column, current);
+    const row = dropConnect4Disc(board, column, current);
     if (row === null) return;
 
     markGameStarted(shell);
     moves += 1;
-    const line = findWin(board, row, column, current);
+    const line = findConnect4Win(board, row, column, current);
     if (line) {
       winner = current;
       winningLine = line;
     } else {
-      current = current === human ? bot : human;
+      current = current === connect4Human ? connect4Bot : connect4Human;
     }
-    if (winner || moves === rows * columns) markGameFinished(shell);
-    if (winner) playSound(winner === human ? "gameWin" : "gameLose");
-    else if (moves === rows * columns) playSound("gameMajor");
+    if (winner || moves === connect4Rows * connect4Columns) markGameFinished(shell);
+    if (winner) playSound(winner === connect4Human ? "gameWin" : "gameLose");
+    else if (moves === connect4Rows * connect4Columns) playSound("gameMajor");
     else playSound("gameMove");
     render();
   }
@@ -184,7 +176,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     clearBotTimer();
     botTimer = setTimeout(() => {
       botTimer = null;
-      if (current === bot && !winner) play(chooseBotColumn(board, difficulty));
+      if (current === connect4Bot && !winner) play(chooseConnect4BotColumn(board, difficulty));
     }, 360);
   }
 
@@ -206,117 +198,8 @@ export function mountConnect4(target: HTMLElement): () => void {
   };
 }
 
-function newBoard(): Cell[][] {
-  return Array.from({ length: rows }, () => Array<Cell>(columns).fill(0));
-}
-
-function chooseBotColumn(board: Cell[][], difficulty: Difficulty): number {
-  const valid = playableColumns(board);
-  if (difficulty === "Easy") return randomMove(valid);
-
-  const tactical = findTacticalMove(board, bot, valid) ?? findTacticalMove(board, human, valid);
-  if (tactical !== null) return tactical;
-
-  if (difficulty === "Hard") return safeShapeMove(board, valid) ?? bestShapeMove(board, valid) ?? randomMove(valid);
-  return bestShapeMove(board, valid) ?? randomMove(valid);
-}
-
-function randomMove(valid: number[]): number {
-  return valid[Math.floor(Math.random() * valid.length)] ?? 0;
-}
-
-function safeShapeMove(board: Cell[][], valid: number[]): number | null {
-  return valid
-    .filter((column) => !givesImmediateWin(board, column))
-    .sort((a, b) => scoreMove(board, b, bot) - scoreMove(board, a, bot))[0] ?? null;
-}
-
-function givesImmediateWin(board: Cell[][], column: number): boolean {
-  const test = cloneBoard(board);
-  const row = dropDisc(test, column, bot);
-  if (row === null) return true;
-  return findTacticalMove(test, human, playableColumns(test)) !== null;
-}
-
-function playableColumns(board: Cell[][]): number[] {
-  return Array.from({ length: columns }, (_, column) => column).filter((column) => board[0]?.[column] === 0);
-}
-
-function findTacticalMove(board: Cell[][], player: Player, valid: number[]): number | null {
-  for (const column of valid) {
-    const test = cloneBoard(board);
-    const row = dropDisc(test, column, player);
-    if (row !== null && findWin(test, row, column, player)) return column;
-  }
-  return null;
-}
-
-function bestShapeMove(board: Cell[][], valid: number[]): number | null {
-  const center = Math.floor(columns / 2);
-  return [...valid].sort((a, b) => scoreMove(board, b, bot) - scoreMove(board, a, bot) || Math.abs(a - center) - Math.abs(b - center))[0] ?? null;
-}
-
-function scoreMove(board: Cell[][], column: number, player: Player): number {
-  const test = cloneBoard(board);
-  const row = dropDisc(test, column, player);
-  if (row === null) return -Infinity;
-  return longestLine(test, row, column, player) * 10 - Math.abs(column - Math.floor(columns / 2));
-}
-
-function longestLine(board: Cell[][], row: number, column: number, player: Player): number {
-  const directions = [
-    [0, 1],
-    [1, 0],
-    [1, 1],
-    [1, -1],
-  ] as const;
-  return Math.max(...directions.map(([dr, dc]) => 1 + walk(board, row, column, dr, dc, player).length + walk(board, row, column, -dr, -dc, player).length));
-}
-
-function dropDisc(board: Cell[][], column: number, player: Player): number | null {
-  for (let row = rows - 1; row >= 0; row -= 1) {
-    if (board[row]?.[column] === 0) {
-      board[row]![column] = player;
-      return row;
-    }
-  }
-  return null;
-}
-
-function cloneBoard(board: Cell[][]): Cell[][] {
-  return board.map((row) => [...row]);
-}
-
-function labelFor(row: number, column: number, value: Cell): string {
+function labelFor(row: number, column: number, value: Connect4Cell): string {
   const token = value === 0 ? "empty" : `${names[value]} disc`;
   return `Row ${row + 1}, column ${column + 1}, ${token}`;
 }
 
-function findWin(board: Cell[][], row: number, column: number, player: Player): WinLine | null {
-  const directions = [
-    [0, 1],
-    [1, 0],
-    [1, 1],
-    [1, -1],
-  ] as const;
-
-  for (const [dr, dc] of directions) {
-    const line: WinLine = [[row, column]];
-    line.push(...walk(board, row, column, dr, dc, player));
-    line.push(...walk(board, row, column, -dr, -dc, player));
-    if (line.length >= connect) return line;
-  }
-  return null;
-}
-
-function walk(board: Cell[][], row: number, column: number, dr: number, dc: number, player: Player): WinLine {
-  const line: WinLine = [];
-  let r = row + dr;
-  let c = column + dc;
-  while (r >= 0 && r < rows && c >= 0 && c < columns && board[r]?.[c] === player) {
-    line.push([r, c]);
-    r += dr;
-    c += dc;
-  }
-  return line;
-}

@@ -1,7 +1,6 @@
 import { button, clearNode, createGameShell, directionFromKey, el, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { playSound } from "../sound";
-
-type Point = { row: number; column: number };
+import { moveSnakePoint, nextSnakeDirection, randomSnakeFood, snakeOutOfBounds, snakePointKey, snakePointsEqual, startSnakeBody, type SnakePoint } from "./snake.logic";
 type State = "ready" | "playing" | "won" | "lost";
 type Config = { size: number; speed: number };
 
@@ -9,13 +8,6 @@ const configs: Record<Difficulty, Config> = {
   Easy: { size: 14, speed: 170 },
   Medium: { size: 18, speed: 115 },
   Hard: { size: 22, speed: 75 },
-};
-
-const opposite: Record<Direction, Direction> = {
-  up: "down",
-  right: "left",
-  down: "up",
-  left: "right",
 };
 
 export const snake: GameDefinition = {
@@ -30,8 +22,8 @@ export const snake: GameDefinition = {
 export function mountSnake(target: HTMLElement): () => void {
   let difficulty: Difficulty = "Medium";
   let config = configs[difficulty];
-  let snake = startSnake(config.size);
-  let food = randomFood(config.size, snake);
+  let snake = startSnakeBody(config.size);
+  let food = randomSnakeFood(config.size, snake);
   let direction: Direction = "right";
   let queuedDirection: Direction = direction;
   let state: State = "ready";
@@ -65,8 +57,8 @@ export function mountSnake(target: HTMLElement): () => void {
     stopTimer();
     resetGameProgress(shell);
     config = configs[difficulty];
-    snake = startSnake(config.size);
-    food = randomFood(config.size, snake);
+    snake = startSnakeBody(config.size);
+    food = randomSnakeFood(config.size, snake);
     direction = "right";
     queuedDirection = direction;
     state = "ready";
@@ -79,16 +71,16 @@ export function mountSnake(target: HTMLElement): () => void {
     status.textContent = statusText();
     difficultyButton.textContent = difficulty;
 
-    const body = new Set(snake.map(pointKey));
-    const head = pointKey(snake[0]!);
+    const body = new Set(snake.map(snakePointKey));
+    const head = snakePointKey(snake[0]!);
     for (let row = 0; row < config.size; row += 1) {
       for (let column = 0; column < config.size; column += 1) {
         const point = { row, column };
-        const key = pointKey(point);
+        const key = snakePointKey(point);
         const cell = el("div", { className: "snake-cell", ariaLabel: labelFor(point) });
         cell.dataset.snake = String(body.has(key));
         cell.dataset.head = String(key === head);
-        cell.dataset.food = String(pointsEqual(point, food));
+        cell.dataset.food = String(snakePointsEqual(point, food));
         grid.append(cell);
       }
     }
@@ -131,19 +123,20 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function queueDirection(next: Direction): boolean {
-    if (next === opposite[direction] || next === queuedDirection) return false;
-    queuedDirection = next;
-    return true;
+    const queued = nextSnakeDirection(direction, queuedDirection, next);
+    const changed = queued !== queuedDirection;
+    queuedDirection = queued;
+    return changed;
   }
 
   function tick(): void {
     direction = queuedDirection;
     const head = snake[0]!;
-    const next = movePoint(head, direction);
-    const ate = pointsEqual(next, food);
+    const next = moveSnakePoint(head, direction);
+    const ate = snakePointsEqual(next, food);
     const bodyToCheck = ate ? snake : snake.slice(0, -1);
 
-    if (outOfBounds(next, config.size) || bodyToCheck.some((part) => pointsEqual(part, next))) {
+    if (snakeOutOfBounds(next, config.size) || bodyToCheck.some((part) => snakePointsEqual(part, next))) {
       state = "lost";
       markGameFinished(shell);
       stopTimer();
@@ -160,7 +153,7 @@ export function mountSnake(target: HTMLElement): () => void {
         stopTimer();
         playSound("gameWin");
       } else {
-        food = randomFood(config.size, snake);
+        food = randomSnakeFood(config.size, snake);
         playSound("gameGood");
       }
     } else {
@@ -176,10 +169,10 @@ export function mountSnake(target: HTMLElement): () => void {
     return `Length ${snake.length}`;
   }
 
-  function labelFor(point: Point): string {
-    if (pointsEqual(point, snake[0]!)) return `Row ${point.row + 1}, column ${point.column + 1}, snake head`;
-    if (snake.some((part) => pointsEqual(part, point))) return `Row ${point.row + 1}, column ${point.column + 1}, snake body`;
-    if (pointsEqual(point, food)) return `Row ${point.row + 1}, column ${point.column + 1}, food`;
+  function labelFor(point: SnakePoint): string {
+    if (snakePointsEqual(point, snake[0]!)) return `Row ${point.row + 1}, column ${point.column + 1}, snake head`;
+    if (snake.some((part) => snakePointsEqual(part, point))) return `Row ${point.row + 1}, column ${point.column + 1}, snake body`;
+    if (snakePointsEqual(point, food)) return `Row ${point.row + 1}, column ${point.column + 1}, food`;
     return `Row ${point.row + 1}, column ${point.column + 1}, empty`;
   }
 
@@ -197,40 +190,3 @@ export function mountSnake(target: HTMLElement): () => void {
   };
 }
 
-function startSnake(size: number): Point[] {
-  const row = Math.floor(size / 2);
-  const column = Math.floor(size / 2);
-  return [
-    { row, column },
-    { row, column: column - 1 },
-    { row, column: column - 2 },
-  ];
-}
-
-function movePoint(point: Point, direction: Direction): Point {
-  if (direction === "up") return { row: point.row - 1, column: point.column };
-  if (direction === "right") return { row: point.row, column: point.column + 1 };
-  if (direction === "down") return { row: point.row + 1, column: point.column };
-  return { row: point.row, column: point.column - 1 };
-}
-
-function randomFood(size: number, snake: Point[]): Point {
-  const occupied = new Set(snake.map(pointKey));
-  const empty = Array.from({ length: size * size }, (_, index) => ({
-    row: Math.floor(index / size),
-    column: index % size,
-  })).filter((point) => !occupied.has(pointKey(point)));
-  return empty[Math.floor(Math.random() * empty.length)] ?? snake[0]!;
-}
-
-function outOfBounds(point: Point, size: number): boolean {
-  return point.row < 0 || point.column < 0 || point.row >= size || point.column >= size;
-}
-
-function pointsEqual(a: Point, b: Point): boolean {
-  return a.row === b.row && a.column === b.column;
-}
-
-function pointKey(point: Point): string {
-  return `${point.row}:${point.column}`;
-}
