@@ -28,7 +28,7 @@ Build these first because they fit current patterns or unlock reusable systems f
   - UI: board renderer, next-piece preview, score, level, pause.
   - Later: hold piece.
 
-- [ ] Breakout / Arkanoid
+- [x] Breakout / Arkanoid
   - Paddle at bottom; ball destroys top bricks.
   - Increasingly difficult levels.
   - Shared playfield/collision helpers where useful.

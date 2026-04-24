@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { canMove2048, merge2048Line, slide2048 } from "../src/games/2048.logic";
+import { newBreakoutState, moveBreakoutPaddle, stepBreakout, circleIntersectsRect } from "../src/games/breakout.logic";
 import { connect4Human, dropConnect4DiscInPlace, findConnect4TacticalMove, findConnect4Win, newConnect4Board } from "../src/games/connect4.logic";
 import { floodOpenMinesweeperInPlace, minesweeperNeighbors, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperConfig } from "../src/games/minesweeper.logic";
 import { allMemoryMatched, newMemoryDeck, openUnmatchedMemoryCards, type MemoryCard } from "../src/games/memory.logic";
@@ -17,6 +18,29 @@ describe("2048 logic", () => {
     const result = slide2048([[2, 0], [2, 4]], "up");
     expect(result).toEqual({ board: [[4, 4], [0, 0]], score: 4, changed: true });
     expect(canMove2048([[2, 4], [8, 16]])).toBe(false);
+  });
+});
+
+describe("breakout logic", () => {
+  const config = { brickRows: 1, brickColumns: 2, lives: 2, ballSpeed: 1.2, paddleWidth: 20 };
+
+  test("clamps paddle and detects circle/rect collision", () => {
+    const state = newBreakoutState(config);
+    expect(moveBreakoutPaddle(state, -50).paddle.x).toBe(0);
+    expect(moveBreakoutPaddle(state, 150).paddle.x).toBe(80);
+    expect(circleIntersectsRect({ x: 5, y: 5, vx: 0, vy: 0, radius: 2 }, { x: 6, y: 6, width: 5, height: 5 })).toBe(true);
+  });
+
+  test("breaks bricks, wins, and loses lives", () => {
+    const state = newBreakoutState({ ...config, brickRows: 1, brickColumns: 1 });
+    const brick = state.bricks[0]!;
+    const hit = stepBreakout({ ...state, ball: { x: brick.x + 1, y: brick.y + brick.height + 1, vx: 0, vy: -1, radius: 1.6 } });
+    expect(hit.score).toBe(10);
+    expect(hit.won).toBe(true);
+
+    const miss = stepBreakout({ ...state, ball: { x: 50, y: 102, vx: 0, vy: 1, radius: 1.6 } });
+    expect(miss.lives).toBe(1);
+    expect(miss.lost).toBe(false);
   });
 });
 
