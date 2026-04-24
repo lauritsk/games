@@ -7,11 +7,13 @@
     "build": "bun build ./index.html --outdir=dist --minify",
     "build:single": "bun build --compile --target=browser ./index.html --outdir=dist-single --minify",
     "typecheck": "tsc --noEmit",
-    "test": "bun test",
-    "test:watch": "bun --watch test",
-    "check": "bun run typecheck && bun test && bun run build"
+    "test": "bun test test/*.test.ts",
+    "test:e2e": "playwright install chromium && playwright test",
+    "test:watch": "bun --watch test/*.test.ts",
+    "check": "bun run typecheck && bun run test && bun run build && bun run test:e2e"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/bun": "latest",
     "typescript": "^5"
   }

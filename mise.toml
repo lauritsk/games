@@ -19,7 +19,11 @@ run = "bun run typecheck"
 
 [tasks.test]
 description = "Run tests"
-run = "bun test"
+run = "bun run test"
+
+[tasks.test-e2e]
+description = "Run Playwright browser tests"
+run = "bun run test:e2e"
 
 [tasks.test-watch]
 description = "Run tests in watch mode"

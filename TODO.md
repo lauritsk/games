@@ -130,7 +130,7 @@ Completed cleanup:
 
 Future cleanup:
 
-- [ ] Add Playwright browser tests.
+- [x] Add Playwright browser tests.
   - Reset confirmation flow.
   - Key routing.
   - Bot timers.
@@ -138,12 +138,15 @@ Future cleanup:
   - Snake timer cleanup.
   - Memory pending timeout cleanup.
   - Arcade loop cleanup once added.
+  - Added `mise run test-e2e`; `mise run check` runs browser coverage.
 
-- [ ] Review shared styling after several new games.
+- [x] Review shared styling after several new games.
   - Avoid one-off CSS per game unless needed.
   - Keep theme tokens reusable.
   - Add new themes only when they serve distinct game moods.
+  - Current CSS already centralizes shell, board sizing, controls, surfaces, and theme tokens; remaining per-game selectors are limited to distinct board/cell visuals.
 
-- [ ] Consider a game template/generator after 2–3 more games.
+- [x] Consider a game template/generator after 2–3 more games.
   - Scaffold game file, logic file, test file, and registry import.
   - Only add if repetition becomes real.
+  - Decision: defer generator until another batch of games creates stable scaffolding needs; existing helpers cover current repetition.
