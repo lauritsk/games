@@ -201,6 +201,7 @@ export function mountBreakout(target: HTMLElement): () => void {
   }
 
   function syncBricks(next: BreakoutState): void {
+    while (bricks.children.length > next.bricks.length) bricks.lastElementChild?.remove();
     while (bricks.children.length < next.bricks.length) bricks.append(el("div", { className: "breakout-brick" }));
     Array.from(bricks.children).forEach((child, index) => {
       const brick = next.bricks[index];
