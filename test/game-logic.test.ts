@@ -45,13 +45,28 @@ describe("breakout logic", () => {
 
   test("does not bounce when paddle moves under an already-missed ball", () => {
     const state = newBreakoutState(config);
-    const cheatedCatch = stepBreakout({
+    let missed = {
       ...state,
       paddle: { ...state.paddle, x: 40, width: 20 },
       ball: { x: 50, y: state.paddle.y + 1, vx: 0, vy: 1, radius: 1.6 },
+    };
+
+    for (let index = 0; index < 12 && missed.lives === state.lives; index += 1) {
+      missed = stepBreakout(missed);
+      if (missed.lives === state.lives) expect(missed.ball.vy).toBeGreaterThan(0);
+    }
+
+    expect(missed.lives).toBe(state.lives - 1);
+  });
+
+  test("does not bounce while moving upward through paddle", () => {
+    const state = newBreakoutState(config);
+    const upward = stepBreakout({
+      ...state,
+      paddle: { ...state.paddle, x: 40, width: 20 },
+      ball: { x: 50, y: state.paddle.y, vx: 0, vy: -1, radius: 1.6 },
     });
-    expect(cheatedCatch.ball.vy).toBe(1);
-    expect(cheatedCatch.lives).toBe(state.lives);
+    expect(upward.ball.vy).toBe(-1);
   });
 
   test("still bounces when ball crosses paddle top", () => {
