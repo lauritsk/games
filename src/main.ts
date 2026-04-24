@@ -49,28 +49,39 @@ function renderDashboard(): void {
   dashboardKeyCleanup = () => document.removeEventListener("keydown", onDashboardKeyDown);
 
   function onDashboardKeyDown(event: KeyboardEvent): void {
-    const key = event.key.toLowerCase();
-    if (matchesKey(event, Keys.previous)) {
-      event.preventDefault();
-      selectedIndex = (selectedIndex - 1 + games.length) % games.length;
-      playSound("dashboardMove");
-      renderSelection();
-    } else if (matchesKey(event, Keys.next)) {
-      event.preventDefault();
-      selectedIndex = (selectedIndex + 1) % games.length;
-      playSound("dashboardMove");
-      renderSelection();
-    } else if (matchesKey(event, Keys.activate)) {
+    const columns = getDashboardColumns(list);
+    let nextIndex = selectedIndex;
+
+    if (matchesKey(event, Keys.left)) nextIndex = selectedIndex - 1;
+    else if (matchesKey(event, Keys.right)) nextIndex = selectedIndex + 1;
+    else if (matchesKey(event, Keys.up)) nextIndex = selectedIndex - columns;
+    else if (matchesKey(event, Keys.down)) nextIndex = selectedIndex + columns;
+    else if (matchesKey(event, Keys.activate)) {
       event.preventDefault();
       playSound("dashboardSelect");
       window.location.hash = `#/${games[selectedIndex]!.id}`;
-    }
+      return;
+    } else return;
+
+    event.preventDefault();
+    selectedIndex = wrapIndex(nextIndex, games.length);
+    playSound("dashboardMove");
+    renderSelection();
   }
 
   function renderSelection(): void {
     clearNode(list);
     games.forEach((game, index) => list.append(gameCard(game, index === selectedIndex)));
   }
+}
+
+function getDashboardColumns(list: HTMLElement): number {
+  const columns = getComputedStyle(list).gridTemplateColumns.split(" ").filter(Boolean).length;
+  return Math.max(1, columns);
+}
+
+function wrapIndex(index: number, length: number): number {
+  return (index + length) % length;
 }
 
 function gameCard(game: GameDefinition, selected = false): HTMLAnchorElement {
