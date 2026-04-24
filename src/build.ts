@@ -22,6 +22,7 @@ if (!result.success) {
 }
 
 await Bun.write(new URL("styles.css", assets), Bun.file(new URL("styles.css", import.meta.url)));
+await Bun.write(new URL("favicon.svg", dist), Bun.file(new URL("favicon.svg", import.meta.url)));
 
 const script = result.outputs.find((output) => output.path.endsWith(".js"));
 if (!script) throw new Error("Missing JavaScript output");
@@ -38,6 +39,7 @@ await writeFile(
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#fff7df" />
     <title>Classic Games</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body>

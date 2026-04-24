@@ -12,6 +12,12 @@ const server = Bun.serve({
       });
     }
 
+    if (url.pathname === "/favicon.svg") {
+      return new Response(Bun.file(new URL("favicon.svg", srcRoot)), {
+        headers: { "content-type": "image/svg+xml; charset=utf-8" },
+      });
+    }
+
     if (url.pathname === "/src/styles.css") {
       return new Response(Bun.file(new URL("styles.css", srcRoot)), {
         headers: { "content-type": "text/css; charset=utf-8" },
