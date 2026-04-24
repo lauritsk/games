@@ -456,6 +456,46 @@
 
   .breakout-brick[data-alive="false"] { opacity: 0; }
 
+  .breakout-game[data-life-lost="true"] .board--breakout::after {
+    content: "Life lost";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, 0.38);
+    color: #ff6b6b;
+    font-size: clamp(1.4rem, 7vmin, 3.2rem);
+    font-weight: 950;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+    animation: life-lost-flash 900ms ease both;
+    pointer-events: none;
+  }
+
+  .breakout-game[data-life-lost="true"] .breakout-ball {
+    animation: life-lost-ball 900ms ease both;
+  }
+
+  .breakout-game[data-life-lost="true"] .status {
+    border-color: #ff6b6b;
+    color: #ffb3b3;
+    animation: invalid-shake 260ms ease;
+  }
+
+  @keyframes life-lost-flash {
+    0% { opacity: 0; transform: scale(0.9); }
+    18% { opacity: 1; transform: scale(1); }
+    72% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.08); }
+  }
+
+  @keyframes life-lost-ball {
+    0% { opacity: 1; transform: scale(1); }
+    45% { opacity: 0; transform: scale(2.6); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
   @keyframes pulse {
     from { transform: scale(0.88); opacity: 0.55; }
     to { transform: scale(1.08); opacity: 1; }

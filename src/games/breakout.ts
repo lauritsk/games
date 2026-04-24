@@ -25,6 +25,7 @@ export function mountBreakout(target: HTMLElement): () => void {
   let state = newBreakoutState(configs[difficulty]);
   let mode: Mode = "ready";
   let timer: ReturnType<typeof setInterval> | null = null;
+  let lifeLostTimer: ReturnType<typeof setTimeout> | null = null;
   const heldKeys = new Set<"left" | "right">();
 
   const { shell, status, actions, board, remove } = createGameShell(target, {
@@ -67,6 +68,8 @@ export function mountBreakout(target: HTMLElement): () => void {
 
   function resetGame(): void {
     stopTimer();
+    stopLifeLostTimer();
+    shell.dataset.lifeLost = "false";
     resetGameProgress(shell);
     state = newBreakoutState(configs[difficulty]);
     mode = "ready";
@@ -182,6 +185,7 @@ export function mountBreakout(target: HTMLElement): () => void {
       mode = "ready";
       stopTimer();
       heldKeys.clear();
+      showLifeLost();
       playSound("gameLose");
     }
     render();
@@ -219,7 +223,22 @@ export function mountBreakout(target: HTMLElement): () => void {
     if (mode === "paused") return "Paused";
     if (mode === "won") return `Clear · ${state.score}`;
     if (mode === "lost") return `Out · ${state.score}`;
-    return `${state.score} · ${state.lives}♥`;
+    return `${state.score} · ${"♥".repeat(state.lives)}`;
+  }
+
+  function showLifeLost(): void {
+    stopLifeLostTimer();
+    shell.dataset.lifeLost = "true";
+    lifeLostTimer = setTimeout(() => {
+      shell.dataset.lifeLost = "false";
+      lifeLostTimer = null;
+    }, 900);
+  }
+
+  function stopLifeLostTimer(): void {
+    if (!lifeLostTimer) return;
+    clearTimeout(lifeLostTimer);
+    lifeLostTimer = null;
   }
 
   function aliveBrickCount(next: BreakoutState): number {
@@ -240,6 +259,7 @@ export function mountBreakout(target: HTMLElement): () => void {
   render();
   return () => {
     stopTimer();
+    stopLifeLostTimer();
     invalidMove.cleanup();
     scope.cleanup();
     remove();
