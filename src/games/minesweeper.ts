@@ -1,8 +1,7 @@
-import { button, clearNode, confirmChoice, createGameShell, el, type GameDefinition } from "../core";
+import { button, clearNode, confirmChoice, createGameShell, el, isConfirmOpen, matchesKey, nextDifficulty, previousDifficulty, type Difficulty, type GameDefinition } from "../core";
 
 type Cell = { mine: boolean; open: boolean; flag: boolean; nearby: number };
 type State = "playing" | "won" | "lost";
-type Difficulty = "Easy" | "Medium" | "Hard";
 type Config = { size: number; mines: number };
 
 const configs: Record<Difficulty, Config> = {
@@ -91,35 +90,35 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (document.querySelector(".confirm")) return;
+    if (isConfirmOpen()) return;
     const key = event.key.toLowerCase();
-    if (["arrowup", "k"].includes(key)) {
+    if (matchesKey(event, ["arrowup", "k"])) {
       event.preventDefault();
       selectedRow = Math.max(0, selectedRow - 1);
       render();
-    } else if (["arrowright", "l"].includes(key)) {
+    } else if (matchesKey(event, ["arrowright", "l"])) {
       event.preventDefault();
       selectedColumn = Math.min(config.size - 1, selectedColumn + 1);
       render();
-    } else if (["arrowdown", "j"].includes(key)) {
+    } else if (matchesKey(event, ["arrowdown", "j"])) {
       event.preventDefault();
       selectedRow = Math.min(config.size - 1, selectedRow + 1);
       render();
-    } else if (["arrowleft", "h"].includes(key)) {
+    } else if (matchesKey(event, ["arrowleft", "h"])) {
       event.preventDefault();
       selectedColumn = Math.max(0, selectedColumn - 1);
       render();
-    } else if ([" ", "enter"].includes(key)) {
+    } else if (matchesKey(event, [" ", "enter"])) {
       event.preventDefault();
       openCell(selectedRow, selectedColumn);
     } else if (key === "f") {
       event.preventDefault();
       toggleFlag(selectedRow, selectedColumn);
-    } else if (["+", "=", ">"].includes(event.key)) {
+    } else if (matchesKey(event, ["+", "=", ">"])) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
       resetGame();
-    } else if (["-", "_", "<"].includes(event.key)) {
+    } else if (matchesKey(event, ["-", "_", "<"])) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
       resetGame();
@@ -202,18 +201,6 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     document.removeEventListener("keydown", onKeyDown);
     remove();
   };
-}
-
-function nextDifficulty(difficulty: Difficulty): Difficulty {
-  if (difficulty === "Easy") return "Medium";
-  if (difficulty === "Medium") return "Hard";
-  return "Easy";
-}
-
-function previousDifficulty(difficulty: Difficulty): Difficulty {
-  if (difficulty === "Hard") return "Medium";
-  if (difficulty === "Medium") return "Easy";
-  return "Hard";
 }
 
 function newBoard(config: Config): Cell[][] {

@@ -1,9 +1,8 @@
-import { button, clearNode, confirmChoice, createGameShell, el, type GameDefinition } from "../core";
+import { button, clearNode, confirmChoice, createGameShell, el, isConfirmOpen, matchesKey, nextDifficulty, previousDifficulty, type Difficulty, type GameDefinition } from "../core";
 
 type Mark = "X" | "O";
 type Cell = Mark | "";
 type Mode = "bot" | "local";
-type Difficulty = "Easy" | "Medium" | "Hard";
 
 const size = 3;
 const human: Mark = "X";
@@ -96,32 +95,32 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (document.querySelector(".confirm")) return;
+    if (isConfirmOpen()) return;
     const key = event.key.toLowerCase();
-    if (["arrowup", "k"].includes(key)) {
+    if (matchesKey(event, ["arrowup", "k"])) {
       event.preventDefault();
       selected = Math.max(0, selected - size);
       render();
-    } else if (["arrowright", "l"].includes(key)) {
+    } else if (matchesKey(event, ["arrowright", "l"])) {
       event.preventDefault();
       selected = Math.min(board.length - 1, selected + 1);
       render();
-    } else if (["arrowdown", "j"].includes(key)) {
+    } else if (matchesKey(event, ["arrowdown", "j"])) {
       event.preventDefault();
       selected = Math.min(board.length - 1, selected + size);
       render();
-    } else if (["arrowleft", "h"].includes(key)) {
+    } else if (matchesKey(event, ["arrowleft", "h"])) {
       event.preventDefault();
       selected = Math.max(0, selected - 1);
       render();
-    } else if ([" ", "enter"].includes(key)) {
+    } else if (matchesKey(event, [" ", "enter"])) {
       event.preventDefault();
       playTurn(selected);
-    } else if (["+", "=", ">"].includes(event.key)) {
+    } else if (matchesKey(event, ["+", "=", ">"])) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
       resetGame();
-    } else if (["-", "_", "<"].includes(event.key)) {
+    } else if (matchesKey(event, ["-", "_", "<"])) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
       resetGame();
@@ -259,18 +258,6 @@ function getWinner(board: Cell[]): { winner: Mark; line: readonly number[] } | n
     if (value && value === board[b] && value === board[c]) return { winner: value, line };
   }
   return null;
-}
-
-function nextDifficulty(difficulty: Difficulty): Difficulty {
-  if (difficulty === "Easy") return "Medium";
-  if (difficulty === "Medium") return "Hard";
-  return "Easy";
-}
-
-function previousDifficulty(difficulty: Difficulty): Difficulty {
-  if (difficulty === "Hard") return "Medium";
-  if (difficulty === "Medium") return "Easy";
-  return "Hard";
 }
 
 function labelFor(index: number, value: Cell): string {

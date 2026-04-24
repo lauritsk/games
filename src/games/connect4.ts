@@ -1,10 +1,9 @@
-import { button, clearNode, confirmChoice, createGameShell, el, type GameDefinition } from "../core";
+import { button, clearNode, confirmChoice, createGameShell, el, isConfirmOpen, matchesKey, nextDifficulty, previousDifficulty, type Difficulty, type GameDefinition } from "../core";
 
 type Player = 1 | 2;
 type Cell = Player | 0;
 type WinLine = [number, number][];
 type Mode = "bot" | "local";
-type Difficulty = "Easy" | "Medium" | "Hard";
 
 const rows = 6;
 const columns = 7;
@@ -105,24 +104,24 @@ export function mountConnect4(target: HTMLElement): () => void {
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (document.querySelector(".confirm")) return;
+    if (isConfirmOpen()) return;
     const key = event.key.toLowerCase();
-    if (["arrowleft", "h"].includes(key)) {
+    if (matchesKey(event, ["arrowleft", "h"])) {
       event.preventDefault();
       selectedColumn = Math.max(0, selectedColumn - 1);
       render();
-    } else if (["arrowright", "l"].includes(key)) {
+    } else if (matchesKey(event, ["arrowright", "l"])) {
       event.preventDefault();
       selectedColumn = Math.min(columns - 1, selectedColumn + 1);
       render();
-    } else if ([" ", "enter", "arrowdown", "j"].includes(key)) {
+    } else if (matchesKey(event, [" ", "enter", "arrowdown", "j"])) {
       event.preventDefault();
       playTurn(selectedColumn);
-    } else if (["+", "=", ">"].includes(event.key)) {
+    } else if (matchesKey(event, ["+", "=", ">"])) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
       resetGame();
-    } else if (["-", "_", "<"].includes(event.key)) {
+    } else if (matchesKey(event, ["-", "_", "<"])) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
       resetGame();
@@ -211,18 +210,6 @@ function chooseBotColumn(board: Cell[][], difficulty: Difficulty): number {
 
   if (difficulty === "Hard") return safeShapeMove(board, valid) ?? bestShapeMove(board, valid) ?? randomMove(valid);
   return bestShapeMove(board, valid) ?? randomMove(valid);
-}
-
-function nextDifficulty(difficulty: Difficulty): Difficulty {
-  if (difficulty === "Easy") return "Medium";
-  if (difficulty === "Medium") return "Hard";
-  return "Easy";
-}
-
-function previousDifficulty(difficulty: Difficulty): Difficulty {
-  if (difficulty === "Hard") return "Medium";
-  if (difficulty === "Medium") return "Easy";
-  return "Hard";
 }
 
 function randomMove(valid: number[]): number {

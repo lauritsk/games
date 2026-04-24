@@ -1,6 +1,5 @@
-import { button, clearNode, confirmChoice, createGameShell, el, type GameDefinition } from "../core";
+import { button, clearNode, confirmChoice, createGameShell, el, isConfirmOpen, matchesKey, nextDifficulty, previousDifficulty, type Difficulty, type GameDefinition } from "../core";
 
-type Difficulty = "Easy" | "Medium" | "Hard";
 type Direction = "up" | "right" | "down" | "left";
 type Board = number[][];
 
@@ -69,24 +68,24 @@ export function mount2048(target: HTMLElement): () => void {
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (!document.body.contains(shell) || document.querySelector(".confirm")) return;
+    if (!document.body.contains(shell) || isConfirmOpen()) return;
     const key = event.key.toLowerCase();
     const direction = keyDirection(event.key);
     if (direction && !over) {
       event.preventDefault();
       move(direction);
-    } else if (["+", "=", ">"].includes(event.key)) {
+    } else if (matchesKey(event, ["+", "=", ">"])) {
       event.preventDefault();
       difficulty = nextDifficulty(difficulty);
       resetGame();
-    } else if (["-", "_", "<"].includes(event.key)) {
+    } else if (matchesKey(event, ["-", "_", "<"])) {
       event.preventDefault();
       difficulty = previousDifficulty(difficulty);
       resetGame();
     } else if (key === "n") {
       event.preventDefault();
       requestReset();
-    } else if ([" ", "enter"].includes(key)) {
+    } else if (matchesKey(event, [" ", "enter"])) {
       event.preventDefault();
       requestReset();
     }
@@ -108,18 +107,6 @@ export function mount2048(target: HTMLElement): () => void {
     window.removeEventListener("keydown", onKeyDown);
     remove();
   };
-}
-
-function nextDifficulty(difficulty: Difficulty): Difficulty {
-  if (difficulty === "Easy") return "Medium";
-  if (difficulty === "Medium") return "Hard";
-  return "Easy";
-}
-
-function previousDifficulty(difficulty: Difficulty): Difficulty {
-  if (difficulty === "Hard") return "Medium";
-  if (difficulty === "Medium") return "Easy";
-  return "Hard";
 }
 
 function startBoard(size: number): Board {

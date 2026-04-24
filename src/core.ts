@@ -1,4 +1,7 @@
 export type GameTheme = "deep-cave" | "deep-ocean" | "outer-space" | "deep-forest";
+export type Difficulty = "Easy" | "Medium" | "Hard";
+
+const difficultyOrder: Difficulty[] = ["Easy", "Medium", "Hard"];
 
 export type GameDefinition = {
   id: string;
@@ -52,8 +55,30 @@ export function button(text: string, className = "button"): HTMLButtonElement {
   return el("button", { className, text, type: "button" });
 }
 
+export function nextDifficulty(difficulty: Difficulty): Difficulty {
+  return cycleDifficulty(difficulty, 1);
+}
+
+export function previousDifficulty(difficulty: Difficulty): Difficulty {
+  return cycleDifficulty(difficulty, -1);
+}
+
+export function isConfirmOpen(): boolean {
+  return Boolean(document.querySelector(".confirm"));
+}
+
+export function matchesKey(event: KeyboardEvent, keys: readonly string[]): boolean {
+  const key = event.key.toLowerCase();
+  return keys.some((candidate) => candidate.toLowerCase() === key);
+}
+
+function cycleDifficulty(difficulty: Difficulty, step: 1 | -1): Difficulty {
+  const index = difficultyOrder.indexOf(difficulty);
+  return difficultyOrder[(index + step + difficultyOrder.length) % difficultyOrder.length]!;
+}
+
 export function confirmChoice(message: string, onYes: () => void, onClose?: () => void): () => void {
-  if (document.querySelector(".confirm")) return () => undefined;
+  if (isConfirmOpen()) return () => undefined;
 
   let selected = 1;
   const dialog = el("div", { className: "confirm", ariaLabel: message });

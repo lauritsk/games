@@ -154,7 +154,7 @@
 
   .game__actions {
     justify-content: end;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .status,
@@ -216,10 +216,18 @@
     background: #102116;
   }
 
+  .board--snake {
+    grid-template-columns: repeat(var(--snake-size, 18), 1fr);
+    gap: 2px;
+    aspect-ratio: 1;
+    background: #08150d;
+  }
+
   .slot,
   .mine-cell,
   .tile,
-  .ttt-cell {
+  .ttt-cell,
+  .snake-cell {
     aspect-ratio: 1;
     position: relative;
     background: rgba(0, 8, 24, 0.36);
@@ -303,6 +311,15 @@
   }
 
   .ttt-cell[data-win="true"] { background: var(--accent); color: #07120d; }
+
+  .snake-cell {
+    border-radius: 5px;
+    transition: background var(--ease), transform var(--ease);
+  }
+
+  .snake-cell[data-snake="true"] { background: var(--accent); box-shadow: none; }
+  .snake-cell[data-head="true"] { background: #f7efe1; transform: scale(1.04); }
+  .snake-cell[data-food="true"] { background: #ff6b6b; border-radius: 50%; box-shadow: 0 0 16px rgba(255, 107, 107, 0.45); }
 
   @keyframes pulse {
     from { transform: scale(0.88); opacity: 0.55; }

@@ -2,6 +2,7 @@ import { game2048 } from "./games/2048";
 import { connect4 } from "./games/connect4";
 import type { GameDefinition } from "./core";
 import { minesweeper } from "./games/minesweeper";
+import { snake } from "./games/snake";
 import { tictactoe } from "./games/tictactoe";
 
-export const games = [connect4, minesweeper, game2048, tictactoe] satisfies GameDefinition[];
+export const games = [connect4, minesweeper, game2048, tictactoe, snake] satisfies GameDefinition[];

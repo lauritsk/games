@@ -1,4 +1,4 @@
-import { clearNode, confirmChoice, el, type GameDefinition } from "./core";
+import { clearNode, confirmChoice, el, matchesKey, type GameDefinition } from "./core";
 import { games } from "./games";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -47,15 +47,15 @@ function renderDashboard(): void {
 
   function onDashboardKeyDown(event: KeyboardEvent): void {
     const key = event.key.toLowerCase();
-    if (["arrowleft", "arrowup", "h", "k"].includes(key)) {
+    if (matchesKey(event, ["arrowleft", "arrowup", "h", "k"])) {
       event.preventDefault();
       selectedIndex = (selectedIndex - 1 + games.length) % games.length;
       renderSelection();
-    } else if (["arrowright", "arrowdown", "l", "j"].includes(key)) {
+    } else if (matchesKey(event, ["arrowright", "arrowdown", "l", "j"])) {
       event.preventDefault();
       selectedIndex = (selectedIndex + 1) % games.length;
       renderSelection();
-    } else if ([" ", "enter"].includes(key)) {
+    } else if (matchesKey(event, [" ", "enter"])) {
       event.preventDefault();
       window.location.hash = `#/${games[selectedIndex]!.id}`;
     }

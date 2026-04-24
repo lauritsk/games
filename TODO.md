@@ -6,7 +6,7 @@
   - Easy / Medium / Hard bot
   - Local two-player option
 
-- [ ] Snake
+- [x] Snake
   - Keyboard controls
   - Difficulty controls speed
 
