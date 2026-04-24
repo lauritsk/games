@@ -1,5 +1,7 @@
-export type BreakoutRect = { x: number; y: number; width: number; height: number };
-export type BreakoutBall = { x: number; y: number; vx: number; vy: number; radius: number };
+import { circleIntersectsRect, clamp, type Circle, type Rect } from "../arcade";
+
+export type BreakoutRect = Rect;
+export type BreakoutBall = Circle & { vx: number; vy: number };
 export type BreakoutBrick = BreakoutRect & { alive: boolean };
 export type BreakoutState = {
   width: number;
@@ -99,12 +101,4 @@ export function stepBreakout(state: BreakoutState): BreakoutState {
   return { ...state, ball, bricks, score, lives, won: bricks.every((brick) => !brick.alive) };
 }
 
-export function circleIntersectsRect(ball: BreakoutBall, rect: BreakoutRect): boolean {
-  const closestX = clamp(ball.x, rect.x, rect.x + rect.width);
-  const closestY = clamp(ball.y, rect.y, rect.y + rect.height);
-  return (ball.x - closestX) ** 2 + (ball.y - closestY) ** 2 <= ball.radius ** 2;
-}
-
-export function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
+export { circleIntersectsRect };

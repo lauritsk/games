@@ -1,4 +1,5 @@
-import { Keys, createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, matchesKey, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createArcadeHud, createHeldKeyInput, createPauseOverlay, startFixedStepLoop, type FixedStepLoop } from "../arcade";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { moveBreakoutPaddle, newBreakoutState, stepBreakout, type BreakoutConfig, type BreakoutState } from "./breakout.logic";
@@ -24,9 +25,8 @@ export function mountBreakout(target: HTMLElement): () => void {
   let difficulty: Difficulty = "Medium";
   let state = newBreakoutState(configs[difficulty]);
   let mode: Mode = "ready";
-  let timer: ReturnType<typeof setInterval> | null = null;
+  let loop: FixedStepLoop | null = null;
   let lifeLostTimer: ReturnType<typeof setTimeout> | null = null;
-  const heldKeys = new Set<"left" | "right">();
 
   const { shell, status, actions, board, remove } = createGameShell(target, {
     gameClass: "breakout-game",
@@ -38,10 +38,16 @@ export function mountBreakout(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
+  const input = createHeldKeyInput(scope, (direction) => {
+    if (isConfirmOpen() || (direction !== "left" && direction !== "right")) return;
+    start();
+  });
   const ball = el("div", { className: "breakout-ball" });
   const paddle = el("div", { className: "breakout-paddle" });
   const bricks = el("div", { className: "breakout-bricks" });
   board.append(bricks, paddle, ball);
+  const hud = createArcadeHud(board);
+  const overlay = createPauseOverlay(board, togglePause);
 
   const difficultyButton = createDifficultyButton(actions, () => {
     difficulty = nextDifficulty(difficulty);
@@ -54,8 +60,6 @@ export function mountBreakout(target: HTMLElement): () => void {
   createResetButton(actions, requestReset);
 
   onDocumentKeyDown(onKeyDown, scope);
-  document.addEventListener("keyup", onKeyUp, { signal: scope.signal });
-  window.addEventListener("blur", () => heldKeys.clear(), { signal: scope.signal });
   board.addEventListener("pointermove", onPointerMove, { signal: scope.signal });
   board.addEventListener("pointerdown", (event) => {
     onPointerMove(event);
@@ -74,7 +78,7 @@ export function mountBreakout(target: HTMLElement): () => void {
     resetGameProgress(shell);
     state = newBreakoutState(configs[difficulty]);
     mode = "ready";
-    heldKeys.clear();
+    input.clear();
     render();
   }
 
@@ -110,18 +114,6 @@ export function mountBreakout(target: HTMLElement): () => void {
       togglePause();
       return;
     }
-    if (matchesKey(event, [...Keys.left, "a"])) {
-      event.preventDefault();
-      heldKeys.add("left");
-      start();
-      return;
-    }
-    if (matchesKey(event, [...Keys.right, "d"])) {
-      event.preventDefault();
-      heldKeys.add("right");
-      start();
-      return;
-    }
     handleStandardGameKey(event, {
       onDirection: (direction) => movePaddleByKey(direction),
       onActivate: start,
@@ -139,20 +131,14 @@ export function mountBreakout(target: HTMLElement): () => void {
     });
   }
 
-  function onKeyUp(event: KeyboardEvent): void {
-    if (matchesKey(event, [...Keys.left, "a"])) heldKeys.delete("left");
-    if (matchesKey(event, [...Keys.right, "d"])) heldKeys.delete("right");
-  }
-
   function movePaddleByKey(direction: Direction): void {
     if (direction !== "left" && direction !== "right") return;
-    heldKeys.add(direction);
     start();
   }
 
   function moveHeldPaddle(): void {
-    const left = heldKeys.has("left");
-    const right = heldKeys.has("right");
+    const left = input.isHeld("left");
+    const right = input.isHeld("right");
     if (left === right) return;
     const step = left ? -2.8 : 2.8;
     state = moveBreakoutPaddle(state, state.paddle.x + state.paddle.width / 2 + step);
@@ -181,12 +167,12 @@ export function mountBreakout(target: HTMLElement): () => void {
       mode = "lost";
       markGameFinished(shell);
       stopTimer();
-      heldKeys.clear();
+      input.clear();
       playSound("gameLose");
     } else if (state.lives < beforeLives) {
       mode = "ready";
       stopTimer();
-      heldKeys.clear();
+      input.clear();
       showLifeLost();
       playSound("gameLose");
     }
@@ -197,6 +183,8 @@ export function mountBreakout(target: HTMLElement): () => void {
     difficultyButton.textContent = difficulty;
     pauseButton.textContent = mode === "paused" ? "Resume" : "Pause";
     status.textContent = statusText();
+    hud.setStats({ Score: state.score, Lives: state.lives, Level: state.level });
+    overlay.setVisible(mode === "paused");
     positionBall();
     position(paddle, state.paddle.x, state.paddle.y, state.paddle.width, state.paddle.height);
     syncBricks(state);
@@ -258,14 +246,13 @@ export function mountBreakout(target: HTMLElement): () => void {
   }
 
   function restartTimer(): void {
-    if (mode !== "playing" || timer) return;
-    timer = setInterval(tick, 16);
+    if (mode !== "playing" || loop?.running) return;
+    loop = startFixedStepLoop(tick, render, 60);
   }
 
   function stopTimer(): void {
-    if (!timer) return;
-    clearInterval(timer);
-    timer = null;
+    loop?.stop();
+    loop = null;
   }
 
   render();
@@ -273,6 +260,7 @@ export function mountBreakout(target: HTMLElement): () => void {
     stopTimer();
     stopLifeLostTimer();
     invalidMove.cleanup();
+    input.destroy();
     scope.cleanup();
     remove();
   };

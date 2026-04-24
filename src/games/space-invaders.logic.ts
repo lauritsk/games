@@ -1,4 +1,6 @@
-export type InvaderRect = { x: number; y: number; width: number; height: number };
+import { clamp, pointInRect, type Rect } from "../arcade";
+
+export type InvaderRect = Rect;
 export type InvaderAlien = InvaderRect & { alive: boolean };
 export type InvaderBarrier = InvaderRect & { hp: number };
 export type InvaderShot = { x: number; y: number; vy: number; owner: "player" | "alien" };
@@ -151,10 +153,3 @@ function clearedAlienCount(aliens: InvaderAlien[]): number {
   return aliens.filter((alien) => !alien.alive).length;
 }
 
-function pointInRect(x: number, y: number, rect: InvaderRect): boolean {
-  return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}

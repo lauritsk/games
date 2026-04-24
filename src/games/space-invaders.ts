@@ -1,4 +1,5 @@
-import { Keys, createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, matchesKey, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { clamp, createArcadeHud, createHeldKeyInput, createPauseOverlay, createTouchControls, startFixedStepLoop, type FixedStepLoop } from "../arcade";
+import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import { fireInvaderShot, newInvaderState, nextInvaderWave, stepInvaders, type InvaderConfig, type InvaderState } from "./space-invaders.logic";
@@ -24,9 +25,8 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   let difficulty: Difficulty = "Medium";
   let state = newInvaderState(configs[difficulty]);
   let mode: Mode = "ready";
-  let timer: ReturnType<typeof setInterval> | null = null;
+  let loop: FixedStepLoop | null = null;
   let waveTimer: ReturnType<typeof setTimeout> | null = null;
-  const heldKeys = new Set<"left" | "right">();
 
   const { shell, status, actions, board, remove } = createGameShell(target, {
     gameClass: "invaders-game",
@@ -38,11 +38,18 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
+  const input = createHeldKeyInput(scope, (direction) => {
+    if (isConfirmOpen() || (direction !== "left" && direction !== "right")) return;
+    start();
+  });
   const player = el("div", { className: "invader-player", ariaLabel: "Player cannon" });
   const aliens = el("div", { className: "invader-aliens" });
   const barriers = el("div", { className: "invader-barriers" });
   const shots = el("div", { className: "invader-shots" });
   board.append(aliens, barriers, shots, player);
+  const hud = createArcadeHud(board);
+  const overlay = createPauseOverlay(board, togglePause);
+  createTouchControls(shell, { left: () => moveByDirection("left"), right: () => moveByDirection("right"), fire });
 
   const difficultyButton = createDifficultyButton(actions, () => {
     difficulty = nextDifficulty(difficulty);
@@ -55,8 +62,6 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   createResetButton(actions, requestReset);
 
   onDocumentKeyDown(onKeyDown, scope);
-  document.addEventListener("keyup", onKeyUp, { signal: scope.signal });
-  window.addEventListener("blur", () => heldKeys.clear(), { signal: scope.signal });
   board.addEventListener("pointerdown", (event) => {
     movePointer(event);
     start();
@@ -75,7 +80,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     resetGameProgress(shell);
     state = newInvaderState(configs[difficulty]);
     mode = "ready";
-    heldKeys.clear();
+    input.clear();
     render();
   }
 
@@ -111,18 +116,6 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
       togglePause();
       return;
     }
-    if (matchesKey(event, [...Keys.left, "a"])) {
-      event.preventDefault();
-      heldKeys.add("left");
-      start();
-      return;
-    }
-    if (matchesKey(event, [...Keys.right, "d"])) {
-      event.preventDefault();
-      heldKeys.add("right");
-      start();
-      return;
-    }
     handleStandardGameKey(event, {
       onDirection: moveByDirection,
       onActivate: () => {
@@ -143,15 +136,12 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     });
   }
 
-  function onKeyUp(event: KeyboardEvent): void {
-    if (matchesKey(event, [...Keys.left, "a"])) heldKeys.delete("left");
-    if (matchesKey(event, [...Keys.right, "d"])) heldKeys.delete("right");
-  }
-
   function moveByDirection(direction: Direction): void {
     if (direction !== "left" && direction !== "right") return;
-    heldKeys.add(direction);
+    const delta = direction === "left" ? -configs[difficulty].playerSpeed : configs[difficulty].playerSpeed;
+    state = { ...state, player: { ...state.player, x: clamp(state.player.x + delta, 0, state.width - state.player.width) } };
     start();
+    render();
   }
 
   function fire(): void {
@@ -163,7 +153,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function tick(): void {
-    const move = heldKeys.has("left") === heldKeys.has("right") ? 0 : heldKeys.has("left") ? -1 : 1;
+    const move = input.horizontal();
     const beforeScore = state.score;
     const beforeLives = state.lives;
     state = stepInvaders(state, configs[difficulty], { move });
@@ -173,12 +163,12 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
       mode = "lost";
       markGameFinished(shell);
       stopTimer();
-      heldKeys.clear();
+      input.clear();
       playSound("gameLose");
     } else if (state.won) {
       mode = "wave";
       stopTimer();
-      heldKeys.clear();
+      input.clear();
       playSound("gameWin");
       waveTimer = setTimeout(() => {
         waveTimer = null;
@@ -194,7 +184,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   function movePointer(event: PointerEvent): void {
     const rect = board.getBoundingClientRect();
     const center = ((event.clientX - rect.left) / rect.width) * state.width;
-    state = { ...state, player: { ...state.player, x: Math.max(0, Math.min(state.width - state.player.width, center - state.player.width / 2)) } };
+    state = { ...state, player: { ...state.player, x: clamp(center - state.player.width / 2, 0, state.width - state.player.width) } };
     render();
   }
 
@@ -202,6 +192,8 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     difficultyButton.textContent = difficulty;
     pauseButton.textContent = mode === "paused" ? "Resume" : "Pause";
     status.textContent = statusText();
+    hud.setStats({ Score: state.score, Lives: state.lives, Wave: state.wave });
+    overlay.setVisible(mode === "paused");
     position(player, state.player.x, state.player.y, state.player.width, state.player.height);
     syncAliens(state);
     syncBarriers(state);
@@ -261,14 +253,13 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function restartTimer(): void {
-    if (mode !== "playing" || timer) return;
-    timer = setInterval(tick, 32);
+    if (mode !== "playing" || loop?.running) return;
+    loop = startFixedStepLoop(tick, render, 31);
   }
 
   function stopTimer(): void {
-    if (!timer) return;
-    clearInterval(timer);
-    timer = null;
+    loop?.stop();
+    loop = null;
   }
 
   function stopWaveTimer(): void {
@@ -282,6 +273,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     stopTimer();
     stopWaveTimer();
     invalidMove.cleanup();
+    input.destroy();
     scope.cleanup();
     remove();
   };

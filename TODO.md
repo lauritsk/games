@@ -43,24 +43,24 @@ Build these first because they fit current patterns or unlock reusable systems f
 
 Do this after the first arcade game exposes real needs, before adding more physics/action games.
 
-- [ ] Fixed-step arcade loop helper
+- [x] Fixed-step arcade loop helper
   - `startFixedStepLoop(update, render, fps)` with cleanup.
   - Pause/resume/reset hooks.
   - Route-change cleanup.
   - Deterministic tests where practical.
 
-- [ ] Collision and geometry helpers
+- [x] Collision and geometry helpers
   - Rect overlap.
   - Circle/rect or ball/paddle response.
   - Bounds wrapping/clamping.
   - Vector helpers if Asteroids needs them.
 
-- [ ] Held-key input helper
+- [x] Held-key input helper
   - Scoped listeners with cleanup.
   - Arrow/WASD mapping.
   - Prevent repeat bugs and stale key state after blur.
 
-- [ ] Shared arcade UI pieces
+- [x] Shared arcade UI pieces
   - Score/lives/level display.
   - Pause overlay.
   - Touch controls where needed.
