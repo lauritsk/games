@@ -1,6 +1,7 @@
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
+import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import { addRandom2048Tile, canMove2048, slide2048, start2048Board } from "./2048.logic";
 
 const sizes: Record<Difficulty, number> = { Easy: 3, Medium: 4, Hard: 5 };
@@ -31,18 +32,14 @@ export function mount2048(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
-  const difficultyButton = createDifficultyButton(actions, () => {
-    difficulty = nextDifficulty(difficulty);
-    playSound("uiToggle");
-    resetGame();
-  });
-  createResetButton(actions, requestReset);
+  const difficultyControl = {
+    get: () => difficulty,
+    set: (next: Difficulty) => { difficulty = next; },
+    reset: resetGame,
+  };
+  const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
-
-  function requestReset(): void {
-    playSound("uiReset");
-    requestGameReset(shell, resetGame);
-  }
 
   function resetGame(): void {
     resetGameProgress(shell);
@@ -72,16 +69,8 @@ export function mount2048(target: HTMLElement): () => void {
     handleStandardGameKey(event, {
       onDirection: (direction) => move(direction),
       onActivate: requestReset,
-      onNextDifficulty: () => {
-        difficulty = nextDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
-      onPreviousDifficulty: () => {
-        difficulty = previousDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
+      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
+      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
       onReset: requestReset,
     });
   }

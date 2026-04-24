@@ -1,4 +1,4 @@
-import { Keys, button, el, matchesKey, type Direction, type MountScope } from "./core";
+import { button, directionFromKey, el, type Direction, type MountScope } from "./core";
 
 export type FixedStepLoop = {
   start(): void;
@@ -121,11 +121,7 @@ export function createHeldKeyInput(scope: MountScope, onPress?: (direction: Dire
 }
 
 export function keyDirection(event: KeyboardEvent): Direction | null {
-  if (matchesKey(event, [...Keys.up, "w"])) return "up";
-  if (matchesKey(event, [...Keys.right, "d"])) return "right";
-  if (matchesKey(event, [...Keys.down, "s"])) return "down";
-  if (matchesKey(event, [...Keys.left, "a"])) return "left";
-  return null;
+  return directionFromKey(event);
 }
 
 export type ArcadeHud = {

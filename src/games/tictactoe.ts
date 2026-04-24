@@ -1,6 +1,7 @@
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, moveGridIndex, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, moveGridIndex, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
+import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import { botMark, chooseTicTacToeBotMove, getTicTacToeWinner, humanMark, newTicTacToeBoard, ticTacToeSize, type Mark, type TicTacToeCell } from "./tictactoe.logic";
 
 type Mode = "bot" | "local";
@@ -43,17 +44,13 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     playSound("uiToggle");
     resetGame();
   });
-  const difficultyButton = createDifficultyButton(actions, () => {
-    difficulty = nextDifficulty(difficulty);
-    playSound("uiToggle");
-    resetGame();
-  });
-  createResetButton(actions, requestReset);
-
-  function requestReset(): void {
-    playSound("uiReset");
-    requestGameReset(shell, resetGame);
-  }
+  const difficultyControl = {
+    get: () => difficulty,
+    set: (next: Difficulty) => { difficulty = next; },
+    reset: resetGame,
+  };
+  const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  const requestReset = createResetControl(actions, shell, resetGame);
 
   function resetGame(): void {
     clearBotTimer();
@@ -110,16 +107,8 @@ export function mountTicTacToe(target: HTMLElement): () => void {
         render();
       },
       onActivate: () => playTurn(selected),
-      onNextDifficulty: () => {
-        difficulty = nextDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
-      onPreviousDifficulty: () => {
-        difficulty = previousDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
+      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
+      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
       onReset: requestReset,
     });
   }

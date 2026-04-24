@@ -1,7 +1,8 @@
 import { clamp, createArcadeHud, createHeldKeyInput, createPauseOverlay, createTouchControls, startFixedStepLoop, type FixedStepLoop } from "../arcade";
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
+import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import { fireInvaderShot, newInvaderState, nextInvaderWave, stepInvaders, type InvaderConfig, type InvaderState } from "./space-invaders.logic";
 
 type Mode = "ready" | "playing" | "paused" | "wave" | "lost";
@@ -51,15 +52,16 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   const overlay = createPauseOverlay(board, togglePause);
   createTouchControls(shell, { left: () => moveByDirection("left"), right: () => moveByDirection("right"), fire });
 
-  const difficultyButton = createDifficultyButton(actions, () => {
-    difficulty = nextDifficulty(difficulty);
-    playSound("uiToggle");
-    resetGame();
-  });
+  const difficultyControl = {
+    get: () => difficulty,
+    set: (next: Difficulty) => { difficulty = next; },
+    reset: resetGame,
+  };
+  const difficultyButton = createDifficultyControl(actions, difficultyControl);
   const pauseButton = el("button", { className: "button pill surface interactive", text: "Pause", type: "button" });
   pauseButton.addEventListener("click", togglePause);
   actions.append(pauseButton);
-  createResetButton(actions, requestReset);
+  const requestReset = createResetControl(actions, shell, resetGame);
 
   onDocumentKeyDown(onKeyDown, scope);
   board.addEventListener("pointerdown", (event) => {
@@ -68,11 +70,6 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     fire();
   }, { signal: scope.signal });
   board.addEventListener("pointermove", movePointer, { signal: scope.signal });
-
-  function requestReset(): void {
-    playSound("uiReset");
-    requestGameReset(shell, resetGame);
-  }
 
   function resetGame(): void {
     stopTimer();
@@ -122,16 +119,8 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
         start();
         fire();
       },
-      onNextDifficulty: () => {
-        difficulty = nextDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
-      onPreviousDifficulty: () => {
-        difficulty = previousDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
+      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
+      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
       onReset: requestReset,
     });
   }

@@ -1,7 +1,8 @@
 import { createArcadeHud, createHeldKeyInput, createPauseOverlay, startFixedStepLoop, type FixedStepLoop } from "../arcade";
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
+import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import { moveBreakoutPaddle, newBreakoutState, stepBreakout, type BreakoutConfig, type BreakoutState } from "./breakout.logic";
 
 type Mode = "ready" | "playing" | "paused" | "won" | "lost";
@@ -49,15 +50,16 @@ export function mountBreakout(target: HTMLElement): () => void {
   const hud = createArcadeHud(board);
   const overlay = createPauseOverlay(board, togglePause);
 
-  const difficultyButton = createDifficultyButton(actions, () => {
-    difficulty = nextDifficulty(difficulty);
-    playSound("uiToggle");
-    resetGame();
-  });
+  const difficultyControl = {
+    get: () => difficulty,
+    set: (next: Difficulty) => { difficulty = next; },
+    reset: resetGame,
+  };
+  const difficultyButton = createDifficultyControl(actions, difficultyControl);
   const pauseButton = el("button", { className: "button pill surface interactive", text: "Pause", type: "button" });
   pauseButton.addEventListener("click", togglePause);
   actions.append(pauseButton);
-  createResetButton(actions, requestReset);
+  const requestReset = createResetControl(actions, shell, resetGame);
 
   onDocumentKeyDown(onKeyDown, scope);
   board.addEventListener("pointermove", onPointerMove, { signal: scope.signal });
@@ -65,11 +67,6 @@ export function mountBreakout(target: HTMLElement): () => void {
     onPointerMove(event);
     start();
   }, { signal: scope.signal });
-
-  function requestReset(): void {
-    playSound("uiReset");
-    requestGameReset(shell, resetGame);
-  }
 
   function resetGame(): void {
     stopTimer();
@@ -117,16 +114,8 @@ export function mountBreakout(target: HTMLElement): () => void {
     handleStandardGameKey(event, {
       onDirection: (direction) => movePaddleByKey(direction),
       onActivate: start,
-      onNextDifficulty: () => {
-        difficulty = nextDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
-      onPreviousDifficulty: () => {
-        difficulty = previousDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
+      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
+      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
       onReset: requestReset,
     });
   }

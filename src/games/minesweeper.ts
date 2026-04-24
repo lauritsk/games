@@ -1,6 +1,7 @@
-import { applyGameLayout, createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, moveGridPoint, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import { applyGameLayout, createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, moveGridPoint, onDocumentKeyDown, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
+import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import { flagMinesweeperCount, floodOpenMinesweeperInPlace, minesweeperNeighbors, minesweeperShape, newMinesweeperBoard, openSafeMinesweeperCount, seededMinesweeperBoard, type MinesweeperCell, type MinesweeperConfig } from "./minesweeper.logic";
 
 type State = "playing" | "won" | "lost";
@@ -40,17 +41,13 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   const invalidMove = createInvalidMoveFeedback(shell);
   onDocumentKeyDown(onKeyDown, scope);
 
-  const difficultyButton = createDifficultyButton(actions, () => {
-    difficulty = nextDifficulty(difficulty);
-    playSound("uiToggle");
-    resetGame();
-  });
-  createResetButton(actions, requestReset);
-
-  function requestReset(): void {
-    playSound("uiReset");
-    requestGameReset(shell, resetGame);
-  }
+  const difficultyControl = {
+    get: () => difficulty,
+    set: (next: Difficulty) => { difficulty = next; },
+    reset: resetGame,
+  };
+  const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  const requestReset = createResetControl(actions, shell, resetGame);
 
   function resetGame(): void {
     resetGameProgress(shell);
@@ -124,16 +121,8 @@ export function mountMinesweeper(target: HTMLElement): () => void {
         render();
       },
       onActivate: () => openCell(selectedRow, selectedColumn),
-      onNextDifficulty: () => {
-        difficulty = nextDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
-      onPreviousDifficulty: () => {
-        difficulty = previousDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
+      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
+      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
       onReset: requestReset,
     });
   }

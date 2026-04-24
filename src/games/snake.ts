@@ -1,6 +1,7 @@
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, required, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, required, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
+import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import { moveSnakePoint, nextSnakeDirection, oppositeSnakeDirection, randomSnakeFood, snakeOutOfBounds, snakePointKey, snakePointsEqual, startSnakeBody, type SnakePoint } from "./snake.logic";
 type State = "ready" | "playing" | "won" | "lost";
 type Config = { size: number; speed: number };
@@ -40,18 +41,14 @@ export function mountSnake(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
-  const difficultyButton = createDifficultyButton(actions, () => {
-    difficulty = nextDifficulty(difficulty);
-    playSound("uiToggle");
-    resetGame();
-  });
-  createResetButton(actions, requestReset);
+  const difficultyControl = {
+    get: () => difficulty,
+    set: (next: Difficulty) => { difficulty = next; },
+    reset: resetGame,
+  };
+  const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
-
-  function requestReset(): void {
-    playSound("uiReset");
-    requestGameReset(shell, resetGame);
-  }
 
   function resetGame(): void {
     stopTimer();
@@ -91,16 +88,8 @@ export function mountSnake(target: HTMLElement): () => void {
         start();
       },
       onActivate: start,
-      onNextDifficulty: () => {
-        difficulty = nextDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
-      onPreviousDifficulty: () => {
-        difficulty = previousDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
+      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
+      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
       onReset: requestReset,
     });
   }

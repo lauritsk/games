@@ -1,6 +1,7 @@
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
+import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, markGameFinished, markGameStarted, onDocumentKeyDown, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type Direction, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
+import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import { moveTetrisPiece, newTetrisState, rotateTetrisPiece, tetrisColumns, tetrisDrop, tetrisGhostPiece, tetrisHardDrop, tetrisPieceCells, tetrisRows, type TetrisCell, type TetrisPoint, type TetrisState } from "./tetris.logic";
 
 type Mode = "ready" | "playing" | "paused" | "over";
@@ -37,21 +38,17 @@ export function mountTetris(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
-  const difficultyButton = createDifficultyButton(actions, () => {
-    difficulty = nextDifficulty(difficulty);
-    playSound("uiToggle");
-    resetGame();
-  });
+  const difficultyControl = {
+    get: () => difficulty,
+    set: (next: Difficulty) => { difficulty = next; },
+    reset: resetGame,
+  };
+  const difficultyButton = createDifficultyControl(actions, difficultyControl);
   const pauseButton = el("button", { className: "button pill surface interactive", text: "Pause", type: "button" });
   pauseButton.addEventListener("click", togglePause);
   actions.append(pauseButton);
-  createResetButton(actions, requestReset);
+  const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
-
-  function requestReset(): void {
-    playSound("uiReset");
-    requestGameReset(shell, resetGame);
-  }
 
   function resetGame(): void {
     stopTimer();
@@ -98,16 +95,8 @@ export function mountTetris(target: HTMLElement): () => void {
     handleStandardGameKey(event, {
       onDirection: (direction) => handleDirection(direction),
       onActivate: () => hardDrop(),
-      onNextDifficulty: () => {
-        difficulty = nextDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
-      onPreviousDifficulty: () => {
-        difficulty = previousDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
+      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
+      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
       onReset: requestReset,
     });
   }

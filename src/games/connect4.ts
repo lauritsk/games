@@ -1,6 +1,7 @@
-import { createDifficultyButton, createGameShell, createMountScope, createResetButton, el, gameLayouts, handleStandardGameKey, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, nextDifficulty, onDocumentKeyDown, previousDifficulty, requestGameReset, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
+import { createGameShell, createMountScope, el, gameLayouts, handleStandardGameKey, isConfirmOpen, Keys, markGameFinished, markGameStarted, matchesKey, onDocumentKeyDown, resetGameProgress, setBoardGrid, syncChildren, type Difficulty, type GameDefinition } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
+import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import { chooseConnect4BotColumn, connect4Bot, connect4Columns, connect4Human, connect4Rows, dropConnect4DiscInPlace, findConnect4Win, newConnect4Board, type Connect4Cell, type Connect4Player, type Connect4WinLine } from "./connect4.logic";
 
 type Mode = "bot" | "local";
@@ -47,18 +48,14 @@ export function mountConnect4(target: HTMLElement): () => void {
     resetGame();
   });
 
-  const difficultyButton = createDifficultyButton(actions, () => {
-    difficulty = nextDifficulty(difficulty);
-    playSound("uiToggle");
-    resetGame();
-  });
+  const difficultyControl = {
+    get: () => difficulty,
+    set: (next: Difficulty) => { difficulty = next; },
+    reset: resetGame,
+  };
+  const difficultyButton = createDifficultyControl(actions, difficultyControl);
 
-  createResetButton(actions, requestReset);
-
-  function requestReset(): void {
-    playSound("uiReset");
-    requestGameReset(shell, resetGame);
-  }
+  const requestReset = createResetControl(actions, shell, resetGame);
 
   function resetGame(): void {
     clearBotTimer();
@@ -128,16 +125,8 @@ export function mountConnect4(target: HTMLElement): () => void {
         render();
       },
       onActivate: () => playTurn(selectedColumn),
-      onNextDifficulty: () => {
-        difficulty = nextDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
-      onPreviousDifficulty: () => {
-        difficulty = previousDifficulty(difficulty);
-        playSound("uiToggle");
-        resetGame();
-      },
+      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
+      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
       onReset: requestReset,
     });
   }
