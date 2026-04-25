@@ -10,6 +10,7 @@ import {
   type MultiplayerSession,
   type MultiplayerSessionRole,
 } from "@features/multiplayer/multiplayer-protocol";
+import { parseJsonSafely } from "@shared/json";
 import { parseWithSchema } from "@shared/validation";
 import { readLimitedJson } from "@server/http";
 import { checkRateLimit, checkRequestRateLimit } from "@server/rate-limit";
@@ -658,12 +659,8 @@ export class MultiplayerHub {
 }
 
 function parseClientMessage(message: string | Buffer): MultiplayerClientMessage | null {
-  try {
-    const value = JSON.parse(typeof message === "string" ? message : message.toString()) as unknown;
-    return parseWithSchema(clientMessageSchema, value);
-  } catch {
-    return null;
-  }
+  const parsedJson = parseJsonSafely(typeof message === "string" ? message : message.toString());
+  return parsedJson.ok ? parseWithSchema(clientMessageSchema, parsedJson.value) : null;
 }
 
 function isRevisionAccepted(room: Room, message: MultiplayerClientMessage): boolean {

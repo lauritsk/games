@@ -12,6 +12,7 @@ import {
   parseArray,
   parseFixedArray,
   parseFixedGrid,
+  parseJsonSafely,
   parseNonEmptyArray,
   parseOneOf,
   parseStartedAt,
@@ -79,6 +80,11 @@ describe("shared guards and clocks", () => {
     expect(parseOneOf("playing", ["ready", "playing"] as const)).toBe("playing");
     expect(parseOneOf("lost", ["ready", "playing"] as const)).toBeNull();
     expect(parseOneOf(2, [1, 2, 3] as const)).toBe(2);
+  });
+
+  test("parses JSON without throwing", () => {
+    expect(parseJsonSafely('{"ok":true}')).toEqual({ ok: true, value: { ok: true } });
+    expect(parseJsonSafely("{")).toEqual({ ok: false });
   });
 
   test("parses nullable start times and elapsed durations", () => {

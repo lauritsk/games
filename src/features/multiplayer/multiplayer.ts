@@ -13,6 +13,7 @@ import {
   type MultiplayerStatusResponse,
 } from "@features/multiplayer/multiplayer-protocol";
 import { onlineFeaturesEnabled } from "@shared/bundle-flags";
+import { parseJsonSafely } from "@shared/json";
 import {
   finiteNumberSchema,
   integerSchema,
@@ -230,8 +231,10 @@ async function requestJson<T extends { ok: boolean; error?: string }>(
 
 function parseServerMessage(value: unknown): MultiplayerServerMessage | null {
   try {
-    const parsed = typeof value === "string" ? (JSON.parse(value) as unknown) : value;
-    const message = parseWithSchema(serverMessageBaseSchema, parsed);
+    const parsedJson =
+      typeof value === "string" ? parseJsonSafely(value) : { ok: true as const, value };
+    if (!parsedJson.ok) return null;
+    const message = parseWithSchema(serverMessageBaseSchema, parsedJson.value);
     if (!message) return null;
     if (message.type === "error" && typeof message.error === "string") {
       return { type: "error", error: message.error, room: parseRoom(message.room) ?? undefined };

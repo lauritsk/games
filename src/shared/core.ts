@@ -5,6 +5,7 @@ export * from "@shared/dom";
 export * from "@games/shared/game-input";
 export * from "@games/shared/game-time";
 export * from "@shared/keyboard";
+export * from "@shared/json";
 export * from "@games/shared/layout";
 export * from "@shared/lifecycle";
 export * from "@shared/modal";

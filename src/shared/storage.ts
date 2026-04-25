@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { parseJsonSafely } from "@shared/json";
 import { integerSchema, parseWithSchema } from "@shared/validation";
 
 export type StoredEnvelope<T> = {
@@ -44,8 +45,14 @@ export function readStoredEnvelope<T>(
   }
   if (raw === null) return null;
 
+  const parsedJson = parseJsonSafely(raw);
+  if (!parsedJson.ok) {
+    removeStored(key);
+    return null;
+  }
+
   try {
-    const envelope = parseWithSchema(storedEnvelopeSchema, JSON.parse(raw) as unknown);
+    const envelope = parseWithSchema(storedEnvelopeSchema, parsedJson.value);
     if (!envelope || envelope.schemaVersion !== schemaVersion) return null;
     const data = parse(envelope.data);
     if (data === null) return null;

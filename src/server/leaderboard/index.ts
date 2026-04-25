@@ -2,6 +2,7 @@ import type {
   LeaderboardDirection,
   LeaderboardMetric,
 } from "@features/leaderboard/leaderboard-config";
+import { parseJsonSafely } from "@shared/json";
 import type { Difficulty } from "@shared/types";
 
 export type LeaderboardEntry = {
@@ -96,17 +97,15 @@ export function rowToLeaderboardEntry(row: LeaderboardRow): LeaderboardEntry {
 }
 
 function parseMetadata(value: string): Record<string, string | number | boolean> {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    const metadata: Record<string, string | number | boolean> = {};
-    for (const [key, entry] of Object.entries(parsed)) {
-      if (typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean") {
-        metadata[key] = entry;
-      }
+  const parsedJson = parseJsonSafely(value);
+  if (!parsedJson.ok || !parsedJson.value || typeof parsedJson.value !== "object") return {};
+  if (Array.isArray(parsedJson.value)) return {};
+
+  const metadata: Record<string, string | number | boolean> = {};
+  for (const [key, entry] of Object.entries(parsedJson.value)) {
+    if (typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean") {
+      metadata[key] = entry;
     }
-    return metadata;
-  } catch {
-    return {};
   }
+  return metadata;
 }

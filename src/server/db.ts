@@ -19,6 +19,7 @@ import {
 } from "drizzle-orm";
 import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import { parseJsonSafely } from "@shared/json";
 import {
   createLeaderboardId,
   rowToLeaderboardEntry,
@@ -475,12 +476,9 @@ function jsonString(value: unknown): string {
   return JSON.stringify(value ?? null);
 }
 
-function parseJson(value: string): unknown {
-  try {
-    return JSON.parse(value) as unknown;
-  } catch {
-    return null;
-  }
+function parseJson(value: string): unknown | null {
+  const parsedJson = parseJsonSafely(value);
+  return parsedJson.ok ? parsedJson.value : null;
 }
 
 function rowToResult(row: ResultRow): SyncResult {
