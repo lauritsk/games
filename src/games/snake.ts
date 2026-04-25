@@ -73,6 +73,7 @@ export function mountSnake(target: HTMLElement): () => void {
   let tickRemainder = 0;
   let cells: HTMLDivElement[] = [];
   let renderedSize = 0;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   const {
     shell,
@@ -122,13 +123,14 @@ export function mountSnake(target: HTMLElement): () => void {
     render();
   }
 
-  function render(): void {
+  function render(previousSnake?: SnakePoint[]): void {
     const boardRebuilt = prepareBoard();
     status.textContent = statusText();
     difficultyButton.textContent = difficulty;
     wallModeButton.textContent = wallModeLabel(wallMode);
 
     const body = new Set(snake.map(snakePointKey));
+    const origins = previousSnake ? segmentOrigins(previousSnake) : new Map<string, SnakePoint>();
     const head = snakePointKey(required(snake[0]));
     cells.forEach((cell, index) => {
       const point = { row: Math.floor(index / config.size), column: index % config.size };
@@ -141,7 +143,7 @@ export function mountSnake(target: HTMLElement): () => void {
         head: isHead,
         food: isFood,
       } satisfies SnakeCellState;
-      updateCell(cell, point, cellState, boardRebuilt);
+      updateCell(cell, point, cellState, boardRebuilt, origins.get(key));
     });
   }
 
@@ -197,6 +199,7 @@ export function mountSnake(target: HTMLElement): () => void {
 
   function tick(): void {
     direction = queuedDirection;
+    const previousSnake = snake;
     const head = required(snake[0]);
     const moved = moveSnakePoint(head, direction);
     const outOfBounds = snakeOutOfBounds(moved, config.size);
@@ -230,7 +233,7 @@ export function mountSnake(target: HTMLElement): () => void {
     } else {
       snake.pop();
     }
-    render();
+    render(previousSnake);
   }
 
   function statusText(): string {
@@ -261,17 +264,33 @@ export function mountSnake(target: HTMLElement): () => void {
     return true;
   }
 
+  function segmentOrigins(previousSnake: SnakePoint[]): Map<string, SnakePoint> {
+    const origins = new Map<string, SnakePoint>();
+    snake.forEach((point, index) => {
+      const previous =
+        snake.length > previousSnake.length && index === snake.length - 1
+          ? point
+          : (previousSnake[index - 1] ?? required(previousSnake[0]));
+      origins.set(snakePointKey(point), previous);
+    });
+    return origins;
+  }
+
   function updateCell(
     cell: HTMLDivElement,
     point: SnakePoint,
     next: SnakeCellState,
     forceLabel: boolean,
+    origin?: SnakePoint,
   ): void {
     const changed =
       cell.dataset.snake !== String(next.snake) ||
       cell.dataset.head !== String(next.head) ||
       cell.dataset.food !== String(next.food);
-    if (!changed && !forceLabel) return;
+    if (!changed && !forceLabel) {
+      animateSnakeCell(cell, point, next, origin);
+      return;
+    }
 
     if (changed) {
       setData(cell, "snake", next.snake);
@@ -279,6 +298,33 @@ export function mountSnake(target: HTMLElement): () => void {
       setData(cell, "food", next.food);
     }
     cell.setAttribute("aria-label", labelFor(point, next.head, next.snake, next.food));
+    animateSnakeCell(cell, point, next, origin);
+  }
+
+  function animateSnakeCell(
+    cell: HTMLDivElement,
+    point: SnakePoint,
+    next: SnakeCellState,
+    origin: SnakePoint | undefined,
+  ): void {
+    if (!next.snake || !origin || reducedMotion.matches) return;
+
+    const columnDelta = origin.column - point.column;
+    const rowDelta = origin.row - point.row;
+    if (Math.abs(columnDelta) + Math.abs(rowDelta) !== 1) return;
+
+    const scale = next.head ? " scale(1.02)" : "";
+    cell.getAnimations().forEach((animation) => animation.cancel());
+    cell.animate(
+      [
+        { transform: `translate(${columnDelta * 100}%, ${rowDelta * 100}%)${scale}` },
+        { transform: `translate(0, 0)${scale}` },
+      ],
+      {
+        duration: Math.min(96, config.speed * 0.86),
+        easing: "linear",
+      },
+    );
   }
 
   function setData(cell: HTMLDivElement, key: string, value: boolean): void {

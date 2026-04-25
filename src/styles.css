@@ -603,7 +603,10 @@
   .snake-cell {
     border-radius: 5px;
     box-shadow: none;
-    transition: none;
+    transition:
+      background-color 48ms linear,
+      border-radius 48ms linear;
+    will-change: transform;
   }
 
   .snake-cell[data-snake="true"] {
@@ -612,7 +615,7 @@
   }
   .snake-cell[data-head="true"] {
     background: #f7efe1;
-    transform: scale(1.04);
+    transform: scale(1.02);
   }
   .snake-cell[data-food="true"] {
     background: #ff6b6b;
