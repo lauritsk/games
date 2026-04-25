@@ -114,6 +114,41 @@ export function multiplayerReadySeatCount(
   return multiplayerSeats.filter((seat) => seats[seat].joined && seats[seat].ready).length;
 }
 
+export function multiplayerRematchStatusText({
+  result,
+  localSeat,
+  seats,
+  minPlayers = 2,
+  maxPlayers = 2,
+}: {
+  result: string;
+  localSeat: MultiplayerSeat | null;
+  seats: Record<MultiplayerSeat, MultiplayerSeatSnapshot>;
+  minPlayers?: number;
+  maxPlayers?: number;
+}): string {
+  const ready = multiplayerReadySeatCount(seats);
+  if (localSeat !== "p1") return `${result} · ${ready} ready`;
+
+  const activeSeats = multiplayerSeats.slice(0, maxPlayers);
+  const joined = activeSeats.filter((seat) => seats[seat].joined).length;
+  if (joined < minPlayers) return `${result} · Waiting for another player to join`;
+
+  const connected = activeSeats.filter(
+    (seat) => seats[seat].joined && seats[seat].connected,
+  ).length;
+  if (connected < minPlayers) return `${result} · Waiting for another player to reconnect`;
+
+  const readyOthers = activeSeats.filter(
+    (seat) => seat !== "p1" && seats[seat].joined && seats[seat].connected && seats[seat].ready,
+  ).length;
+  if (readyOthers < minPlayers - 1) {
+    return `${result} · Waiting for another player to press rematch`;
+  }
+
+  return `${result} · Ready to start rematch`;
+}
+
 export function oppositeMultiplayerSeat(seat: MultiplayerSeat): MultiplayerSeat {
   if (seat === "p1") return "p2";
   if (seat === "p2") return "p1";

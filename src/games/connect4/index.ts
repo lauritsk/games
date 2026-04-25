@@ -44,7 +44,7 @@ import { createMultiplayerDialog } from "@features/multiplayer/multiplayer-dialo
 import { renderMultiplayerPresence } from "@features/multiplayer/multiplayer-presence";
 import {
   emptyMultiplayerSeatSnapshots,
-  multiplayerReadySeatCount,
+  multiplayerRematchStatusText,
   parseMultiplayerSeat,
   type MultiplayerRoomSnapshot,
   type MultiplayerRoomStatus,
@@ -572,11 +572,15 @@ export function mountConnect4(target: HTMLElement): () => void {
       return `Room ${onlineSession.code} · Waiting host`;
     }
     if (moves === connect4Rows * connect4Columns && !winner) {
-      return `Draw · ${multiplayerReadySeatCount(onlineSeats)} ready`;
+      return multiplayerRematchStatusText({
+        result: "Draw",
+        localSeat: onlineSeat,
+        seats: onlineSeats,
+      });
     }
     if (winner) {
       const result = winner === playerForSeat(onlineSeat) ? "You win" : "Opponent wins";
-      return `${result} · ${multiplayerReadySeatCount(onlineSeats)} ready`;
+      return multiplayerRematchStatusText({ result, localSeat: onlineSeat, seats: onlineSeats });
     }
     if (onlineRevision === 0) return `Room ${onlineSession.code} · Waiting`;
     return current === playerForSeat(onlineSeat) ? "Your turn" : "Opponent turn";

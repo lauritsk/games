@@ -51,7 +51,7 @@ import { createMultiplayerDialog } from "@features/multiplayer/multiplayer-dialo
 import { renderMultiplayerPresence } from "@features/multiplayer/multiplayer-presence";
 import {
   emptyMultiplayerSeatSnapshots,
-  multiplayerReadySeatCount,
+  multiplayerRematchStatusText,
   multiplayerSeats,
   parseMultiplayerSeat,
   type MultiplayerRoomSnapshot,
@@ -800,8 +800,12 @@ export function mountSnake(target: HTMLElement): () => void {
           : winner === onlineSeat
             ? "You win"
             : `${onlinePlayerLabel(winner)} wins`;
-      const ready = multiplayerReadySeatCount(onlineSeats);
-      return `${result} · ${ready} ready`;
+      return multiplayerRematchStatusText({
+        result,
+        localSeat: onlineSeat,
+        seats: onlineSeats,
+        maxPlayers: 4,
+      });
     }
     const player = onlineSeat ? onlinePlayerFor(onlineSeat) : null;
     if (!player) return `Room ${onlineSession.code} · Watching`;

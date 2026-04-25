@@ -43,7 +43,7 @@ import { createMultiplayerDialog } from "@features/multiplayer/multiplayer-dialo
 import { renderMultiplayerPresence } from "@features/multiplayer/multiplayer-presence";
 import {
   emptyMultiplayerSeatSnapshots,
-  multiplayerReadySeatCount,
+  multiplayerRematchStatusText,
   parseMultiplayerSeat,
   type MultiplayerRoomSnapshot,
   type MultiplayerRoomStatus,
@@ -541,7 +541,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
           : winner === markForSeat(onlineSeat)
             ? "You win"
             : "Opponent wins";
-      return `${result} · ${multiplayerReadySeatCount(onlineSeats)} ready`;
+      return multiplayerRematchStatusText({ result, localSeat: onlineSeat, seats: onlineSeats });
     }
     if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
     if (onlineRoomStatus === "lobby") {

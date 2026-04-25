@@ -1,5 +1,6 @@
 # TODO
 
+- [x] Add host-facing rematch wait notice for online multiplayer.
 - [x] Require host manual start for all online matches.
 - [x] Simplify online pre-match UI spacing and labels.
 - [x] Fix online room pre-match status: visible countdown numerals, player positions, and assigned colors.
