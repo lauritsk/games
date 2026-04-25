@@ -390,10 +390,12 @@
 
   .history-dialog__panel {
     display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
     gap: var(--gap);
     width: min(520px, calc(100vw - 32px));
     max-height: min(680px, calc(100svh - 32px));
-    overflow: auto;
+    min-height: 0;
+    overflow: hidden;
     padding: 18px;
     border-radius: var(--radius);
     box-shadow: var(--shadow);
@@ -404,9 +406,16 @@
     font-size: 1.2rem;
   }
 
-  .history-dialog__body {
+  .history-dialog__details {
     display: grid;
     gap: 10px;
+  }
+
+  .history-dialog__scroll {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding-right: 4px;
   }
 
   .history-dialog__summary,
