@@ -27,13 +27,24 @@ import {
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
+import { recordGameResult } from "../game-results";
+import {
+  clearGameSave,
+  createAutosave,
+  createRunId,
+  loadGameSave,
+  saveGameSave,
+} from "../game-state";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import {
   moveBreakoutPaddle,
   newBreakoutState,
   stepBreakout,
+  type BreakoutBall,
+  type BreakoutBrick,
   type BreakoutConfig,
+  type BreakoutRect,
   type BreakoutState,
 } from "./breakout.logic";
 
@@ -43,6 +54,14 @@ const configs: Record<Difficulty, BreakoutConfig> = {
   Easy: { brickRows: 3, brickColumns: 7, lives: 4, ballSpeed: 1.05, paddleWidth: 24 },
   Medium: { brickRows: 4, brickColumns: 8, lives: 3, ballSpeed: 1.28, paddleWidth: 20 },
   Hard: { brickRows: 5, brickColumns: 9, lives: 2, ballSpeed: 1.5, paddleWidth: 16 },
+};
+const savePayloadVersion = 1;
+
+type SaveBreakout = {
+  difficulty: Difficulty;
+  mode: Mode;
+  state: BreakoutState;
+  startedAt: number | null;
 };
 
 export const breakout: GameDefinition = {
@@ -60,6 +79,17 @@ export function mountBreakout(target: HTMLElement): () => void {
   let state = newBreakoutState(configs[difficulty]);
   let mode: Mode = "ready";
   let loop: FixedStepLoop | null = null;
+  let runId = createRunId();
+  let startedAt: number | null = null;
+
+  const saved = loadGameSave(breakout.id, savePayloadVersion, parseSaveBreakout);
+  if (saved) {
+    runId = saved.runId;
+    difficulty = saved.payload.difficulty;
+    state = saved.payload.state;
+    mode = saved.payload.mode === "playing" ? "paused" : saved.payload.mode;
+    startedAt = saved.payload.startedAt;
+  }
 
   const { shell, status, actions, board, remove } = createGameShell(target, {
     gameClass: "breakout-game",
@@ -71,6 +101,7 @@ export function mountBreakout(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
+  const autosave = createAutosave({ gameId: breakout.id, scope, save: saveCurrentGame });
   const lifeLostReset = createDelayedAction();
   const input = createHeldKeyInput(scope, (direction) => {
     if (isConfirmOpen() || (direction !== "left" && direction !== "right")) return;
@@ -93,12 +124,13 @@ export function mountBreakout(target: HTMLElement): () => void {
     paused: "paused",
     onBlockedStart: () => invalidMove.trigger(),
     onFirstStart: () => {
-      markGameStarted(shell);
+      ensureStarted();
       playSound("gameMajor");
     },
     onPlaying: restartTimer,
     onPause: () => {
       stopTimer();
+      saveCurrentGame();
       playSound("uiToggle");
     },
     afterChange: render,
@@ -130,9 +162,12 @@ export function mountBreakout(target: HTMLElement): () => void {
 
   function resetGame(): void {
     stopTimer();
+    clearGameSave(breakout.id);
     lifeLostReset.clear();
     shell.dataset.lifeLost = "false";
     resetGameProgress(shell);
+    runId = createRunId();
+    startedAt = null;
     state = newBreakoutState(configs[difficulty]);
     mode = "ready";
     input.clear();
@@ -181,6 +216,7 @@ export function mountBreakout(target: HTMLElement): () => void {
     const rect = board.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * state.width;
     state = moveBreakoutPaddle(state, x);
+    autosave.request();
     render();
   }
 
@@ -193,13 +229,11 @@ export function mountBreakout(target: HTMLElement): () => void {
     if (afterBricks < beforeBricks) playSound("gameGood");
     if (state.won) {
       mode = "won";
-      markGameFinished(shell);
-      stopTimer();
+      finishGame("won");
       playSound("gameWin");
     } else if (state.lost) {
       mode = "lost";
-      markGameFinished(shell);
-      stopTimer();
+      finishGame("lost");
       input.clear();
       playSound("gameLose");
     } else if (state.lives < beforeLives) {
@@ -207,8 +241,9 @@ export function mountBreakout(target: HTMLElement): () => void {
       stopTimer();
       input.clear();
       showLifeLost();
+      saveCurrentGame();
       playSound("gameLose");
-    }
+    } else autosave.request();
     render();
   }
 
@@ -286,12 +321,53 @@ export function mountBreakout(target: HTMLElement): () => void {
     loop = null;
   }
 
+  function ensureStarted(): void {
+    if (startedAt === null) startedAt = Date.now();
+    markGameStarted(shell);
+  }
+
+  function finishGame(outcome: "won" | "lost"): void {
+    markGameFinished(shell);
+    stopTimer();
+    recordGameResult({
+      runId,
+      gameId: breakout.id,
+      difficulty,
+      outcome,
+      score: state.score,
+      level: state.level,
+      durationMs: durationMs(),
+      metadata: { lives: state.lives },
+    });
+    clearGameSave(breakout.id);
+  }
+
+  function saveCurrentGame(): void {
+    if (startedAt === null) return;
+    if (mode === "won" || mode === "lost") {
+      clearGameSave(breakout.id);
+      return;
+    }
+    saveGameSave(breakout.id, savePayloadVersion, {
+      runId,
+      status: mode === "paused" ? "paused" : mode === "playing" ? "playing" : "ready",
+      payload: { difficulty, mode, state, startedAt },
+    });
+  }
+
+  function durationMs(): number | undefined {
+    return startedAt === null ? undefined : Math.max(0, Date.now() - startedAt);
+  }
+
   function savePreferences(): void {
     saveGamePreferences(breakout.id, { difficulty });
   }
 
+  if (startedAt !== null) markGameStarted(shell);
+  if (mode === "won" || mode === "lost") markGameFinished(shell);
   render();
   return () => {
+    autosave.flush();
     stopTimer();
     lifeLostReset.clear();
     invalidMove.cleanup();
@@ -299,4 +375,91 @@ export function mountBreakout(target: HTMLElement): () => void {
     scope.cleanup();
     remove();
   };
+}
+
+function parseSaveBreakout(value: unknown): SaveBreakout | null {
+  if (!isRecord(value)) return null;
+  const difficulty = parseDifficulty(value.difficulty);
+  const mode = parseMode(value.mode);
+  const state = parseBreakoutState(value.state);
+  const startedAt = parseStartedAt(value.startedAt);
+  if (!difficulty || !mode || !state || startedAt === undefined) return null;
+  return { difficulty, mode, state, startedAt };
+}
+
+function parseBreakoutState(value: unknown): BreakoutState | null {
+  if (!isRecord(value)) return null;
+  const ball = parseBall(value.ball);
+  const paddle = parseRect(value.paddle);
+  const bricks = parseBricks(value.bricks);
+  if (!ball || !paddle || !bricks) return null;
+  if (!isFiniteNumber(value.width) || !isFiniteNumber(value.height)) return null;
+  if (!isFiniteNumber(value.score) || !isFiniteNumber(value.lives) || !isFiniteNumber(value.level))
+    return null;
+  if (typeof value.won !== "boolean" || typeof value.lost !== "boolean") return null;
+  return {
+    width: value.width,
+    height: value.height,
+    ball,
+    paddle,
+    bricks,
+    score: value.score,
+    lives: value.lives,
+    level: value.level,
+    won: value.won,
+    lost: value.lost,
+  };
+}
+
+function parseRect(value: unknown): BreakoutRect | null {
+  if (!isRecord(value)) return null;
+  if (
+    !isFiniteNumber(value.x) ||
+    !isFiniteNumber(value.y) ||
+    !isFiniteNumber(value.width) ||
+    !isFiniteNumber(value.height)
+  )
+    return null;
+  return { x: value.x, y: value.y, width: value.width, height: value.height };
+}
+
+function parseBall(value: unknown): BreakoutBall | null {
+  const rect = parseRect(value);
+  if (!rect || !isRecord(value)) return null;
+  if (!isFiniteNumber(value.radius) || !isFiniteNumber(value.vx) || !isFiniteNumber(value.vy))
+    return null;
+  return { ...rect, radius: value.radius, vx: value.vx, vy: value.vy };
+}
+
+function parseBricks(value: unknown): BreakoutBrick[] | null {
+  if (!Array.isArray(value)) return null;
+  const bricks = value.map((brick) => {
+    const rect = parseRect(brick);
+    if (!rect || !isRecord(brick) || typeof brick.alive !== "boolean") return null;
+    return { ...rect, alive: brick.alive };
+  });
+  return bricks.every((brick): brick is BreakoutBrick => brick !== null) ? bricks : null;
+}
+
+function parseMode(value: unknown): Mode | null {
+  return value === "ready" ||
+    value === "playing" ||
+    value === "paused" ||
+    value === "won" ||
+    value === "lost"
+    ? value
+    : null;
+}
+
+function parseStartedAt(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

@@ -17,6 +17,14 @@ import {
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
+import { recordGameResult } from "../game-results";
+import {
+  clearGameSave,
+  createAutosave,
+  createRunId,
+  loadGameSave,
+  saveGameSave,
+} from "../game-state";
 import { playSound } from "../sound";
 import {
   changeDifficulty,
@@ -36,7 +44,7 @@ import {
   wrapSnakePoint,
   type SnakePoint,
 } from "./snake.logic";
-type State = "ready" | "playing" | "won" | "lost";
+type State = "ready" | "playing" | "paused" | "won" | "lost";
 type Config = { size: number; speed: number };
 type SnakeCellState = {
   snake: boolean;
@@ -51,6 +59,20 @@ const configs: Record<Difficulty, Config> = {
   Hard: { size: 22, speed: 75 },
 };
 const gameId = "snake";
+const savePayloadVersion = 1;
+
+type SaveSnake = {
+  difficulty: Difficulty;
+  wallMode: WallMode;
+  config: Config;
+  snake: SnakePoint[];
+  food: SnakePoint;
+  direction: Direction;
+  queuedDirection: Direction;
+  state: State;
+  score: number;
+  startedAt: number | null;
+};
 
 export const snake: GameDefinition = {
   id: gameId,
@@ -71,6 +93,23 @@ export function mountSnake(target: HTMLElement): () => void {
   let direction: Direction = "right";
   let queuedDirection: Direction = direction;
   let state: State = "ready";
+  let runId = createRunId();
+  let startedAt: number | null = null;
+
+  const saved = loadGameSave(gameId, savePayloadVersion, parseSaveSnake);
+  if (saved) {
+    runId = saved.runId;
+    difficulty = saved.payload.difficulty;
+    wallMode = saved.payload.wallMode;
+    config = saved.payload.config;
+    snake = saved.payload.snake;
+    food = saved.payload.food;
+    direction = saved.payload.direction;
+    queuedDirection = saved.payload.queuedDirection;
+    state = saved.payload.state === "playing" ? "paused" : saved.payload.state;
+    startedAt = saved.payload.startedAt;
+  }
+
   let animationFrame = 0;
   let lastFrameTime = 0;
   let tickRemainder = 0;
@@ -115,10 +154,14 @@ export function mountSnake(target: HTMLElement): () => void {
   });
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
+  const autosave = createAutosave({ gameId, scope, save: saveCurrentGame });
 
   function resetGame(): void {
     stopTimer();
+    clearGameSave(gameId);
     resetGameProgress(shell);
+    runId = createRunId();
+    startedAt = null;
     config = configs[difficulty];
     snake = startSnakeBody(config.size);
     food = randomSnakeFood(config.size, snake);
@@ -154,6 +197,11 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function onKeyDown(event: KeyboardEvent): void {
+    if (event.key.toLowerCase() === "p") {
+      event.preventDefault();
+      togglePause();
+      return;
+    }
     handleStandardGameKey(event, {
       onDirection: (next) => {
         if (queueDirection(next)) playSound("gameMove");
@@ -175,12 +223,23 @@ export function mountSnake(target: HTMLElement): () => void {
     }
     if (animationFrame) return;
     state = "playing";
-    markGameStarted(shell);
+    ensureStarted();
     lastFrameTime = 0;
     tickRemainder = 0;
     animationFrame = requestAnimationFrame(runFrame);
     playSound("gameMajor");
     render();
+  }
+
+  function togglePause(): void {
+    if (state === "playing") {
+      state = "paused";
+      stopTimer();
+      saveCurrentGame();
+      playSound("uiToggle");
+      render();
+    } else if (state === "paused") start();
+    else invalidMove.trigger();
   }
 
   function queueDirection(next: Direction): boolean {
@@ -218,8 +277,7 @@ export function mountSnake(target: HTMLElement): () => void {
       bodyToCheck.some((part) => snakePointsEqual(part, next))
     ) {
       state = "lost";
-      markGameFinished(shell);
-      stopTimer();
+      finishGame("lost");
       playSound("gameLose");
       render();
       return;
@@ -229,8 +287,7 @@ export function mountSnake(target: HTMLElement): () => void {
     if (ate) {
       if (snake.length === config.size * config.size) {
         state = "won";
-        markGameFinished(shell);
-        stopTimer();
+        finishGame("won");
         playSound("gameWin");
       } else {
         food = randomSnakeFood(config.size, snake);
@@ -239,11 +296,13 @@ export function mountSnake(target: HTMLElement): () => void {
     } else {
       snake.pop();
     }
+    autosave.request();
     render(previousSnake);
   }
 
   function statusText(): string {
     if (state === "ready") return `Ready · ${wallModeLabel(wallMode)}`;
+    if (state === "paused") return `Paused · ${snake.length}`;
     if (state === "won") return "Full";
     if (state === "lost") return `Crash · ${snake.length}`;
     return `Length ${snake.length} · ${wallModeLabel(wallMode)}`;
@@ -251,10 +310,6 @@ export function mountSnake(target: HTMLElement): () => void {
 
   function wallModeLabel(mode: WallMode): string {
     return mode === "fatal" ? "Fatal walls" : "Teleport walls";
-  }
-
-  function parseWallMode(value: unknown): WallMode | null {
-    return value === "fatal" || value === "teleport" ? value : null;
   }
 
   function labelFor(point: SnakePoint, isHead: boolean, isSnake: boolean, isFood: boolean): string {
@@ -350,15 +405,147 @@ export function mountSnake(target: HTMLElement): () => void {
     tickRemainder = 0;
   }
 
+  function ensureStarted(): void {
+    if (startedAt === null) startedAt = Date.now();
+    markGameStarted(shell);
+  }
+
+  function finishGame(outcome: "won" | "lost"): void {
+    markGameFinished(shell);
+    stopTimer();
+    recordGameResult({
+      runId,
+      gameId,
+      difficulty,
+      outcome,
+      score: score(),
+      durationMs: durationMs(),
+      metadata: { wallMode, length: snake.length },
+    });
+    clearGameSave(gameId);
+  }
+
+  function saveCurrentGame(): void {
+    if (startedAt === null) return;
+    if (state === "won" || state === "lost") {
+      clearGameSave(gameId);
+      return;
+    }
+    saveGameSave(gameId, savePayloadVersion, {
+      runId,
+      status: state === "paused" ? "paused" : state === "playing" ? "playing" : "ready",
+      payload: {
+        difficulty,
+        wallMode,
+        config,
+        snake,
+        food,
+        direction,
+        queuedDirection,
+        state,
+        score: score(),
+        startedAt,
+      },
+    });
+  }
+
+  function score(): number {
+    return snake.length - 3;
+  }
+
+  function durationMs(): number | undefined {
+    return startedAt === null ? undefined : Math.max(0, Date.now() - startedAt);
+  }
+
   function savePreferences(): void {
     saveGamePreferences(gameId, { difficulty, options: { wallMode } });
   }
 
+  if (startedAt !== null) markGameStarted(shell);
+  if (state === "won" || state === "lost") markGameFinished(shell);
   render();
   return () => {
+    autosave.flush();
     stopTimer();
     invalidMove.cleanup();
     scope.cleanup();
     remove();
   };
+}
+
+function parseWallMode(value: unknown): WallMode | null {
+  return value === "fatal" || value === "teleport" ? value : null;
+}
+
+function parseSaveSnake(value: unknown): SaveSnake | null {
+  if (!isRecord(value)) return null;
+  const difficulty = parseDifficulty(value.difficulty);
+  const wallMode = parseWallMode(value.wallMode);
+  if (!difficulty || !wallMode) return null;
+  const config = parseConfig(value.config, configs[difficulty]);
+  const snake = parseSnake(value.snake, config?.size ?? 0);
+  const food = parsePoint(value.food, config?.size ?? 0);
+  const direction = parseDirection(value.direction);
+  const queuedDirection = parseDirection(value.queuedDirection);
+  const state = parseState(value.state);
+  const startedAt = parseStartedAt(value.startedAt);
+  if (!config || !snake || !food || !direction || !queuedDirection || !state) return null;
+  if (typeof value.score !== "number" || !Number.isFinite(value.score)) return null;
+  if (startedAt === undefined) return null;
+  return {
+    difficulty,
+    wallMode,
+    config,
+    snake,
+    food,
+    direction,
+    queuedDirection,
+    state,
+    score: value.score,
+    startedAt,
+  };
+}
+
+function parseConfig(value: unknown, expected: Config): Config | null {
+  if (!isRecord(value)) return null;
+  return value.size === expected.size && value.speed === expected.speed ? expected : null;
+}
+
+function parseSnake(value: unknown, size: number): SnakePoint[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const snake = value.map((point) => parsePoint(point, size));
+  return snake.every((point): point is SnakePoint => point !== null) ? snake : null;
+}
+
+function parsePoint(value: unknown, size: number): SnakePoint | null {
+  if (!isRecord(value)) return null;
+  const row = value.row;
+  const column = value.column;
+  if (!Number.isInteger(row) || !Number.isInteger(column)) return null;
+  if (typeof row !== "number" || typeof column !== "number") return null;
+  if (row < 0 || column < 0 || row >= size || column >= size) return null;
+  return { row, column };
+}
+
+function parseDirection(value: unknown): Direction | null {
+  return value === "up" || value === "right" || value === "down" || value === "left" ? value : null;
+}
+
+function parseState(value: unknown): State | null {
+  return value === "ready" ||
+    value === "playing" ||
+    value === "paused" ||
+    value === "won" ||
+    value === "lost"
+    ? value
+    : null;
+}
+
+function parseStartedAt(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

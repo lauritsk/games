@@ -29,6 +29,14 @@ import {
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
+import { recordGameResult } from "../game-results";
+import {
+  clearGameSave,
+  createAutosave,
+  createRunId,
+  loadGameSave,
+  saveGameSave,
+} from "../game-state";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import {
@@ -38,11 +46,24 @@ import {
   newInvaderState,
   nextInvaderWave,
   stepInvaders,
+  type InvaderAlien,
+  type InvaderBarrier,
   type InvaderConfig,
+  type InvaderRect,
+  type InvaderShot,
   type InvaderState,
 } from "./space-invaders.logic";
 
 type Mode = "ready" | "playing" | "paused" | "wave" | "lost";
+
+const savePayloadVersion = 1;
+
+type SaveSpaceInvaders = {
+  difficulty: Difficulty;
+  mode: Mode;
+  state: InvaderState;
+  startedAt: number | null;
+};
 
 const configs: Record<Difficulty, InvaderConfig> = {
   Easy: {
@@ -86,6 +107,23 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   let state = newInvaderState(configs[difficulty]);
   let mode: Mode = "ready";
   let loop: FixedStepLoop | null = null;
+  let runId = createRunId();
+  let startedAt: number | null = null;
+
+  const saved = loadGameSave(spaceInvaders.id, savePayloadVersion, parseSaveSpaceInvaders);
+  if (saved) {
+    runId = saved.runId;
+    difficulty = saved.payload.difficulty;
+    state =
+      saved.payload.mode === "wave"
+        ? nextInvaderWave(saved.payload.state, configs[difficulty])
+        : saved.payload.state;
+    mode =
+      saved.payload.mode === "playing" || saved.payload.mode === "wave"
+        ? "paused"
+        : saved.payload.mode;
+    startedAt = saved.payload.startedAt;
+  }
 
   const { shell, status, actions, board, remove } = createGameShell(target, {
     gameClass: "invaders-game",
@@ -97,6 +135,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
+  const autosave = createAutosave({ gameId: spaceInvaders.id, scope, save: saveCurrentGame });
   const waveAdvance = createDelayedAction();
   const input = createHeldKeyInput(scope, (direction) => {
     if (isConfirmOpen() || (direction !== "left" && direction !== "right")) return;
@@ -120,12 +159,13 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     paused: "paused",
     onBlockedStart: () => invalidMove.trigger(),
     onFirstStart: () => {
-      markGameStarted(shell);
+      ensureStarted();
       playSound("gameMajor");
     },
     onPlaying: restartTimer,
     onPause: () => {
       stopTimer();
+      saveCurrentGame();
       playSound("uiToggle");
     },
     afterChange: render,
@@ -163,8 +203,11 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
 
   function resetGame(): void {
     stopTimer();
+    clearGameSave(spaceInvaders.id);
     waveAdvance.clear();
     resetGameProgress(shell);
+    runId = createRunId();
+    startedAt = null;
     state = newInvaderState(configs[difficulty]);
     mode = "ready";
     input.clear();
@@ -211,6 +254,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
       },
     };
     start();
+    autosave.request();
     render();
   }
 
@@ -218,7 +262,10 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     if (mode !== "playing") return;
     const before = state.shots.length;
     state = fireInvaderShot(state);
-    if (state.shots.length > before) playSound("uiToggle");
+    if (state.shots.length > before) {
+      saveCurrentGame();
+      playSound("uiToggle");
+    }
     render();
   }
 
@@ -231,22 +278,23 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     if (state.lives < beforeLives) playSound("gameLose");
     if (state.lost) {
       mode = "lost";
-      markGameFinished(shell);
-      stopTimer();
+      finishGame();
       input.clear();
       playSound("gameLose");
     } else if (state.won) {
       mode = "wave";
       stopTimer();
       input.clear();
+      saveCurrentGame();
       playSound("gameWin");
       waveAdvance.start(() => {
         state = nextInvaderWave(state, configs[difficulty]);
         mode = "playing";
+        saveCurrentGame();
         restartTimer();
         render();
       }, 900);
-    }
+    } else autosave.request();
     render();
   }
 
@@ -260,6 +308,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
         x: clamp(center - state.player.width / 2, 0, state.width - state.player.width),
       },
     };
+    autosave.request();
     render();
   }
 
@@ -350,12 +399,54 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     loop = null;
   }
 
+  function ensureStarted(): void {
+    if (startedAt === null) startedAt = Date.now();
+    markGameStarted(shell);
+  }
+
+  function finishGame(): void {
+    markGameFinished(shell);
+    stopTimer();
+    recordGameResult({
+      runId,
+      gameId: spaceInvaders.id,
+      difficulty,
+      outcome: "lost",
+      score: state.score,
+      level: state.wave,
+      durationMs: durationMs(),
+      metadata: { lives: state.lives },
+    });
+    clearGameSave(spaceInvaders.id);
+  }
+
+  function saveCurrentGame(): void {
+    if (startedAt === null) return;
+    if (mode === "lost") {
+      clearGameSave(spaceInvaders.id);
+      return;
+    }
+    saveGameSave(spaceInvaders.id, savePayloadVersion, {
+      runId,
+      status:
+        mode === "paused" ? "paused" : mode === "playing" || mode === "wave" ? "playing" : "ready",
+      payload: { difficulty, mode, state, startedAt },
+    });
+  }
+
+  function durationMs(): number | undefined {
+    return startedAt === null ? undefined : Math.max(0, Date.now() - startedAt);
+  }
+
   function savePreferences(): void {
     saveGamePreferences(spaceInvaders.id, { difficulty });
   }
 
+  if (startedAt !== null) markGameStarted(shell);
+  if (mode === "lost") markGameFinished(shell);
   render();
   return () => {
+    autosave.flush();
     stopTimer();
     waveAdvance.clear();
     invalidMove.cleanup();
@@ -363,4 +454,114 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     scope.cleanup();
     remove();
   };
+}
+
+function parseSaveSpaceInvaders(value: unknown): SaveSpaceInvaders | null {
+  if (!isRecord(value)) return null;
+  const difficulty = parseDifficulty(value.difficulty);
+  const mode = parseMode(value.mode);
+  const state = parseInvaderState(value.state);
+  const startedAt = parseStartedAt(value.startedAt);
+  if (!difficulty || !mode || !state || startedAt === undefined) return null;
+  return { difficulty, mode, state, startedAt };
+}
+
+function parseInvaderState(value: unknown): InvaderState | null {
+  if (!isRecord(value)) return null;
+  const player = parseRect(value.player);
+  const aliens = parseAliens(value.aliens);
+  const barriers = parseBarriers(value.barriers);
+  const shots = parseShots(value.shots);
+  if (!player || !aliens || !barriers || !shots) return null;
+  if (!isFiniteNumber(value.width) || !isFiniteNumber(value.height)) return null;
+  if (value.alienDirection !== -1 && value.alienDirection !== 1) return null;
+  if (
+    !isFiniteNumber(value.tick) ||
+    !isFiniteNumber(value.score) ||
+    !isFiniteNumber(value.lives) ||
+    !isFiniteNumber(value.wave)
+  )
+    return null;
+  if (typeof value.won !== "boolean" || typeof value.lost !== "boolean") return null;
+  return {
+    width: value.width,
+    height: value.height,
+    player,
+    aliens,
+    barriers,
+    shots,
+    alienDirection: value.alienDirection,
+    tick: value.tick,
+    score: value.score,
+    lives: value.lives,
+    wave: value.wave,
+    won: value.won,
+    lost: value.lost,
+  };
+}
+
+function parseRect(value: unknown): InvaderRect | null {
+  if (!isRecord(value)) return null;
+  if (
+    !isFiniteNumber(value.x) ||
+    !isFiniteNumber(value.y) ||
+    !isFiniteNumber(value.width) ||
+    !isFiniteNumber(value.height)
+  )
+    return null;
+  return { x: value.x, y: value.y, width: value.width, height: value.height };
+}
+
+function parseAliens(value: unknown): InvaderAlien[] | null {
+  if (!Array.isArray(value)) return null;
+  const aliens = value.map((alien) => {
+    const rect = parseRect(alien);
+    if (!rect || !isRecord(alien) || typeof alien.alive !== "boolean") return null;
+    return { ...rect, alive: alien.alive };
+  });
+  return aliens.every((alien): alien is InvaderAlien => alien !== null) ? aliens : null;
+}
+
+function parseBarriers(value: unknown): InvaderBarrier[] | null {
+  if (!Array.isArray(value)) return null;
+  const barriers = value.map((barrier) => {
+    const rect = parseRect(barrier);
+    if (!rect || !isRecord(barrier) || !isFiniteNumber(barrier.hp)) return null;
+    return { ...rect, hp: barrier.hp };
+  });
+  return barriers.every((barrier): barrier is InvaderBarrier => barrier !== null) ? barriers : null;
+}
+
+function parseShots(value: unknown): InvaderShot[] | null {
+  if (!Array.isArray(value)) return null;
+  const shots = value.map((shot) => {
+    if (!isRecord(shot)) return null;
+    if (!isFiniteNumber(shot.x) || !isFiniteNumber(shot.y) || !isFiniteNumber(shot.vy)) return null;
+    if (shot.owner !== "player" && shot.owner !== "alien") return null;
+    return { x: shot.x, y: shot.y, vy: shot.vy, owner: shot.owner };
+  });
+  return shots.every((shot): shot is InvaderShot => shot !== null) ? shots : null;
+}
+
+function parseMode(value: unknown): Mode | null {
+  return value === "ready" ||
+    value === "playing" ||
+    value === "paused" ||
+    value === "wave" ||
+    value === "lost"
+    ? value
+    : null;
+}
+
+function parseStartedAt(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
