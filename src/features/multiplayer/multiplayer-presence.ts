@@ -74,14 +74,13 @@ export function renderMultiplayerPresence(
     headline.append(countdown);
   }
 
-  const you = multiplayerPlayerDescriptor(options.gameId, localSeat);
   const summary = el("div", { className: "online-presence__summary" });
   summary.append(
     el("span", {
-      className: "online-presence__kicker",
-      text: countdownText ? "Starting" : `Room ${session.code}`,
+      className: "online-presence__room-code",
+      ariaLabel: `Room code ${session.code}`,
+      text: session.code,
     }),
-    playerLine(you, options.status === "lobby" ? "You joined as" : "You are"),
   );
   headline.append(summary);
 
@@ -136,19 +135,6 @@ export function multiplayerPlayerDescriptor(
     colorName: color.name,
     color: color.value,
   };
-}
-
-function playerLine(descriptor: MultiplayerPlayerDescriptor, prefix: string): HTMLElement {
-  const line = el("div", { className: "online-presence__you" });
-  line.style.setProperty("--player-color", descriptor.color);
-  line.append(
-    el("span", { className: "online-presence__swatch", ariaLabel: descriptor.colorName }),
-    el("span", {
-      className: "online-presence__you-text",
-      text: `${prefix} ${descriptor.label}`,
-    }),
-  );
-  return line;
 }
 
 function seatMeta(joined: boolean, seat: MultiplayerSeat, localSeat: MultiplayerSeat): string {

@@ -316,33 +316,27 @@
 
   .online-presence__summary {
     display: grid;
+    justify-items: center;
     gap: 5px;
     min-width: 0;
+    text-align: center;
   }
 
-  .online-presence__kicker {
-    color: var(--muted);
-    font-size: var(--font-size-2xs);
-    font-weight: var(--font-weight-heavy);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .online-presence-host[data-status="lobby"] .online-presence__kicker {
+  .online-presence__room-code {
+    max-width: 100%;
+    overflow-wrap: anywhere;
     color: var(--accent);
+    font-size: clamp(1.45rem, 6.8vmin, 2.35rem);
+    font-weight: var(--font-weight-black);
+    letter-spacing: 0.14em;
+    line-height: 1;
   }
 
-  :is(.online-presence__you, .online-presence__seat) {
+  .online-presence__seat {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: 8px 10px;
-  }
-
-  .online-presence__you {
-    font-size: clamp(0.96rem, 2.4vmin, 1.12rem);
-    font-weight: var(--font-weight-black);
-    line-height: 1.1;
   }
 
   .online-presence__swatch {

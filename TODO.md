@@ -1,5 +1,7 @@
 # TODO
 
+- [ ] Continue CSS dedupe pass with shared components/tokens. (in progress)
+- [x] Update online waiting popup room code and player labels.
 - [x] Make results screen `n` key dismiss and start a new game instantly.
 - [x] Shorten online waiting player labels.
 - [x] Improve multiplayer room popups and bottom status visual hierarchy.
