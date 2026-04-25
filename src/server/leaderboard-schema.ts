@@ -13,6 +13,17 @@ const maxMetadataKeys = 20;
 const maxMetadataStringLength = 128;
 
 type Outcome = "won" | "lost" | "draw" | "completed";
+type OptionalMetricField = "score" | "moves" | "durationMs" | "level" | "streak";
+type OptionalMetricValues = Partial<Record<OptionalMetricField, number>>;
+type IntegerRange = { min: number; max: number };
+
+const optionalMetricRanges = {
+  score: { min: 0, max: 100_000_000 },
+  moves: { min: 0, max: 1_000_000 },
+  durationMs: { min: 0, max: 86_400_000 },
+  level: { min: 0, max: 10_000 },
+  streak: { min: 0, max: 10_000 },
+} satisfies Record<OptionalMetricField, IntegerRange>;
 
 export type LeaderboardSubmission = {
   deviceId?: string;
@@ -78,20 +89,8 @@ export function parseLeaderboardSubmission(value: unknown): ParseResult<Leaderbo
   const metricValue = parseIntegerField(value[config.metric], config.maxMetricValue);
   if (metricValue === null) return invalid("Invalid score");
 
-  const score = optionalIntegerField(value.score, 0, 100_000_000);
-  const moves = optionalIntegerField(value.moves, 0, 1_000_000);
-  const durationMs = optionalIntegerField(value.durationMs, 0, 86_400_000);
-  const level = optionalIntegerField(value.level, 0, 10_000);
-  const streak = optionalIntegerField(value.streak, 0, 10_000);
-  if (
-    score === null ||
-    moves === null ||
-    durationMs === null ||
-    level === null ||
-    streak === null
-  ) {
-    return invalid("Invalid score");
-  }
+  const optionalMetrics = parseOptionalMetrics(value);
+  if (!optionalMetrics) return invalid("Invalid score");
 
   const metadata = parseMetadata(value.metadata);
   if (metadata === null || !hasRequiredMetadata(metadata, config.requiredMetadata)) {
@@ -114,11 +113,7 @@ export function parseLeaderboardSubmission(value: unknown): ParseResult<Leaderbo
       outcome: value.outcome as Outcome,
       metric: config.metric,
       metricValue,
-      ...(score === undefined ? {} : { score }),
-      ...(moves === undefined ? {} : { moves }),
-      ...(durationMs === undefined ? {} : { durationMs }),
-      ...(level === undefined ? {} : { level }),
-      ...(streak === undefined ? {} : { streak }),
+      ...optionalMetrics,
       metadata,
     },
   };
@@ -139,6 +134,18 @@ function parseIntegerField(value: unknown, max: number): number | null {
 function optionalIntegerField(value: unknown, min: number, max: number): number | undefined | null {
   if (value === undefined) return undefined;
   return isInteger(value) && value >= min && value <= max ? value : null;
+}
+
+function parseOptionalMetrics(value: Record<string, unknown>): OptionalMetricValues | null {
+  const metrics: OptionalMetricValues = {};
+  for (const [field, range] of Object.entries(optionalMetricRanges) as Array<
+    [OptionalMetricField, IntegerRange]
+  >) {
+    const metricValue = optionalIntegerField(value[field], range.min, range.max);
+    if (metricValue === null) return null;
+    if (metricValue !== undefined) metrics[field] = metricValue;
+  }
+  return metrics;
 }
 
 function optionalSyncId(value: unknown): string | undefined | null {

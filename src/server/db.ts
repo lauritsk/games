@@ -49,6 +49,33 @@ type ResultRow = {
 type ResultPruneRow = { id: string; game_id: string; finished_at: string };
 type MaxClearRow = { cleared_at: string | null };
 type CountRow = { count: number };
+type LeaderboardRankOptions = {
+  gameId: string;
+  metric: LeaderboardListOptions["metric"];
+  direction: LeaderboardListOptions["direction"];
+  difficulty?: string;
+  metricValue: number;
+  createdAt: string;
+  id: string;
+};
+type SqlValue = number | string;
+
+const leaderboardScoreColumns = [
+  "id",
+  "game_id",
+  "username",
+  "difficulty",
+  "outcome",
+  "metric",
+  "metric_value",
+  "score",
+  "moves",
+  "duration_ms",
+  "level",
+  "streak",
+  "metadata_json",
+  "created_at",
+].join(", ");
 
 export class GameDatabase {
   private readonly db: Database;
@@ -112,32 +139,16 @@ export class GameDatabase {
 
   listLeaderboardScores(options: LeaderboardListOptions): LeaderboardEntry[] {
     const directionSql = options.direction === "min" ? "ASC" : "DESC";
-    const rows = options.difficulty
-      ? (this.db
-          .query(
-            `SELECT id, game_id, username, difficulty, outcome, metric, metric_value, score,
-                    moves, duration_ms, level, streak, metadata_json, created_at
-             FROM leaderboard_scores
-             WHERE game_id = ?1 AND metric = ?2 AND difficulty = ?3
-             ORDER BY metric_value ${directionSql}, created_at ASC, id ASC
-             LIMIT ?4`,
-          )
-          .all(
-            options.gameId,
-            options.metric,
-            options.difficulty,
-            options.limit,
-          ) as LeaderboardRow[])
-      : (this.db
-          .query(
-            `SELECT id, game_id, username, difficulty, outcome, metric, metric_value, score,
-                    moves, duration_ms, level, streak, metadata_json, created_at
-             FROM leaderboard_scores
-             WHERE game_id = ?1 AND metric = ?2
-             ORDER BY metric_value ${directionSql}, created_at ASC, id ASC
-             LIMIT ?3`,
-          )
-          .all(options.gameId, options.metric, options.limit) as LeaderboardRow[]);
+    const query = leaderboardListQuery(options);
+    const rows = this.db
+      .query(
+        `SELECT ${leaderboardScoreColumns}
+         FROM leaderboard_scores
+         WHERE game_id = ?1 AND metric = ?2${query.difficultyClause}
+         ORDER BY metric_value ${directionSql}, created_at ASC, id ASC
+         LIMIT ${query.limitPlaceholder}`,
+      )
+      .all(...query.parameters) as LeaderboardRow[];
     return rows.map((row, index) => {
       const entry = rowToLeaderboardEntry(row);
       entry.rank = index + 1;
@@ -378,8 +389,7 @@ export class GameDatabase {
     if (!deviceId || !runId) return null;
     const row = this.db
       .query(
-        `SELECT id, game_id, username, difficulty, outcome, metric, metric_value, score,
-                moves, duration_ms, level, streak, metadata_json, created_at
+        `SELECT ${leaderboardScoreColumns}
          FROM leaderboard_scores
          WHERE device_id = ?1 AND run_id = ?2`,
       )
@@ -419,8 +429,7 @@ export class GameDatabase {
 
     const row = this.db
       .query(
-        `SELECT id, game_id, username, difficulty, outcome, metric, metric_value, score,
-                moves, duration_ms, level, streak, metadata_json, created_at
+        `SELECT ${leaderboardScoreColumns}
          FROM leaderboard_scores
          WHERE id = ?1`,
       )
@@ -429,47 +438,57 @@ export class GameDatabase {
     return rowToLeaderboardEntry(row);
   }
 
-  private leaderboardRank(options: {
-    gameId: string;
-    metric: string;
-    direction: LeaderboardListOptions["direction"];
-    difficulty?: string;
-    metricValue: number;
-    createdAt: string;
-    id: string;
-  }): number {
+  private leaderboardRank(options: LeaderboardRankOptions): number {
     const comparator = options.direction === "min" ? "<" : ">";
     const rankWhere = `(metric_value ${comparator} ?3 OR (metric_value = ?3 AND (created_at < ?4 OR (created_at = ?4 AND id < ?5))))`;
-    const row = options.difficulty
-      ? (this.db
-          .query(
-            `SELECT COUNT(*) AS count
-             FROM leaderboard_scores
-             WHERE game_id = ?1 AND metric = ?2 AND ${rankWhere} AND difficulty = ?6`,
-          )
-          .get(
-            options.gameId,
-            options.metric,
-            options.metricValue,
-            options.createdAt,
-            options.id,
-            options.difficulty,
-          ) as CountRow | null)
-      : (this.db
-          .query(
-            `SELECT COUNT(*) AS count
-             FROM leaderboard_scores
-             WHERE game_id = ?1 AND metric = ?2 AND ${rankWhere}`,
-          )
-          .get(
-            options.gameId,
-            options.metric,
-            options.metricValue,
-            options.createdAt,
-            options.id,
-          ) as CountRow | null);
+    const query = leaderboardRankQuery(options);
+    const row = this.db
+      .query(
+        `SELECT COUNT(*) AS count
+         FROM leaderboard_scores
+         WHERE game_id = ?1 AND metric = ?2 AND ${rankWhere}${query.difficultyClause}`,
+      )
+      .get(...query.parameters) as CountRow | null;
     return (row?.count ?? 0) + 1;
   }
+}
+
+function leaderboardListQuery(options: LeaderboardListOptions): {
+  difficultyClause: string;
+  limitPlaceholder: "?3" | "?4";
+  parameters: SqlValue[];
+} {
+  if (options.difficulty) {
+    return {
+      difficultyClause: " AND difficulty = ?3",
+      limitPlaceholder: "?4",
+      parameters: [options.gameId, options.metric, options.difficulty, options.limit],
+    };
+  }
+
+  return {
+    difficultyClause: "",
+    limitPlaceholder: "?3",
+    parameters: [options.gameId, options.metric, options.limit],
+  };
+}
+
+function leaderboardRankQuery(options: LeaderboardRankOptions): {
+  difficultyClause: string;
+  parameters: SqlValue[];
+} {
+  const parameters = [
+    options.gameId,
+    options.metric,
+    options.metricValue,
+    options.createdAt,
+    options.id,
+  ];
+  if (!options.difficulty) return { difficultyClause: "", parameters };
+  return {
+    difficultyClause: " AND difficulty = ?6",
+    parameters: [...parameters, options.difficulty],
+  };
 }
 
 export function defaultDatabasePath(): string {
