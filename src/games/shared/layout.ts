@@ -88,7 +88,7 @@ export function createGameShell(target: HTMLElement, options: GameShellOptions):
 
   const top = el("div", { className: "game__top cluster" });
   const status = el("p", {
-    className: "status pill surface",
+    className: "status",
     ariaLabel: options.statusLabel ?? "Game status",
   });
   const actions = el("div", { className: "game__actions cluster" });

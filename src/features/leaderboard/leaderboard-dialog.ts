@@ -1,4 +1,4 @@
-import { clearNode, el, pillButton, setSelected, type GameDefinition } from "@shared/core";
+import { button, clearNode, el, pillButton, setSelected, type GameDefinition } from "@shared/core";
 import { formatDate } from "@features/results/game-result-format";
 import type { GameResult } from "@features/results/game-results";
 import { loadGamePreferences } from "@games/shared/game-preferences";
@@ -36,7 +36,9 @@ export function createLeaderboardDialog(): LeaderboardDialog {
       text: `${game.name} leaderboard`,
     });
     const summary = el("div", { className: "leaderboard-dialog__summary" });
-    const filters = el("div", { className: "leaderboard-dialog__filters cluster" });
+    const filters = el("div", { className: "leaderboard-dialog__filters" });
+    filters.setAttribute("role", "tablist");
+    filters.setAttribute("aria-label", "Leaderboard difficulty");
     const body = el("div", { className: "leaderboard-dialog__scroll" });
     const actions = el("div", { className: "leaderboard-dialog__actions modal__actions cluster" });
     const closeButton = pillButton("Close");
@@ -78,14 +80,16 @@ export function createLeaderboardDialog(): LeaderboardDialog {
     function renderFilters(): void {
       clearNode(filters);
       for (const difficulty of difficulties) {
-        const button = pillButton(difficulty);
-        setSelected(button, difficulty === selectedDifficulty);
-        button.addEventListener("click", () => {
+        const filter = button(difficulty, "leaderboard-dialog__filter");
+        filter.setAttribute("role", "tab");
+        filter.setAttribute("aria-selected", String(difficulty === selectedDifficulty));
+        setSelected(filter, difficulty === selectedDifficulty);
+        filter.addEventListener("click", () => {
           selectedDifficulty = difficulty;
           renderFilters();
           void refreshScores();
         });
-        filters.append(button);
+        filters.append(filter);
       }
     }
 

@@ -1,7 +1,7 @@
 import { button } from "@shared/dom";
 
 export const uiClass = {
-  action: "button pill surface interactive",
+  action: "button interactive",
   pill: "pill surface interactive",
   touchAction: "touch-control pill surface interactive",
 } as const;

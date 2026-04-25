@@ -1,5 +1,10 @@
 # TODO
 
+- [x] Restore initial game selection menu.
+- [x] Repair compact UI visual consistency.
+- [x] Implement compact UI reduction.
+- [x] Write compact UI reduction implementation plan.
+- [x] Plan compact UI information hierarchy to reduce pills/cards.
 - [x] Apply refactor cleanup pass to current project.
 - [x] Refactor current project maintainability hotspots.
 - [x] Add host-facing rematch wait notice for online multiplayer.

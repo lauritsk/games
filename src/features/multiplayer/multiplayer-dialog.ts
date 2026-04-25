@@ -65,6 +65,7 @@ export function createMultiplayerDialog(): MultiplayerDialog {
       }
 
       const create = pillButton("Create room");
+      const start = el("div", { className: "multiplayer-dialog__start" });
       const form = el("form", { className: "multiplayer-dialog__join" });
       const input = el("input", { className: "leaderboard-submit__input" });
       input.placeholder = "Room code";
@@ -75,7 +76,8 @@ export function createMultiplayerDialog(): MultiplayerDialog {
       const statusLine = el("p", { className: "muted" });
       statusLine.setAttribute("aria-live", "polite");
       form.append(input, join);
-      body.append(create, form, statusLine);
+      start.append(create, form);
+      body.append(start, statusLine);
 
       input.addEventListener("input", () => {
         input.value = normalizeMultiplayerCode(input.value);
@@ -131,7 +133,9 @@ export function createMultiplayerDialog(): MultiplayerDialog {
         await navigator.clipboard?.writeText(session.code).catch(() => undefined);
         copy.textContent = "Copied";
       });
-      body.append(code, assignment, help, copy);
+      const room = el("div", { className: "multiplayer-dialog__room" });
+      room.append(code, assignment, copy);
+      body.append(room, help);
     }
 
     function closeDialog(): void {
