@@ -1,5 +1,7 @@
 # TODO
 
+- [x] Improve rematch flow so only host can start next match and others request readiness.
+
 - [x] Add up-to-4-player Snake multiplayer mode.
 
 - [x] Align mobile/desktop result popup visual treatment and audit responsive UI inconsistencies.

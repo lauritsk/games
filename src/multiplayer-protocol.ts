@@ -21,6 +21,7 @@ export type MultiplayerSession = {
 export type MultiplayerSeatSnapshot = {
   joined: boolean;
   connected: boolean;
+  ready?: boolean;
 };
 
 export type MultiplayerRoomSnapshot = {
@@ -96,6 +97,21 @@ export function isMultiplayerRoomStatus(value: unknown): value is MultiplayerRoo
 
 export function parseMultiplayerRoomStatus(value: unknown): MultiplayerRoomStatus | null {
   return isMultiplayerRoomStatus(value) ? value : null;
+}
+
+export function emptyMultiplayerSeatSnapshots(): Record<MultiplayerSeat, MultiplayerSeatSnapshot> {
+  return {
+    p1: { joined: false, connected: false, ready: false },
+    p2: { joined: false, connected: false, ready: false },
+    p3: { joined: false, connected: false, ready: false },
+    p4: { joined: false, connected: false, ready: false },
+  };
+}
+
+export function multiplayerReadySeatCount(
+  seats: Record<MultiplayerSeat, MultiplayerSeatSnapshot>,
+): number {
+  return multiplayerSeats.filter((seat) => seats[seat].joined && seats[seat].ready).length;
 }
 
 export function oppositeMultiplayerSeat(seat: MultiplayerSeat): MultiplayerSeat {

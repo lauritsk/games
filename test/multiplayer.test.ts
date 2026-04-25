@@ -122,6 +122,9 @@ describe("multiplayer API", () => {
       playerId: joined.session.playerId,
       seat: "p2",
     });
+    hub.onOpen(p1);
+    hub.onOpen(p2);
+
     const play = (socket: TestSocket, revision: number, index: number): void => {
       hub.onMessage(
         socket,
@@ -136,12 +139,36 @@ describe("multiplayer API", () => {
     play(p1, 5, 2);
 
     hub.onMessage(p1, JSON.stringify({ type: "rematch", revision: 6 }));
+    const waiting = lastSentJson(p1);
+    expect(waiting.type).toBe("error");
+    expect(waiting.error).toBe("Waiting for another player to ready");
+    expect((waiting.room as { status: string; revision: number }).status).toBe("finished");
+    expect((waiting.room as { revision: number }).revision).toBe(7);
+
+    hub.onMessage(p2, JSON.stringify({ type: "rematch", revision: 7 }));
+    const ready = lastSentJson(p2);
+    expect(ready.type).toBe("snapshot");
+    const readyRoom = ready.room as {
+      status: string;
+      revision: number;
+      seats: { p1: { ready: boolean }; p2: { ready: boolean } };
+    };
+    expect(readyRoom.status).toBe("finished");
+    expect(readyRoom.revision).toBe(8);
+    expect(readyRoom.seats.p1.ready).toBe(true);
+    expect(readyRoom.seats.p2.ready).toBe(true);
+
+    hub.onMessage(p2, JSON.stringify({ type: "rematch", revision: 8 }));
+    const nonHostRepeat = lastSentJson(p2);
+    expect((nonHostRepeat.room as { status: string }).status).toBe("finished");
+
+    hub.onMessage(p1, JSON.stringify({ type: "rematch", revision: 8 }));
 
     const message = lastSentJson(p1);
     expect(message.type).toBe("snapshot");
     const room = message.room as { status: string; revision: number; state: unknown };
     expect(room.status).toBe("playing");
-    expect(room.revision).toBe(7);
+    expect(room.revision).toBe(9);
     const state = room.state as { board: string[]; moves: number; winner: string | null };
     expect(state.moves).toBe(0);
     expect(state.winner).toBeNull();

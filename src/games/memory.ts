@@ -41,6 +41,8 @@ import {
 } from "../multiplayer";
 import { createMultiplayerDialog } from "../multiplayer-dialog";
 import {
+  emptyMultiplayerSeatSnapshots,
+  multiplayerReadySeatCount,
   parseMultiplayerSeat,
   type MultiplayerRoomSnapshot,
   type MultiplayerRoomStatus,
@@ -121,6 +123,7 @@ export function mountMemory(target: HTMLElement): () => void {
   let onlineStatus: MultiplayerConnectionStatus = "closed";
   let onlineRoomStatus: MultiplayerRoomStatus = "lobby";
   let onlineCountdownEndsAt: number | undefined;
+  let onlineSeats = emptyMultiplayerSeatSnapshots();
   let onlineResultRecorded = false;
   let onlineError = "";
 
@@ -232,7 +235,9 @@ export function mountMemory(target: HTMLElement): () => void {
     difficultyButton.disabled = Boolean(onlineSession);
     onlineButton.textContent = onlineSession ? `Room ${onlineSession.code}` : "Play online";
     onlineButton.disabled = Boolean(onlineSession);
-    rematchButton.hidden = !canOnlineRematch();
+    rematchButton.hidden = !isOnlineFinished();
+    rematchButton.textContent =
+      onlineSeat === "p1" ? "Start rematch" : currentSeatReady() ? "Ready" : "Ready rematch";
     rematchButton.disabled = onlineStatus !== "connected" || !canOnlineRematch();
 
     const tiles = syncChildren(grid, cards.length, (index) => {
@@ -445,6 +450,7 @@ export function mountMemory(target: HTMLElement): () => void {
     onlineStatus = "connecting";
     onlineRoomStatus = "lobby";
     onlineCountdownEndsAt = undefined;
+    onlineSeats = emptyMultiplayerSeatSnapshots();
     onlineResultRecorded = false;
     onlineError = "";
     runId = createRunId();
@@ -475,13 +481,22 @@ export function mountMemory(target: HTMLElement): () => void {
 
   function requestOnlineRematch(): void {
     if (!canOnlineRematch()) return;
-    onlineError = "Starting rematch…";
+    onlineError = onlineSeat === "p1" ? "Starting rematch…" : "Ready for rematch…";
     onlineConnection?.requestRematch(onlineRevision);
     render();
   }
 
   function canOnlineRematch(): boolean {
+    if (!isOnlineFinished()) return false;
+    return onlineSeat === "p1" || !currentSeatReady();
+  }
+
+  function isOnlineFinished(): boolean {
     return Boolean(onlineSession && winner);
+  }
+
+  function currentSeatReady(): boolean {
+    return onlineSeat ? onlineSeats[onlineSeat].ready === true : false;
   }
 
   function stopOnline(): void {
@@ -495,6 +510,7 @@ export function mountMemory(target: HTMLElement): () => void {
     onlineRoomStatus = "lobby";
     onlineCountdownEndsAt = undefined;
     onlineCountdown.cleanup();
+    onlineSeats = emptyMultiplayerSeatSnapshots();
     onlineError = "";
     onlineResultRecorded = false;
   }
@@ -510,6 +526,7 @@ export function mountMemory(target: HTMLElement): () => void {
     onlineRevision = room.revision;
     onlineRoomStatus = room.status;
     onlineCountdownEndsAt = room.countdownEndsAt;
+    onlineSeats = room.seats;
     onlineCountdown.update(room);
     if (wasInFinishedOrStartedOnlineGame && state.moves === 0 && !state.winner) {
       resetGameProgress(shell);
@@ -542,8 +559,13 @@ export function mountMemory(target: HTMLElement): () => void {
     if (!onlineSession) return "Online";
     if (!onlineSeat) return "Joining…";
     if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
-    if (winner === "draw") return `Draw · ${scoreText()}`;
-    if (winner) return winner === playerForSeat(onlineSeat) ? "You win" : "Opponent wins";
+    if (winner === "draw") {
+      return `Draw · ${scoreText()} · ${multiplayerReadySeatCount(onlineSeats)} ready`;
+    }
+    if (winner) {
+      const result = winner === playerForSeat(onlineSeat) ? "You win" : "Opponent wins";
+      return `${result} · ${scoreText()} · ${multiplayerReadySeatCount(onlineSeats)} ready`;
+    }
     if (onlineRevision === 0) return `Room ${onlineSession.code} · Waiting`;
     if (lock) return `Settling · ${scoreText()}`;
     return currentPlayer === playerForSeat(onlineSeat)
@@ -557,12 +579,7 @@ export function mountMemory(target: HTMLElement): () => void {
       gameId: memory.id,
       status: onlineRoomStatus,
       revision: onlineRevision,
-      seats: {
-        p1: { joined: true, connected: true },
-        p2: { joined: true, connected: true },
-        p3: { joined: false, connected: false },
-        p4: { joined: false, connected: false },
-      },
+      seats: onlineSeats,
       state: {},
       countdownEndsAt: onlineCountdownEndsAt,
     });

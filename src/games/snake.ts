@@ -42,6 +42,8 @@ import {
 } from "../multiplayer";
 import { createMultiplayerDialog } from "../multiplayer-dialog";
 import {
+  emptyMultiplayerSeatSnapshots,
+  multiplayerReadySeatCount,
   multiplayerSeats,
   parseMultiplayerSeat,
   type MultiplayerRoomSnapshot,
@@ -280,7 +282,9 @@ export function mountSnake(target: HTMLElement): () => void {
     onlineButton.disabled = Boolean(onlineSession);
     startOnlineButton.hidden = !onlineSession || onlineRoomStatus !== "lobby";
     startOnlineButton.disabled = !canOnlineStart();
-    rematchButton.hidden = !canOnlineRematch();
+    rematchButton.hidden = !isOnlineFinished();
+    rematchButton.textContent =
+      onlineSeat === "p1" ? "Start rematch" : currentSeatReady() ? "Ready" : "Ready rematch";
     rematchButton.disabled = onlineStatus !== "connected" || !canOnlineRematch();
 
     const onlineCells = onlineSession ? onlineCellStates() : null;
@@ -673,7 +677,7 @@ export function mountSnake(target: HTMLElement): () => void {
 
   function requestOnlineRematch(): void {
     if (!canOnlineRematch()) return;
-    onlineError = "Starting rematch…";
+    onlineError = onlineSeat === "p1" ? "Starting rematch…" : "Ready for rematch…";
     onlineConnection?.requestRematch(onlineRevision);
     render();
   }
@@ -699,7 +703,16 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function canOnlineRematch(): boolean {
+    if (!isOnlineFinished()) return false;
+    return onlineSeat === "p1" || !currentSeatReady();
+  }
+
+  function isOnlineFinished(): boolean {
     return Boolean(onlineSession && onlineState?.winner);
+  }
+
+  function currentSeatReady(): boolean {
+    return onlineSeat ? onlineSeats[onlineSeat].ready === true : false;
   }
 
   function stopOnline(): void {
@@ -762,8 +775,16 @@ export function mountSnake(target: HTMLElement): () => void {
     }
     if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
     const winner = onlineState?.winner ?? null;
-    if (winner === "draw") return "Draw";
-    if (winner) return winner === onlineSeat ? "You win" : `${onlinePlayerLabel(winner)} wins`;
+    if (winner) {
+      const result =
+        winner === "draw"
+          ? "Draw"
+          : winner === onlineSeat
+            ? "You win"
+            : `${onlinePlayerLabel(winner)} wins`;
+      const ready = multiplayerReadySeatCount(onlineSeats);
+      return `${result} · ${ready} ready`;
+    }
     const player = onlineSeat ? onlinePlayerFor(onlineSeat) : null;
     if (!player) return `Room ${onlineSession.code} · Watching`;
     const alive = onlineState?.players.filter((entry) => entry.alive).length ?? 0;
@@ -856,12 +877,7 @@ export function mountSnake(target: HTMLElement): () => void {
 }
 
 function emptyOnlineSeats(): MultiplayerRoomSnapshot["seats"] {
-  return {
-    p1: { joined: false, connected: false },
-    p2: { joined: false, connected: false },
-    p3: { joined: false, connected: false },
-    p4: { joined: false, connected: false },
-  };
+  return emptyMultiplayerSeatSnapshots();
 }
 
 function onlinePlayerLabel(seat: MultiplayerSeat): string {

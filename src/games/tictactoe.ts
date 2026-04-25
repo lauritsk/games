@@ -34,6 +34,8 @@ import {
 } from "../multiplayer";
 import { createMultiplayerDialog } from "../multiplayer-dialog";
 import {
+  emptyMultiplayerSeatSnapshots,
+  multiplayerReadySeatCount,
   parseMultiplayerSeat,
   type MultiplayerRoomSnapshot,
   type MultiplayerRoomStatus,
@@ -107,6 +109,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   let onlineStatus: MultiplayerConnectionStatus = "closed";
   let onlineRoomStatus: MultiplayerRoomStatus = "lobby";
   let onlineCountdownEndsAt: number | undefined;
+  let onlineSeats = emptyMultiplayerSeatSnapshots();
   let onlineResultRecorded = false;
   let onlineError = "";
 
@@ -214,7 +217,9 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     difficultyButton.disabled = Boolean(onlineSession);
     onlineButton.textContent = onlineSession ? `Room ${onlineSession.code}` : "Play online";
     onlineButton.disabled = Boolean(onlineSession);
-    rematchButton.hidden = !canOnlineRematch();
+    rematchButton.hidden = !isOnlineFinished();
+    rematchButton.textContent =
+      onlineSeat === "p1" ? "Start rematch" : currentSeatReady() ? "Ready" : "Ready rematch";
     rematchButton.disabled = onlineStatus !== "connected" || !canOnlineRematch();
 
     const cells = syncChildren(grid, board.length, (index) => {
@@ -383,6 +388,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     onlineStatus = "connecting";
     onlineRoomStatus = "lobby";
     onlineCountdownEndsAt = undefined;
+    onlineSeats = emptyMultiplayerSeatSnapshots();
     onlineResultRecorded = false;
     onlineError = "";
     runId = createRunId();
@@ -408,13 +414,22 @@ export function mountTicTacToe(target: HTMLElement): () => void {
 
   function requestOnlineRematch(): void {
     if (!canOnlineRematch()) return;
-    onlineError = "Starting rematch…";
+    onlineError = onlineSeat === "p1" ? "Starting rematch…" : "Ready for rematch…";
     onlineConnection?.requestRematch(onlineRevision);
     render();
   }
 
   function canOnlineRematch(): boolean {
+    if (!isOnlineFinished()) return false;
+    return onlineSeat === "p1" || !currentSeatReady();
+  }
+
+  function isOnlineFinished(): boolean {
     return Boolean(onlineSession && winner);
+  }
+
+  function currentSeatReady(): boolean {
+    return onlineSeat ? onlineSeats[onlineSeat].ready === true : false;
   }
 
   function stopOnline(): void {
@@ -428,6 +443,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     onlineRoomStatus = "lobby";
     onlineCountdownEndsAt = undefined;
     onlineCountdown.cleanup();
+    onlineSeats = emptyMultiplayerSeatSnapshots();
     onlineError = "";
     onlineResultRecorded = false;
   }
@@ -442,6 +458,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     onlineRevision = room.revision;
     onlineRoomStatus = room.status;
     onlineCountdownEndsAt = room.countdownEndsAt;
+    onlineSeats = room.seats;
     onlineCountdown.update(room);
     if (wasInFinishedOrStartedOnlineGame && state.moves === 0 && !state.winner) {
       resetGameProgress(shell);
@@ -466,8 +483,15 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     if (onlineStatus === "reconnecting") return "Reconnecting…";
     if (!onlineSession) return "Online";
     if (!onlineSeat) return "Joining…";
-    if (winner === "draw") return "Draw";
-    if (winner) return winner === markForSeat(onlineSeat) ? "You win" : "Opponent wins";
+    if (winner) {
+      const result =
+        winner === "draw"
+          ? "Draw"
+          : winner === markForSeat(onlineSeat)
+            ? "You win"
+            : "Opponent wins";
+      return `${result} · ${multiplayerReadySeatCount(onlineSeats)} ready`;
+    }
     if (onlineRoomStatus === "countdown") {
       const number = multiplayerCountdownNumber({
         code: onlineSession.code,

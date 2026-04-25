@@ -212,9 +212,13 @@ function parseRoom(value: unknown): MultiplayerRoomSnapshot | null {
   };
 }
 
-function parseSeat(value: unknown): { joined: boolean; connected: boolean } | null {
+function parseSeat(value: unknown): { joined: boolean; connected: boolean; ready: boolean } | null {
   if (!isRecord(value)) return null;
-  return { joined: value.joined === true, connected: value.connected === true };
+  return {
+    joined: value.joined === true,
+    connected: value.connected === true,
+    ready: value.ready === true,
+  };
 }
 
 function isApiResponse(value: unknown): value is { ok: boolean; error?: string } {

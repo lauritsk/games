@@ -35,9 +35,11 @@ type Room = {
   createdAt: number;
   lastActivityAt: number;
   players: Partial<Record<MultiplayerSeat, PlayerState>>;
+  rematchReady: Partial<Record<MultiplayerSeat, boolean>>;
   sockets: Set<ServerWebSocket<MultiplayerSocketData>>;
   tickTimer: ReturnType<typeof setInterval> | null;
   countdownTimer: ReturnType<typeof setTimeout> | null;
+  startSeats: MultiplayerSeat[] | null;
   state: unknown;
 };
 
@@ -158,9 +160,11 @@ export class MultiplayerHub {
           connectedCount: 0,
         },
       },
+      rematchReady: {},
       sockets: new Set(),
       tickTimer: null,
       countdownTimer: null,
+      startSeats: null,
       state: adapter.newState(),
     });
     return { ok: true, session };
@@ -333,10 +337,10 @@ export class MultiplayerHub {
       status: room.status,
       revision: room.revision,
       seats: {
-        p1: seatSnapshot(room.players.p1),
-        p2: seatSnapshot(room.players.p2),
-        p3: seatSnapshot(room.players.p3),
-        p4: seatSnapshot(room.players.p4),
+        p1: seatSnapshot(room.players.p1, room.rematchReady.p1),
+        p2: seatSnapshot(room.players.p2, room.rematchReady.p2),
+        p3: seatSnapshot(room.players.p3, room.rematchReady.p3),
+        p4: seatSnapshot(room.players.p4, room.rematchReady.p4),
       },
       state: room.adapter.publicSnapshot(room.state),
       ...(room.countdownEndsAt ? { countdownEndsAt: room.countdownEndsAt } : {}),
@@ -394,12 +398,26 @@ export class MultiplayerHub {
       this.sendError(ws, "Rematch is available after the game ends", room);
       return;
     }
-    if (joinedSeats(room).length < minPlayers(room)) {
-      this.sendError(ws, "Room is not ready", room);
+
+    const alreadyReady = room.rematchReady[ws.data.seat] === true;
+    room.rematchReady[ws.data.seat] = true;
+    room.lastActivityAt = Date.now();
+
+    const readySeats = connectedReadySeats(room);
+    if (ws.data.seat !== "p1") {
+      if (!alreadyReady) room.revision += 1;
+      this.publishRoom(ws, room);
       return;
     }
+    if (readySeats.length < minPlayers(room)) {
+      if (!alreadyReady) room.revision += 1;
+      this.broadcastRoom(room);
+      this.sendError(ws, "Waiting for another player to ready", room);
+      return;
+    }
+
     room.state = room.adapter.newState();
-    const started = this.beginRoomCountdown(room);
+    const started = this.beginRoomCountdown(room, readySeats);
     if (!started.ok) {
       this.sendError(ws, started.error, room);
       return;
@@ -407,11 +425,14 @@ export class MultiplayerHub {
     this.publishRoom(ws, room);
   }
 
-  private beginRoomCountdown(room: Room): { ok: true } | { ok: false; error: string } {
-    if (joinedSeats(room).length < minPlayers(room))
-      return { ok: false, error: "Need more players" };
+  private beginRoomCountdown(
+    room: Room,
+    startSeats = joinedSeats(room),
+  ): { ok: true } | { ok: false; error: string } {
+    if (startSeats.length < minPlayers(room)) return { ok: false, error: "Need more players" };
     this.stopRoomTicker(room);
     this.stopRoomCountdown(room);
+    room.startSeats = [...startSeats];
     if (this.countdownMs <= 0) return this.startRoom(room);
     room.status = "countdown";
     room.countdownEndsAt = Date.now() + this.countdownMs;
@@ -429,6 +450,7 @@ export class MultiplayerHub {
     if (!result.ok) {
       room.status = "lobby";
       room.countdownEndsAt = null;
+      room.startSeats = null;
       room.revision += 1;
       room.lastActivityAt = Date.now();
     }
@@ -436,16 +458,24 @@ export class MultiplayerHub {
   }
 
   private startRoom(room: Room): { ok: true } | { ok: false; error: string } {
-    const seats = joinedSeats(room);
-    if (seats.length < minPlayers(room)) return { ok: false, error: "Need more players" };
+    const seats = room.startSeats ?? joinedSeats(room);
+    if (seats.length < minPlayers(room)) {
+      room.startSeats = null;
+      return { ok: false, error: "Need more players" };
+    }
     const result = room.adapter.start
       ? room.adapter.start(room.state, seats)
       : ({ ok: true, state: room.adapter.newState() } as const);
-    if (!result.ok) return { ok: false, error: result.error };
+    if (!result.ok) {
+      room.startSeats = null;
+      return { ok: false, error: result.error };
+    }
     room.state = result.state;
     room.status = "playing";
     room.countdownEndsAt = null;
     room.countdownTimer = null;
+    room.startSeats = null;
+    room.rematchReady = {};
     room.revision += 1;
     room.lastActivityAt = Date.now();
     this.startRoomTicker(room);
@@ -470,6 +500,7 @@ export class MultiplayerHub {
     clearTimeout(room.countdownTimer);
     room.countdownTimer = null;
     room.countdownEndsAt = null;
+    room.startSeats = null;
   }
 
   private tickRoom(code: string): void {
@@ -556,8 +587,14 @@ function maxPlayers(room: Room): number {
   return Math.max(2, Math.min(multiplayerSeats.length, room.adapter.maxPlayers ?? 2));
 }
 
-function seatSnapshot(player: PlayerState | undefined) {
-  return { joined: Boolean(player), connected: (player?.connectedCount ?? 0) > 0 };
+function connectedReadySeats(room: Room): MultiplayerSeat[] {
+  return joinedSeats(room).filter(
+    (seat) => room.rematchReady[seat] === true && (room.players[seat]?.connectedCount ?? 0) > 0,
+  );
+}
+
+function seatSnapshot(player: PlayerState | undefined, ready = false) {
+  return { joined: Boolean(player), connected: (player?.connectedCount ?? 0) > 0, ready };
 }
 
 function roomTopic(code: string): string {
