@@ -414,8 +414,11 @@
     white-space: nowrap;
   }
 
-  .game[data-invalid="true"] .board {
+  .game[data-invalid="true"] .board-viewport {
     animation: invalid-shake 260ms ease;
+  }
+
+  .game[data-invalid="true"] .board {
     border-color: #ff6b6b;
     box-shadow:
       inset 0 0 0 2px rgba(255, 107, 107, 0.7),
