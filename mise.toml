@@ -47,12 +47,12 @@ run = "bun run test:watch"
 
 [tasks."docker:build"]
 description = "Build latest Docker Hub image"
-run = "docker build --build-arg BUN_VERSION=$(mise current bun) -t lauritsk/games:latest ."
+run = "docker build --build-arg BUN_VERSION=$(mise current bun) -t docker.io/lauritsk/games:latest ."
 
 [tasks."docker:push"]
 description = "Push latest Docker image to Docker Hub"
 depends = ["docker:build"]
-run = "docker push lauritsk/games:latest"
+run = "docker push docker.io/lauritsk/games:latest"
 
 [tasks."docker:up"]
 description = "Run Docker Compose with Bun version from mise"

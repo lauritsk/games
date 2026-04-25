@@ -56,7 +56,7 @@ Open <http://localhost:3000>.
 | `mise run lint` | Run hk-managed format/lint checks. |
 | `mise run fix` | Run hk-managed fixers. |
 | `mise run check` | Run lint, unit tests, build, and e2e tests. |
-| `mise run docker:build` | Build the Docker image as `localhost/games`. |
+| `mise run docker:build` | Build the Docker image as `docker.io/lauritsk/games:latest`. |
 | `mise run docker:up` | Run the app with Docker Compose on port 3000. |
 
 ## Project structure
