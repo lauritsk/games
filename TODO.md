@@ -1,5 +1,6 @@
 # TODO
 
+- [x] Standardize duplicated CSS values and hierarchy.
 - [x] Add icon controls for obvious actions/settings.
 - [x] Normalize UI corner radiuses.
 - [x] Restore initial game selection menu.
