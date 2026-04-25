@@ -1,6 +1,7 @@
 import index from "../../index.html";
 import { createSyncApiHandler } from "@server/api";
 import { MultiplayerHub, type MultiplayerSocketData } from "@server/multiplayer";
+import { apiError } from "@server/api-contract";
 
 const isProduction = process.env["NODE_ENV"] === "production";
 
@@ -8,7 +9,11 @@ const syncApi = createSyncApiHandler();
 const multiplayer = new MultiplayerHub();
 
 async function apiResponse(request: Request): Promise<Response> {
-  return (await multiplayer.handleHttp(request)) ?? (await syncApi(request)) ?? apiNotFound();
+  return (
+    (await multiplayer.handleHttp(request)) ??
+    (await syncApi(request)) ??
+    apiError("Not found", 404)
+  );
 }
 
 async function multiplayerSocketResponse(
@@ -19,16 +24,6 @@ async function multiplayerSocketResponse(
   if (!prepared.ok) return prepared.response;
   if (server.upgrade(request, { data: prepared.data })) return undefined;
   return new Response("Upgrade failed", { status: 400 });
-}
-
-function apiNotFound(): Response {
-  return new Response(JSON.stringify({ ok: false, error: "Not found" }), {
-    status: 404,
-    headers: {
-      "content-type": "application/json;charset=utf-8",
-      "cache-control": "no-store",
-    },
-  });
 }
 
 async function serviceWorkerResponse(): Promise<Response> {

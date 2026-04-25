@@ -15,6 +15,7 @@
     "test:coverage": "bun test --parallel --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage test/*.test.ts",
     "test:e2e": "playwright install chromium && playwright test",
     "test:watch": "bun --watch test/*.test.ts",
+    "docs:api": "bun run src/server/api-docs.ts",
     "audit": "bun audit",
     "check": "bun run typecheck && bun run test && bun run build && bun run test:e2e"
   },

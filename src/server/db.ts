@@ -71,9 +71,15 @@ export class GameDatabase {
     ensureDatabaseParent(path);
     this.sqlite = new Database(path, { create: true, strict: true });
     this.db = drizzle(this.sqlite, { schema: databaseSchema });
-    this.sqlite.exec("PRAGMA journal_mode = WAL;");
-    this.sqlite.exec("PRAGMA foreign_keys = ON;");
+    this.sqlite.exec(`
+      PRAGMA busy_timeout = 5000;
+      PRAGMA journal_mode = WAL;
+      PRAGMA synchronous = NORMAL;
+      PRAGMA foreign_keys = ON;
+      PRAGMA temp_store = MEMORY;
+    `);
     migrate(this.db, { migrationsFolder: drizzleMigrationsFolder });
+    this.sqlite.exec("PRAGMA optimize;");
   }
 
   close(): void {
@@ -81,14 +87,17 @@ export class GameDatabase {
   }
 
   snapshot(deviceId: string): SyncSnapshot {
-    this.touchDevice(deviceId);
-    return {
-      preferences: this.listPreferences(deviceId),
-      saves: this.listSaves(deviceId),
-      deletedSaves: this.listDeletedSaves(deviceId),
-      results: this.listResults(deviceId),
-      resultClears: this.listResultClears(deviceId),
-    };
+    const readSnapshot = this.sqlite.transaction(() => {
+      this.touchDevice(deviceId);
+      return {
+        preferences: this.listPreferences(deviceId),
+        saves: this.listSaves(deviceId),
+        deletedSaves: this.listDeletedSaves(deviceId),
+        results: this.listResults(deviceId),
+        resultClears: this.listResultClears(deviceId),
+      };
+    });
+    return readSnapshot();
   }
 
   applySync(push: SyncPush): SyncSnapshot {
@@ -109,18 +118,21 @@ export class GameDatabase {
     score: LeaderboardInsert,
     direction: LeaderboardListOptions["direction"],
   ): LeaderboardEntry {
-    const existing = this.findLeaderboardDuplicate(score.deviceId, score.runId);
-    const entry = existing ?? this.insertLeaderboardScore(score);
-    entry.rank = this.leaderboardRank({
-      gameId: entry.gameId,
-      metric: entry.metric,
-      direction,
-      difficulty: entry.difficulty,
-      metricValue: entry.metricValue,
-      createdAt: entry.createdAt,
-      id: entry.id,
+    const submit = this.sqlite.transaction(() => {
+      const existing = this.findLeaderboardDuplicate(score.deviceId, score.runId);
+      const entry = existing ?? this.insertLeaderboardScore(score);
+      entry.rank = this.leaderboardRank({
+        gameId: entry.gameId,
+        metric: entry.metric,
+        direction,
+        difficulty: entry.difficulty,
+        metricValue: entry.metricValue,
+        createdAt: entry.createdAt,
+        id: entry.id,
+      });
+      return entry;
     });
-    return entry;
+    return submit();
   }
 
   listLeaderboardScores(options: LeaderboardListOptions): LeaderboardEntry[] {
@@ -360,13 +372,12 @@ export class GameDatabase {
       }
     }
 
-    for (const row of rows) {
-      if (keep.has(row.id)) continue;
-      this.db
-        .delete(results)
-        .where(and(eq(results.device_id, deviceId), eq(results.id, row.id)))
-        .run();
-    }
+    const deleteIds = rows.filter((row) => !keep.has(row.id)).map((row) => row.id);
+    if (deleteIds.length === 0) return;
+    this.db
+      .delete(results)
+      .where(and(eq(results.device_id, deviceId), inArray(results.id, deleteIds)))
+      .run();
   }
 
   private findLeaderboardDuplicate(deviceId?: string, runId?: string): LeaderboardEntry | null {

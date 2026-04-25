@@ -1,0 +1,2 @@
+CREATE INDEX `leaderboard_scores_rank_max_idx` ON `leaderboard_scores` (`game_id`,`metric`,`difficulty`,"metric_value" DESC,"created_at" ASC,"id" ASC);--> statement-breakpoint
+CREATE INDEX `leaderboard_scores_rank_min_idx` ON `leaderboard_scores` (`game_id`,`metric`,`difficulty`,"metric_value" ASC,"created_at" ASC,"id" ASC);

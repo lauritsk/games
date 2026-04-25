@@ -1,0 +1,575 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "fbbeb500-dc49-478b-8201-bf68712c9224",
+  "prevId": "a96f5369-0416-4de1-b391-c3c391298573",
+  "tables": {
+    "devices": {
+      "name": "devices",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "leaderboard_scores": {
+      "name": "leaderboard_scores",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "normalized_username": {
+          "name": "normalized_username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "difficulty": {
+          "name": "difficulty",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "metric": {
+          "name": "metric",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "metric_value": {
+          "name": "metric_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "score": {
+          "name": "score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "moves": {
+          "name": "moves",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "duration_ms": {
+          "name": "duration_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "level": {
+          "name": "level",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "streak": {
+          "name": "streak",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "metadata_json": {
+          "name": "metadata_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "leaderboard_scores_game_metric_idx": {
+          "name": "leaderboard_scores_game_metric_idx",
+          "columns": ["game_id", "metric", "\"metric_value\" DESC", "\"created_at\" ASC"],
+          "isUnique": false
+        },
+        "leaderboard_scores_game_created_idx": {
+          "name": "leaderboard_scores_game_created_idx",
+          "columns": ["game_id", "\"created_at\" DESC"],
+          "isUnique": false
+        },
+        "leaderboard_scores_rank_max_idx": {
+          "name": "leaderboard_scores_rank_max_idx",
+          "columns": [
+            "game_id",
+            "metric",
+            "difficulty",
+            "\"metric_value\" DESC",
+            "\"created_at\" ASC",
+            "\"id\" ASC"
+          ],
+          "isUnique": false
+        },
+        "leaderboard_scores_rank_min_idx": {
+          "name": "leaderboard_scores_rank_min_idx",
+          "columns": [
+            "game_id",
+            "metric",
+            "difficulty",
+            "\"metric_value\" ASC",
+            "\"created_at\" ASC",
+            "\"id\" ASC"
+          ],
+          "isUnique": false
+        },
+        "leaderboard_scores_device_run_idx": {
+          "name": "leaderboard_scores_device_run_idx",
+          "columns": ["device_id", "run_id"],
+          "isUnique": true,
+          "where": "\"leaderboard_scores\".\"device_id\" IS NOT NULL AND \"leaderboard_scores\".\"run_id\" IS NOT NULL"
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "preferences": {
+      "name": "preferences",
+      "columns": {
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "data_json": {
+          "name": "data_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "preferences_device_id_devices_id_fk": {
+          "name": "preferences_device_id_devices_id_fk",
+          "tableFrom": "preferences",
+          "tableTo": "devices",
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "preferences_device_id_game_id_pk": {
+          "columns": ["device_id", "game_id"],
+          "name": "preferences_device_id_game_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "result_clears": {
+      "name": "result_clears",
+      "columns": {
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cleared_at": {
+          "name": "cleared_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "result_clears_device_id_devices_id_fk": {
+          "name": "result_clears_device_id_devices_id_fk",
+          "tableFrom": "result_clears",
+          "tableTo": "devices",
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "result_clears_device_id_game_id_pk": {
+          "columns": ["device_id", "game_id"],
+          "name": "result_clears_device_id_game_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "results": {
+      "name": "results",
+      "columns": {
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "difficulty": {
+          "name": "difficulty",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "score": {
+          "name": "score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "moves": {
+          "name": "moves",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "duration_ms": {
+          "name": "duration_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "level": {
+          "name": "level",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "streak": {
+          "name": "streak",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "metadata_json": {
+          "name": "metadata_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
+        }
+      },
+      "indexes": {
+        "results_device_finished_idx": {
+          "name": "results_device_finished_idx",
+          "columns": ["device_id", "\"finished_at\" DESC"],
+          "isUnique": false
+        },
+        "results_device_game_finished_idx": {
+          "name": "results_device_game_finished_idx",
+          "columns": ["device_id", "game_id", "\"finished_at\" DESC"],
+          "isUnique": false
+        },
+        "results_device_id_run_id_unique": {
+          "name": "results_device_id_run_id_unique",
+          "columns": ["device_id", "run_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "results_device_id_devices_id_fk": {
+          "name": "results_device_id_devices_id_fk",
+          "tableFrom": "results",
+          "tableTo": "devices",
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "results_device_id_id_pk": {
+          "columns": ["device_id", "id"],
+          "name": "results_device_id_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "saves": {
+      "name": "saves",
+      "columns": {
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "data_json": {
+          "name": "data_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "saves_device_id_devices_id_fk": {
+          "name": "saves_device_id_devices_id_fk",
+          "tableFrom": "saves",
+          "tableTo": "devices",
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "saves_device_id_game_id_pk": {
+          "columns": ["device_id", "game_id"],
+          "name": "saves_device_id_game_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "saves_data_or_deleted_check": {
+          "name": "saves_data_or_deleted_check",
+          "value": "\"saves\".\"data_json\" IS NOT NULL OR \"saves\".\"deleted_at\" IS NOT NULL"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {
+      "leaderboard_scores_game_metric_idx": {
+        "columns": {
+          "\"metric_value\" DESC": {
+            "isExpression": true
+          },
+          "\"created_at\" ASC": {
+            "isExpression": true
+          }
+        }
+      },
+      "leaderboard_scores_game_created_idx": {
+        "columns": {
+          "\"created_at\" DESC": {
+            "isExpression": true
+          }
+        }
+      },
+      "leaderboard_scores_rank_max_idx": {
+        "columns": {
+          "\"metric_value\" DESC": {
+            "isExpression": true
+          },
+          "\"created_at\" ASC": {
+            "isExpression": true
+          },
+          "\"id\" ASC": {
+            "isExpression": true
+          }
+        }
+      },
+      "leaderboard_scores_rank_min_idx": {
+        "columns": {
+          "\"metric_value\" ASC": {
+            "isExpression": true
+          },
+          "\"created_at\" ASC": {
+            "isExpression": true
+          },
+          "\"id\" ASC": {
+            "isExpression": true
+          }
+        }
+      },
+      "results_device_finished_idx": {
+        "columns": {
+          "\"finished_at\" DESC": {
+            "isExpression": true
+          }
+        }
+      },
+      "results_device_game_finished_idx": {
+        "columns": {
+          "\"finished_at\" DESC": {
+            "isExpression": true
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,10 +1,21 @@
 import { GameDatabase } from "@server/db";
 import { leaderboardConfigForGame } from "@features/leaderboard/leaderboard-config";
-import { emptySyncSnapshot, isSyncId, parseSyncPush } from "@features/sync/sync-schema";
+import { emptySyncSnapshot, parseSyncPush } from "@features/sync/sync-schema";
 import type { SyncSnapshot } from "@features/sync/sync-types";
 import { parseLeaderboardQuery, parseLeaderboardSubmission } from "@server/leaderboard/schema";
-import { json, readJson, requestBodyTooLarge, tooManyRequestsJson } from "@server/http";
+import { readJson, requestBodyTooLarge } from "@server/http";
 import { checkRequestRateLimit } from "@server/rate-limit";
+import {
+  apiError,
+  apiJson,
+  leaderboardListResponseSchema,
+  leaderboardSubmitResponseSchema,
+  parseQuery,
+  syncGetQuerySchema,
+  syncSnapshotResponseSchema,
+  syncStatusResponseSchema,
+  tooManyRequests,
+} from "@server/api-contract";
 
 const maxRequestBytes = 1_000_000;
 
@@ -17,43 +28,49 @@ export function createSyncApiHandler(database = new GameDatabase()): SyncApiHand
 
     try {
       if (url.pathname === "/api/sync/status" && request.method === "GET") {
-        return json({ ok: true, storage: "bun:sqlite" });
+        return apiJson(syncStatusResponseSchema, { ok: true, storage: "bun:sqlite" });
       }
       if (url.pathname === "/api/sync" && request.method === "GET") {
-        const deviceId = url.searchParams.get("deviceId");
-        if (!isSyncId(deviceId)) return json({ ok: false, error: "Invalid deviceId" }, 400);
-        return json({ ok: true, snapshot: database.snapshot(deviceId) });
+        const query = parseQuery(syncGetQuerySchema, url);
+        if (!query) return apiError("Invalid deviceId", 400);
+        return apiJson(syncSnapshotResponseSchema, {
+          ok: true,
+          snapshot: database.snapshot(query.deviceId),
+        });
       }
       if (url.pathname === "/api/sync" && request.method === "POST") {
         if (requestBodyTooLarge(request, maxRequestBytes)) {
-          return json({ ok: false, error: "Request too large" }, 413);
+          return apiError("Request too large", 413);
         }
         const body = await readJson(request);
         const push = parseSyncPush(body);
-        if (!push) return json({ ok: false, error: "Invalid sync payload" }, 400);
-        return json({ ok: true, snapshot: database.applySync(push) });
+        if (!push) return apiError("Invalid sync payload", 400);
+        return apiJson(syncSnapshotResponseSchema, {
+          ok: true,
+          snapshot: database.applySync(push),
+        });
       }
       if (url.pathname.startsWith("/api/sync")) {
-        return json({ ok: false, error: "Method not allowed" }, 405, { Allow: "GET, POST" });
+        return apiError("Method not allowed", 405, { Allow: "GET, POST" });
       }
       if (url.pathname === "/api/leaderboard" && request.method === "GET") {
         if (!checkRequestRateLimit(request, "leaderboard-read", { windowMs: 60_000, max: 60 })) {
-          return tooManyRequestsJson();
+          return tooManyRequests();
         }
         const query = parseLeaderboardQuery(url);
-        if (!query.ok) return json({ ok: false, error: query.error }, 400);
+        if (!query.ok) return apiError(query.error, 400);
         const config = leaderboardConfigForGame(query.value.gameId);
-        if (!config) return json({ ok: false, error: "Invalid leaderboard query" }, 400);
+        if (!config) return apiError("Invalid leaderboard query", 400);
         const entries = database.listLeaderboardScores({
           ...query.value,
           metric: config.metric,
           direction: config.direction,
         });
-        return json({ ok: true, entries });
+        return apiJson(leaderboardListResponseSchema, { ok: true, entries });
       }
       if (url.pathname === "/api/leaderboard" && request.method === "POST") {
         if (requestBodyTooLarge(request, maxRequestBytes)) {
-          return json({ ok: false, error: "Request too large" }, 413);
+          return apiError("Request too large", 413);
         }
         const body = await readJson(request);
         const submission = parseLeaderboardSubmission(body);
@@ -66,20 +83,24 @@ export function createSyncApiHandler(database = new GameDatabase()): SyncApiHand
             deviceId,
           )
         ) {
-          return tooManyRequestsJson();
+          return tooManyRequests();
         }
-        if (!submission.ok) return json({ ok: false, error: submission.error }, 400);
+        if (!submission.ok) return apiError(submission.error, 400);
         const config = leaderboardConfigForGame(submission.value.gameId);
-        if (!config) return json({ ok: false, error: "Invalid score" }, 400);
+        if (!config) return apiError("Invalid score", 400);
         const entry = database.submitLeaderboardScore(submission.value, config.direction);
-        return json({ ok: true, rank: entry.rank, entry });
+        return apiJson(leaderboardSubmitResponseSchema, { ok: true, rank: entry.rank, entry });
       }
       if (url.pathname.startsWith("/api/leaderboard")) {
-        return json({ ok: false, error: "Method not allowed" }, 405, { Allow: "GET, POST" });
+        return apiError("Method not allowed", 405, { Allow: "GET, POST" });
       }
-      return json({ ok: false, error: "Not found" }, 404);
+      return apiError("Not found", 404);
     } catch {
-      return json({ ok: false, error: "Request failed", snapshot: emptySyncSnapshot() }, 500);
+      return apiJson(
+        syncSnapshotResponseSchema,
+        { ok: false, error: "Request failed", snapshot: emptySyncSnapshot() },
+        500,
+      );
     }
   };
 }

@@ -21,25 +21,30 @@ const syncIdPattern = /^[A-Za-z0-9._:-]+$/;
 const outcomes = ["won", "lost", "draw", "completed"] as const;
 const numericFields = ["durationMs", "score", "moves", "level", "streak"] as const;
 
-const syncIdSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(128), v.regex(syncIdPattern));
-const timestampSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(64));
+export const syncIdSchema = v.pipe(
+  v.string(),
+  v.minLength(1),
+  v.maxLength(128),
+  v.regex(syncIdPattern),
+);
+export const timestampSchema = v.pipe(v.string(), v.minLength(1), v.maxLength(64));
 const outcomeSchema = picklistSchema(outcomes);
 const syncMetadataValueSchema = primitiveValueSchema;
-const syncPreferenceSchema = v.object({
+export const syncPreferenceSchema = v.object({
   gameId: syncIdSchema,
   updatedAt: timestampSchema,
   data: v.unknown(),
 });
-const syncSaveSchema = v.object({
+export const syncSaveSchema = v.object({
   gameId: syncIdSchema,
   updatedAt: timestampSchema,
   data: v.unknown(),
 });
-const syncSaveTombstoneSchema = v.object({
+export const syncSaveTombstoneSchema = v.object({
   gameId: syncIdSchema,
   deletedAt: timestampSchema,
 });
-const syncResultClearSchema = v.object({
+export const syncResultClearSchema = v.object({
   gameId: v.optional(syncIdSchema),
   clearedAt: timestampSchema,
 });
@@ -50,7 +55,7 @@ const syncResultBaseSchema = v.looseObject({
   finishedAt: timestampSchema,
   outcome: outcomeSchema,
 });
-const syncResultSchema = v.pipe(
+export const syncResultSchema = v.pipe(
   syncResultBaseSchema,
   v.transform((value): SyncResult => {
     const result: SyncResult = {
@@ -71,8 +76,8 @@ const syncResultSchema = v.pipe(
     return result;
   }),
 );
-const syncPushBaseSchema = v.looseObject({ deviceId: syncIdSchema });
-const syncSnapshotSchema = v.object({
+export const syncPushBaseSchema = v.looseObject({ deviceId: syncIdSchema });
+export const syncSnapshotSchema = v.object({
   preferences: v.optional(filteredArraySchema(syncPreferenceSchema), []),
   saves: v.optional(filteredArraySchema(syncSaveSchema), []),
   deletedSaves: v.optional(filteredArraySchema(syncSaveTombstoneSchema), []),

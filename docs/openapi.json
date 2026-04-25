@@ -1,0 +1,935 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Games API",
+    "version": "1.0.0",
+    "description": "Generated from src/server/api-contract.ts Valibot-backed endpoint contracts."
+  },
+  "paths": {
+    "/api/sync/status": {
+      "get": {
+        "operationId": "getSyncStatus",
+        "summary": "Check server-backed sync availability.",
+        "tags": ["Sync"],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatusResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync": {
+      "get": {
+        "operationId": "getSyncSnapshot",
+        "summary": "Read the saved snapshot for one device.",
+        "tags": ["Sync"],
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "query",
+            "required": true,
+            "description": "Stable local sync device id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncSnapshotResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "pushSyncSnapshot",
+        "summary": "Merge local saves, preferences, results, and tombstones into server storage.",
+        "tags": ["Sync"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncPush"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncSnapshotResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/leaderboard": {
+      "get": {
+        "operationId": "listLeaderboard",
+        "summary": "List public leaderboard entries for a game.",
+        "tags": ["Leaderboard"],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "query",
+            "required": true,
+            "description": "Game id registered by the app.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "difficulty",
+            "in": "query",
+            "required": false,
+            "description": "Optional difficulty filter.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum rows to return.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardListResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "submitLeaderboardScore",
+        "summary": "Submit one public leaderboard score.",
+        "tags": ["Leaderboard"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaderboardSubmission"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardSubmitResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/multiplayer/status": {
+      "get": {
+        "operationId": "getMultiplayerStatus",
+        "summary": "Check multiplayer availability.",
+        "tags": ["Multiplayer"],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MultiplayerStatusResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/multiplayer/rooms": {
+      "post": {
+        "operationId": "createMultiplayerRoom",
+        "summary": "Create a private multiplayer room.",
+        "tags": ["Multiplayer"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMultiplayerRoomRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MultiplayerSessionResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/multiplayer/rooms/join": {
+      "post": {
+        "operationId": "joinMultiplayerRoom",
+        "summary": "Join an open multiplayer room as a player.",
+        "tags": ["Multiplayer"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomCodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MultiplayerSessionResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/multiplayer/rooms/spectate": {
+      "post": {
+        "operationId": "spectateMultiplayerRoom",
+        "summary": "Join an existing multiplayer room as a spectator.",
+        "tags": ["Multiplayer"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoomCodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MultiplayerSessionResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/multiplayer/socket": {
+      "get": {
+        "operationId": "connectMultiplayerSocket",
+        "summary": "Upgrade to the multiplayer WebSocket protocol.",
+        "tags": ["Multiplayer"],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "description": "Room code.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "playerId",
+            "in": "query",
+            "required": true,
+            "description": "Session player id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "description": "Session bearer token.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "WebSocket upgrade succeeds."
+          },
+          "default": {
+            "description": "Error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EmptyObject": {
+        "type": "object"
+      },
+      "ApiError": {
+        "type": "object",
+        "required": ["ok", "error"],
+        "properties": {
+          "ok": {
+            "const": false
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "SyncStatusResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["ok", "storage"],
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "storage": {
+                "const": "bun:sqlite"
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/ApiError"
+          }
+        ]
+      },
+      "SyncSnapshotResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["ok", "snapshot"],
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "snapshot": {
+                "$ref": "#/components/schemas/SyncSnapshot"
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/ApiError"
+          }
+        ]
+      },
+      "SyncPush": {
+        "type": "object",
+        "required": ["deviceId"],
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "preferences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncPreference"
+            }
+          },
+          "saves": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncSave"
+            }
+          },
+          "deletedSaves": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncSaveTombstone"
+            }
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncResult"
+            }
+          },
+          "resultClears": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncResultClear"
+            }
+          }
+        }
+      },
+      "SyncSnapshot": {
+        "type": "object",
+        "required": ["preferences", "saves", "deletedSaves", "results", "resultClears"],
+        "properties": {
+          "preferences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncPreference"
+            }
+          },
+          "saves": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncSave"
+            }
+          },
+          "deletedSaves": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncSaveTombstone"
+            }
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncResult"
+            }
+          },
+          "resultClears": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncResultClear"
+            }
+          }
+        }
+      },
+      "SyncPreference": {
+        "type": "object",
+        "required": ["gameId", "updatedAt", "data"],
+        "properties": {
+          "gameId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "updatedAt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "data": {}
+        }
+      },
+      "SyncSave": {
+        "type": "object",
+        "required": ["gameId", "updatedAt", "data"],
+        "properties": {
+          "gameId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "updatedAt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "data": {}
+        }
+      },
+      "SyncSaveTombstone": {
+        "type": "object",
+        "required": ["gameId", "deletedAt"],
+        "properties": {
+          "gameId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "deletedAt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        }
+      },
+      "SyncResultClear": {
+        "type": "object",
+        "required": ["clearedAt"],
+        "properties": {
+          "gameId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "clearedAt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        }
+      },
+      "SyncResult": {
+        "type": "object",
+        "required": ["id", "runId", "gameId", "finishedAt", "outcome"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "runId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "gameId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "finishedAt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "difficulty": {
+            "enum": ["Easy", "Medium", "Hard"]
+          },
+          "outcome": {
+            "enum": ["won", "lost", "draw", "completed"]
+          },
+          "score": {
+            "type": "number"
+          },
+          "moves": {
+            "type": "number"
+          },
+          "durationMs": {
+            "type": "number"
+          },
+          "level": {
+            "type": "number"
+          },
+          "streak": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "LeaderboardSubmission": {
+        "type": "object",
+        "required": ["gameId", "username", "outcome"],
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "gameId": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "difficulty": {
+            "enum": ["Easy", "Medium", "Hard"]
+          },
+          "outcome": {
+            "enum": ["won", "lost", "draw", "completed"]
+          },
+          "score": {
+            "type": "number"
+          },
+          "moves": {
+            "type": "number"
+          },
+          "durationMs": {
+            "type": "number"
+          },
+          "level": {
+            "type": "number"
+          },
+          "streak": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          }
+        },
+        "additionalProperties": true
+      },
+      "LeaderboardEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "gameId",
+          "username",
+          "outcome",
+          "metric",
+          "metricValue",
+          "metadata",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gameId": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "difficulty": {
+            "enum": ["Easy", "Medium", "Hard"]
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "metricValue": {
+            "type": "number"
+          },
+          "score": {
+            "type": "number"
+          },
+          "moves": {
+            "type": "number"
+          },
+          "durationMs": {
+            "type": "number"
+          },
+          "level": {
+            "type": "number"
+          },
+          "streak": {
+            "type": "number"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "rank": {
+            "type": "integer"
+          }
+        }
+      },
+      "LeaderboardListResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["ok", "entries"],
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "entries": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/LeaderboardEntry"
+                }
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/ApiError"
+          }
+        ]
+      },
+      "LeaderboardSubmitResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["ok", "rank", "entry"],
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "rank": {
+                "type": "integer"
+              },
+              "entry": {
+                "$ref": "#/components/schemas/LeaderboardEntry"
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/ApiError"
+          }
+        ]
+      },
+      "CreateMultiplayerRoomRequest": {
+        "type": "object",
+        "required": ["gameId"],
+        "properties": {
+          "gameId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "settings": {}
+        }
+      },
+      "RoomCodeRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "default": ""
+          }
+        }
+      },
+      "MultiplayerStatusResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["ok"],
+            "properties": {
+              "ok": {
+                "const": true
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/ApiError"
+          }
+        ]
+      },
+      "MultiplayerSessionResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["ok", "session"],
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "session": {
+                "$ref": "#/components/schemas/MultiplayerSession"
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/ApiError"
+          }
+        ]
+      },
+      "MultiplayerSession": {
+        "type": "object",
+        "required": ["code", "gameId", "playerId", "playerToken", "seat"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "gameId": {
+            "type": "string"
+          },
+          "playerId": {
+            "type": "string"
+          },
+          "playerToken": {
+            "type": "string"
+          },
+          "seat": {
+            "enum": ["p1", "p2", "p3", "p4"]
+          },
+          "role": {
+            "enum": ["player", "spectator"]
+          }
+        }
+      }
+    }
+  }
+}

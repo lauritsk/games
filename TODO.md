@@ -9,6 +9,9 @@
 - [x] Integrate Drizzle ORM for SQLite.
 - [x] Use Drizzle migrations as SQLite bootstrap.
 - [ ] Add shared Valibot helpers for fixed arrays/grids and safe JSON parsing if parser duplication grows.
+- [x] Add a typed API contract layer using shared Valibot request/response schemas.
+- [x] Generate OpenAPI documentation from Valibot schemas if the API surface grows.
+- [x] Run a Bun SQLite performance pass for sync, leaderboard, and multiplayer persistence paths.
 
 ## Online multiplayer
 

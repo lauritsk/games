@@ -124,6 +124,22 @@ export const leaderboardScores = sqliteTable(
       sql`${table.created_at} ASC`,
     ),
     index("leaderboard_scores_game_created_idx").on(table.game_id, sql`${table.created_at} DESC`),
+    index("leaderboard_scores_rank_max_idx").on(
+      table.game_id,
+      table.metric,
+      table.difficulty,
+      sql`${table.metric_value} DESC`,
+      sql`${table.created_at} ASC`,
+      sql`${table.id} ASC`,
+    ),
+    index("leaderboard_scores_rank_min_idx").on(
+      table.game_id,
+      table.metric,
+      table.difficulty,
+      sql`${table.metric_value} ASC`,
+      sql`${table.created_at} ASC`,
+      sql`${table.id} ASC`,
+    ),
     uniqueIndex("leaderboard_scores_device_run_idx")
       .on(table.device_id, table.run_id)
       .where(sql`${table.device_id} IS NOT NULL AND ${table.run_id} IS NOT NULL`),

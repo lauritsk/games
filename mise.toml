@@ -76,6 +76,10 @@ run = "bun run test:coverage"
 description = "Run Bun package audit"
 run = "bun run audit"
 
+[tasks."docs:api"]
+description = "Generate API docs from Valibot-backed contracts"
+run = "bun run docs:api"
+
 [tasks."test:e2e"]
 description = "Run Playwright browser tests"
 depends = ["build"]

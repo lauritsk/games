@@ -1,4 +1,3 @@
-import * as v from "valibot";
 import type { ServerWebSocket } from "bun";
 import {
   multiplayerCodeAlphabet,
@@ -11,9 +10,19 @@ import {
   type MultiplayerSession,
   type MultiplayerSessionRole,
 } from "@features/multiplayer/multiplayer-protocol";
-import { integerSchema, parseWithSchema } from "@shared/validation";
-import { json, readLimitedJson, tooManyRequestsJson } from "@server/http";
+import { parseWithSchema } from "@shared/validation";
+import { readLimitedJson } from "@server/http";
 import { checkRateLimit, checkRequestRateLimit } from "@server/rate-limit";
+import {
+  apiError,
+  apiJson,
+  clientMessageSchema,
+  createMultiplayerRoomRequestSchema,
+  multiplayerSessionResponseSchema,
+  multiplayerStatusResponseSchema,
+  roomCodeRequestSchema,
+  tooManyRequests,
+} from "@server/api-contract";
 import {
   multiplayerAdapterForGame,
   type MultiplayerAdapter,
@@ -71,18 +80,6 @@ const hardTtlMs = 24 * 60 * 60_000;
 const maxRequestBytes = 10_000;
 const defaultCountdownMs = 3000;
 
-const createRoomRequestSchema = v.looseObject({
-  gameId: v.pipe(v.string(), v.minLength(1)),
-  settings: v.optional(v.unknown()),
-});
-const roomCodeRequestSchema = v.looseObject({ code: v.optional(v.string(), "") });
-const clientMessageSchema = v.variant("type", [
-  v.object({ type: v.literal("start"), revision: integerSchema }),
-  v.object({ type: v.literal("rematch"), revision: integerSchema }),
-  v.object({ type: v.literal("settings"), revision: integerSchema, settings: v.unknown() }),
-  v.object({ type: v.literal("action"), revision: integerSchema, action: v.unknown() }),
-]);
-
 export type MultiplayerHubOptions = {
   countdownMs?: number;
 };
@@ -113,7 +110,7 @@ export class MultiplayerHub {
 
     try {
       if (url.pathname === "/api/multiplayer/status" && request.method === "GET") {
-        return json({ ok: true });
+        return apiJson(multiplayerStatusResponseSchema, { ok: true });
       }
       if (url.pathname === "/api/multiplayer/rooms" && request.method === "POST") {
         return this.handleCreateRoomRequest(request);
@@ -125,22 +122,22 @@ export class MultiplayerHub {
         return this.handleSpectateRoomRequest(request);
       }
       if (url.pathname === "/api/multiplayer/socket") {
-        return json({ ok: false, error: "Upgrade required" }, 426);
+        return apiError("Upgrade required", 426);
       }
-      return json({ ok: false, error: "Not found" }, 404);
+      return apiError("Not found", 404);
     } catch {
-      return json({ ok: false, error: "Request failed" }, 500);
+      return apiError("Request failed", 500);
     }
   }
 
   private async handleCreateRoomRequest(request: Request): Promise<Response> {
     if (!checkRequestRateLimit(request, "multiplayer-create", { windowMs: 60_000, max: 12 })) {
-      return tooManyRequestsJson();
+      return tooManyRequests();
     }
-    const body = parseWithSchema(createRoomRequestSchema, await readSmallJson(request));
-    if (!body) return json({ ok: false, error: "Invalid room request" }, 400);
+    const body = parseWithSchema(createMultiplayerRoomRequestSchema, await readSmallJson(request));
+    if (!body) return apiError("Invalid room request", 400);
     const result = await this.createRoom(body.gameId, body.settings);
-    return json(result, result.ok ? 200 : 400);
+    return apiJson(multiplayerSessionResponseSchema, result, result.ok ? 200 : 400);
   }
 
   private async handleJoinRoomRequest(request: Request): Promise<Response> {
@@ -152,10 +149,10 @@ export class MultiplayerHub {
         max: 20,
       })
     ) {
-      return tooManyRequestsJson();
+      return tooManyRequests();
     }
     const result = await this.joinRoom(normalized);
-    return json(result, result.ok ? 200 : 400);
+    return apiJson(multiplayerSessionResponseSchema, result, result.ok ? 200 : 400);
   }
 
   private async handleSpectateRoomRequest(request: Request): Promise<Response> {
@@ -167,10 +164,10 @@ export class MultiplayerHub {
         max: 30,
       })
     ) {
-      return tooManyRequestsJson();
+      return tooManyRequests();
     }
     const result = await this.spectateRoom(normalized);
-    return json(result, result.ok ? 200 : 400);
+    return apiJson(multiplayerSessionResponseSchema, result, result.ok ? 200 : 400);
   }
 
   async createRoom(
@@ -262,28 +259,28 @@ export class MultiplayerHub {
   async prepareUpgrade(request: Request): Promise<UpgradePreparation> {
     const url = new URL(request.url);
     if (url.pathname !== "/api/multiplayer/socket") {
-      return { ok: false, response: json({ ok: false, error: "Not found" }, 404) };
+      return { ok: false, response: apiError("Not found", 404) };
     }
     if (!checkRequestRateLimit(request, "multiplayer-ws-auth", { windowMs: 60_000, max: 60 })) {
-      return { ok: false, response: tooManyRequestsJson() };
+      return { ok: false, response: tooManyRequests() };
     }
     const code = normalizeMultiplayerCode(url.searchParams.get("code") ?? "");
     const playerId = url.searchParams.get("playerId") ?? "";
     const token = url.searchParams.get("token") ?? "";
     const room = this.rooms.get(code);
-    if (!room) return { ok: false, response: json({ ok: false, error: "Room not found" }, 404) };
+    if (!room) return { ok: false, response: apiError("Room not found", 404) };
     const seat = findSeat(room, playerId);
     if (seat) {
       const player = room.players[seat];
       if (!player || player.tokenHash !== (await hashToken(token))) {
-        return { ok: false, response: json({ ok: false, error: "Unauthorized" }, 401) };
+        return { ok: false, response: apiError("Unauthorized", 401) };
       }
       room.lastActivityAt = Date.now();
       return { ok: true, data: { code, playerId, seat, role: "player" } };
     }
     const spectator = room.spectators.get(playerId);
     if (!spectator || spectator.tokenHash !== (await hashToken(token))) {
-      return { ok: false, response: json({ ok: false, error: "Unauthorized" }, 401) };
+      return { ok: false, response: apiError("Unauthorized", 401) };
     }
     room.lastActivityAt = Date.now();
     return { ok: true, data: { code, playerId, seat: "p1", role: "spectator" } };
