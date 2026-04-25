@@ -21,8 +21,6 @@ export type MultiplayerPlayerDescriptor = {
   label: string;
   colorName: string;
   color: string;
-  role: string;
-  position: string;
 };
 
 const defaultColors = {
@@ -57,13 +55,13 @@ export function renderMultiplayerPresence(
   clearNode(container);
   if (!session || !shouldShow) return;
 
+  const localSeat = options.seat ?? session.seat;
   const seats = joinedSeatsWithLocalFallback(options.seats, session.seat);
   const countdownText = options.status === "countdown" ? (options.countdown ?? "…") : null;
   container.setAttribute("aria-live", options.status === "countdown" ? "assertive" : "polite");
   container.dataset.status = options.status;
 
-  const you = multiplayerPlayerDescriptor(options.gameId, options.seat ?? session.seat);
-  const panel = el("div", { className: "online-presence surface" });
+  const panel = el("div", { className: "online-presence" });
   const headline = el("div", { className: "online-presence__headline" });
 
   if (countdownText) {
@@ -76,11 +74,12 @@ export function renderMultiplayerPresence(
     headline.append(countdown);
   }
 
+  const you = multiplayerPlayerDescriptor(options.gameId, localSeat);
   const summary = el("div", { className: "online-presence__summary" });
   summary.append(
     el("span", {
       className: "online-presence__kicker",
-      text: countdownText ? "Match starting" : `Room ${session.code}`,
+      text: countdownText ? "Starting" : `Room ${session.code}`,
     }),
     playerLine(you, options.status === "lobby" ? "You joined as" : "You are"),
   );
@@ -95,15 +94,13 @@ export function renderMultiplayerPresence(
     item.setAttribute("role", "listitem");
     item.style.setProperty("--player-color", descriptor.color);
     item.dataset.joined = String(seatState.joined);
-    item.dataset.you = String(seat === (options.seat ?? session.seat));
+    item.dataset.you = String(seat === localSeat);
     item.append(
       el("span", { className: "online-presence__swatch", ariaLabel: descriptor.colorName }),
       el("span", { className: "online-presence__seat-main", text: seatTitle(descriptor) }),
       el("span", {
         className: "online-presence__seat-meta",
-        text: seatState.joined
-          ? joinedMeta(descriptor, seat, options.seat ?? session.seat)
-          : "Waiting",
+        text: seatMeta(seatState.joined, seat, localSeat),
       }),
     );
     list.append(item);
@@ -111,10 +108,6 @@ export function renderMultiplayerPresence(
 
   panel.append(headline, list);
   container.append(panel);
-}
-
-export function multiplayerSeatRole(gameId: string, seat: MultiplayerSeat): string {
-  return multiplayerPlayerDescriptor(gameId, seat).role;
 }
 
 function joinedSeatsWithLocalFallback(
@@ -142,30 +135,7 @@ export function multiplayerPlayerDescriptor(
     label: seat.toUpperCase(),
     colorName: color.name,
     color: color.value,
-    role: roleForSeat(gameId, seat, color.name),
-    position: positionForSeat(gameId, seat),
   };
-}
-
-function roleForSeat(gameId: string, seat: MultiplayerSeat, colorName: string): string {
-  if (gameId === "tictactoe") return seat === "p1" ? "X mark" : "O mark";
-  if (gameId === "connect4") return `${colorName} discs`;
-  if (gameId === "snake") return `${colorName} snake`;
-  if (gameId === "memory") return `${colorName} player`;
-  return colorName;
-}
-
-function positionForSeat(gameId: string, seat: MultiplayerSeat): string {
-  if (gameId === "snake") {
-    if (seat === "p1") return "West start";
-    if (seat === "p2") return "East start";
-    if (seat === "p3") return "North start";
-    return "South start";
-  }
-  if (gameId === "tictactoe") return seat === "p1" ? "First move" : "Second move";
-  if (gameId === "connect4") return seat === "p1" ? "First drop" : "Second drop";
-  if (gameId === "memory") return seat === "p1" ? "First turn" : "Second turn";
-  return seat === "p1" ? "Host" : "Player";
 }
 
 function playerLine(descriptor: MultiplayerPlayerDescriptor, prefix: string): HTMLElement {
@@ -175,23 +145,19 @@ function playerLine(descriptor: MultiplayerPlayerDescriptor, prefix: string): HT
     el("span", { className: "online-presence__swatch", ariaLabel: descriptor.colorName }),
     el("span", {
       className: "online-presence__you-text",
-      text: `${prefix} ${descriptor.label} · ${descriptor.role} · ${descriptor.position}`,
+      text: `${prefix} ${seatTitle(descriptor)}`,
     }),
   );
   return line;
 }
 
 function seatTitle(descriptor: MultiplayerPlayerDescriptor): string {
-  return `${descriptor.label} · ${descriptor.role}`;
+  return `${descriptor.label} · ${descriptor.colorName}`;
 }
 
-function joinedMeta(
-  descriptor: MultiplayerPlayerDescriptor,
-  seat: MultiplayerSeat,
-  localSeat: MultiplayerSeat,
-): string {
-  const parts = [descriptor.position];
-  if (seat === "p1") parts.push("Host");
-  if (seat === localSeat) parts.push("You");
-  return parts.join(" · ");
+function seatMeta(joined: boolean, seat: MultiplayerSeat, localSeat: MultiplayerSeat): string {
+  if (!joined) return "Waiting";
+  if (seat === localSeat) return "You";
+  if (seat === "p1") return "Host";
+  return "Joined";
 }

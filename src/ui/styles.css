@@ -902,13 +902,13 @@
   .online-presence {
     display: grid;
     gap: clamp(10px, 2vmin, 16px);
-    width: min(560px, 100%);
+    width: min(480px, 100%);
     max-height: 100%;
     overflow: auto;
     overscroll-behavior: contain;
     padding: clamp(14px, 3vmin, 22px);
     border-radius: var(--radius);
-    box-shadow: var(--shadow);
+    background: color-mix(in srgb, var(--surface-flat), transparent 6%);
   }
 
   .online-presence__headline {
@@ -919,8 +919,9 @@
   }
 
   .online-presence__countdown {
-    display: grid;
-    place-items: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     inline-size: clamp(72px, 18vmin, 120px);
     block-size: clamp(72px, 18vmin, 120px);
     border: 2px solid color-mix(in srgb, var(--accent), transparent 25%);
@@ -930,8 +931,9 @@
     font-size: clamp(3rem, 13vmin, 6rem);
     font-variant-numeric: tabular-nums;
     font-weight: 950;
-    letter-spacing: -0.08em;
-    line-height: 1;
+    letter-spacing: 0;
+    line-height: 0.9;
+    text-align: center;
     animation: countdown-pop 360ms cubic-bezier(0.2, 1.4, 0.3, 1);
   }
 
@@ -975,27 +977,23 @@
 
   .online-presence__seats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 4px 12px;
+    padding-block-start: 2px;
+    border-block-start: 1px solid var(--line);
   }
 
   .online-presence__seat {
-    grid-template-columns: auto minmax(0, 1fr);
-    padding: 10px;
-    border: 1px solid color-mix(in srgb, var(--player-color), transparent 42%);
-    border-radius: calc(var(--radius) - 8px);
-    background: color-mix(in srgb, var(--player-color), transparent 88%);
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding-block: 8px;
   }
 
   .online-presence__seat[data-joined="false"] {
-    border-color: var(--line);
-    background: color-mix(in srgb, var(--surface), transparent 16%);
-    opacity: 0.62;
+    opacity: 0.52;
   }
 
-  .online-presence__seat[data-you="true"] {
-    outline: 3px solid color-mix(in srgb, var(--player-color), transparent 35%);
-    outline-offset: 2px;
+  .online-presence__seat[data-you="true"] .online-presence__seat-main {
+    color: var(--ink);
   }
 
   .online-presence__seat-main {
@@ -1007,7 +1005,6 @@
   }
 
   .online-presence__seat-meta {
-    grid-column: 2;
     overflow: hidden;
     color: var(--muted);
     font-size: 0.78rem;

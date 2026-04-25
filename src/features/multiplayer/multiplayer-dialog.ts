@@ -119,7 +119,7 @@ export function createMultiplayerDialog(): MultiplayerDialog {
       assignment.append(
         el("span", { className: "online-presence__swatch", ariaLabel: descriptor.colorName }),
         el("span", {
-          text: `You are ${descriptor.label} · ${descriptor.role} · ${descriptor.position}`,
+          text: `You are ${descriptor.label} · ${descriptor.colorName}`,
         }),
       );
       const help = el("p", {
