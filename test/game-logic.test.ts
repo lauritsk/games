@@ -68,6 +68,7 @@ import {
   connect4MultiplayerAdapter,
   memoryMultiplayerAdapter,
   snakeMultiplayerAdapter,
+  spaceInvadersMultiplayerAdapter,
   ticTacToeMultiplayerAdapter,
 } from "@server/multiplayer/games";
 
@@ -540,6 +541,33 @@ describe("multiplayer adapters", () => {
     const memory = memoryMultiplayerAdapter.newState({ difficulty: "Easy" });
     expect(memory.difficulty).toBe("Easy");
     expect(memory.cards).toHaveLength(12);
+  });
+
+  test("runs Space Invaders co-op with two shooters and harder settings", () => {
+    let state = spaceInvadersMultiplayerAdapter.newState({ difficulty: "Easy" });
+    expect(state.players.map((player) => player.id)).toEqual(["p1", "p2"]);
+    expect(state.aliens).toHaveLength(32);
+
+    const p1Fire = spaceInvadersMultiplayerAdapter.applyAction(state, "p1", { type: "fire" });
+    expect(p1Fire.ok).toBe(true);
+    if (!p1Fire.ok) return;
+    state = p1Fire.state;
+    const p2Fire = spaceInvadersMultiplayerAdapter.applyAction(state, "p2", { type: "fire" });
+    expect(p2Fire.ok).toBe(true);
+    if (!p2Fire.ok) return;
+    state = p2Fire.state;
+    expect(state.shots.filter((shot) => shot.owner === "player")).toHaveLength(2);
+
+    const moving = spaceInvadersMultiplayerAdapter.applyAction(state, "p2", {
+      type: "move",
+      move: -1,
+    });
+    expect(moving.ok).toBe(true);
+    if (!moving.ok) return;
+    const ticked = spaceInvadersMultiplayerAdapter.tick?.(moving.state);
+    expect(ticked?.ok).toBe(true);
+    if (!ticked?.ok) return;
+    expect(ticked.state.players.find((player) => player.id === "p2")?.x).toBeLessThan(62);
   });
 
   test("scores Memory matches and changes turns after mismatches", () => {

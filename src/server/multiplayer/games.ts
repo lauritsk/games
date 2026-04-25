@@ -19,6 +19,17 @@ import {
   type MemoryCard,
 } from "@games/memory/logic";
 import {
+  aimInvaderPlayer,
+  fireInvaderPlayerShot,
+  invaderConfigs,
+  newInvaderPlayers,
+  newInvaderState,
+  nextInvaderWave,
+  scaleInvaderConfigForPlayers,
+  stepInvadersWithPlayerInputs,
+  type InvaderState,
+} from "@games/space-invaders/logic";
+import {
   moveSnakePoint,
   nextSnakeDirection,
   randomSnakeFood,
@@ -592,12 +603,125 @@ export const memoryMultiplayerAdapter: MultiplayerAdapter<
   publicSnapshot: (state) => ({ ...state }),
 };
 
+type SpaceInvadersOnlineSettings = {
+  difficulty: Difficulty;
+};
+
+type SpaceInvadersOnlineState = InvaderState & {
+  difficulty: Difficulty;
+  moveControls: Record<MultiplayerSeat, -1 | 0 | 1>;
+};
+
+type SpaceInvadersAction =
+  | { type: "move"; move: -1 | 0 | 1 }
+  | { type: "step"; move: -1 | 1 }
+  | { type: "fire" }
+  | { type: "aim"; x: number };
+
+const defaultSpaceInvadersOnlineSettings = {
+  difficulty: "Medium",
+} satisfies SpaceInvadersOnlineSettings;
+
+export const spaceInvadersMultiplayerAdapter: MultiplayerAdapter<
+  SpaceInvadersOnlineState,
+  SpaceInvadersAction,
+  SpaceInvadersOnlineSettings
+> = {
+  gameId: "space-invaders",
+  minPlayers: 2,
+  maxPlayers: 2,
+  tickMs: 31,
+  acceptStaleActions: true,
+  defaultSettings: () => ({ ...defaultSpaceInvadersOnlineSettings }),
+  parseSettings: parseSpaceInvadersOnlineSettings,
+  newState: (settings = defaultSpaceInvadersOnlineSettings) =>
+    newSpaceInvadersOnlineState(settings),
+  start(_state, seats, settings = defaultSpaceInvadersOnlineSettings) {
+    if (seats.length < 2) return { ok: false, error: "Need two players" };
+    return { ok: true, state: newSpaceInvadersOnlineState(settings) };
+  },
+  parseAction(value) {
+    if (!isRecord(value) || typeof value.type !== "string") return null;
+    if (value.type === "fire") return { type: "fire" };
+    if (value.type === "move") {
+      const move = parseInvaderMove(value.move);
+      return move === null ? null : { type: "move", move };
+    }
+    if (value.type === "step") {
+      const move = parseInvaderMoveStep(value.move);
+      return move === null ? null : { type: "step", move };
+    }
+    if (value.type === "aim") {
+      const x = typeof value.x === "number" && Number.isFinite(value.x) ? value.x : null;
+      return x === null ? null : { type: "aim", x };
+    }
+    return null;
+  },
+  applyAction(state, seat, action) {
+    if (state.lost) return { ok: false, error: "Game already finished" };
+    const playerId = invaderPlayerIdForSeat(seat);
+    if (!playerId) return { ok: false, error: "Not in this game" };
+    if (action.type === "move") {
+      return {
+        ok: true,
+        state: { ...state, moveControls: { ...state.moveControls, [seat]: action.move } },
+      };
+    }
+    if (action.type === "step") {
+      const config = spaceInvadersOnlineConfig(state.difficulty);
+      const moved = stepInvadersWithPlayerInputs(state, config, [
+        { playerId, move: action.move },
+      ]) as SpaceInvadersOnlineState;
+      const nextState = {
+        ...moved,
+        difficulty: state.difficulty,
+        moveControls: state.moveControls,
+      };
+      return nextState.lost
+        ? { ok: true, state: nextState, finished: { winner: "draw" } }
+        : { ok: true, state: nextState };
+    }
+    if (action.type === "aim") {
+      return {
+        ok: true,
+        state: aimInvaderPlayer(state, playerId, action.x) as SpaceInvadersOnlineState,
+      };
+    }
+    return {
+      ok: true,
+      state: fireInvaderPlayerShot(state, playerId) as SpaceInvadersOnlineState,
+    };
+  },
+  tick(state) {
+    if (state.lost) return null;
+    const config = spaceInvadersOnlineConfig(state.difficulty);
+    const ticked = stepInvadersWithPlayerInputs(state, config, [
+      { playerId: "p1", move: state.moveControls.p1 },
+      { playerId: "p2", move: state.moveControls.p2 },
+    ]);
+    const next = ticked.won ? nextInvaderWave(ticked, config) : ticked;
+    const nextState = {
+      ...next,
+      difficulty: state.difficulty,
+      moveControls: state.moveControls,
+    } satisfies SpaceInvadersOnlineState;
+    return nextState.lost
+      ? { ok: true, state: nextState, finished: { winner: "draw" } }
+      : { ok: true, state: nextState };
+  },
+  publicSnapshot: (state) => {
+    const { moveControls: _moveControls, ...snapshot } = state;
+    return snapshot;
+  },
+};
+
 const adapters = new Map<string, MultiplayerAdapter>(
   [
     ticTacToeMultiplayerAdapter,
     connect4MultiplayerAdapter,
     snakeMultiplayerAdapter,
     memoryMultiplayerAdapter,
+    spaceInvadersMultiplayerAdapter,
   ].map((adapter) => [adapter.gameId, adapter]),
 );
 
@@ -685,6 +809,39 @@ function parseMemoryOnlineSettings(value: unknown): MemoryOnlineSettings | null 
   if (!isRecord(value)) return null;
   const difficulty = parseDifficulty(value.difficulty);
   return difficulty ? { difficulty } : null;
+}
+
+function parseSpaceInvadersOnlineSettings(value: unknown): SpaceInvadersOnlineSettings | null {
+  if (!isRecord(value)) return null;
+  const difficulty = parseDifficulty(value.difficulty);
+  return difficulty ? { difficulty } : null;
+}
+
+function newSpaceInvadersOnlineState(
+  settings: SpaceInvadersOnlineSettings,
+): SpaceInvadersOnlineState {
+  return {
+    ...newInvaderState(spaceInvadersOnlineConfig(settings.difficulty), 1, newInvaderPlayers(2)),
+    difficulty: settings.difficulty,
+    moveControls: { p1: 0, p2: 0, p3: 0, p4: 0 },
+  };
+}
+
+function spaceInvadersOnlineConfig(difficulty: Difficulty) {
+  return scaleInvaderConfigForPlayers(invaderConfigs[difficulty], 2);
+}
+
+function parseInvaderMove(value: unknown): -1 | 0 | 1 | null {
+  return value === -1 || value === 0 || value === 1 ? value : null;
+}
+
+function parseInvaderMoveStep(value: unknown): -1 | 1 | null {
+  return value === -1 || value === 1 ? value : null;
+}
+
+function invaderPlayerIdForSeat(seat: MultiplayerSeat): "p1" | "p2" | null {
+  if (seat === "p1" || seat === "p2") return seat;
+  return null;
 }
 
 function parseIntegerInRange(value: unknown, min: number, maxExclusive: number): number | null {

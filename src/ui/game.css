@@ -694,8 +694,15 @@
   }
 
   .invader-player {
+    --arcade-entity-color: var(--invader-player-color, var(--accent));
     clip-path: polygon(50% 0, 64% 36%, 100% 42%, 100% 100%, 0 100%, 0 42%, 36% 36%);
-    background: var(--accent);
+    background: var(--invader-player-color, var(--accent));
+  }
+  .invader-player[data-player="p2"] {
+    --invader-player-color: var(--color-cyan);
+  }
+  .invader-player[data-yours="true"] {
+    filter: drop-shadow(0 0 5px var(--ink));
   }
 
   .invader-alien {

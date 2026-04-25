@@ -42,6 +42,7 @@ const maxSeatsByGame: Record<string, number> = {
   tictactoe: 2,
   connect4: 2,
   memory: 2,
+  "space-invaders": 2,
 };
 
 export function renderMultiplayerPresence(

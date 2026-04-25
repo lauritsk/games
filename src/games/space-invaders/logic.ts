@@ -1,9 +1,18 @@
 import { clamp, rectsOverlap, type Rect } from "@games/shared/arcade";
+import type { Difficulty } from "@shared/types";
 
 export type InvaderRect = Rect;
+export type InvaderPlayerId = "p1" | "p2";
+export type InvaderPlayer = InvaderRect & { id: InvaderPlayerId };
 export type InvaderAlien = InvaderRect & { alive: boolean };
 export type InvaderBarrier = InvaderRect & { hp: number };
-export type InvaderShot = { x: number; y: number; vy: number; owner: "player" | "alien" };
+export type InvaderShot = {
+  x: number;
+  y: number;
+  vy: number;
+  owner: "player" | "alien";
+  playerId?: InvaderPlayerId;
+};
 export type InvaderConfig = {
   alienRows: number;
   alienColumns: number;
@@ -13,10 +22,12 @@ export type InvaderConfig = {
   alienShotEvery: number;
 };
 export type InvaderInput = { move?: -1 | 0 | 1 };
+export type InvaderPlayerInput = { playerId: InvaderPlayerId; move?: -1 | 0 | 1 };
 export type InvaderState = {
   width: number;
   height: number;
   player: InvaderRect;
+  players: InvaderPlayer[];
   aliens: InvaderAlien[];
   barriers: InvaderBarrier[];
   shots: InvaderShot[];
@@ -34,11 +45,58 @@ export const invaderHeight = 100;
 export const invaderShotWidth = 0.7;
 export const invaderShotHeight = 2.6;
 
-export function newInvaderState(config: InvaderConfig, wave = 1): InvaderState {
+export const invaderConfigs: Record<Difficulty, InvaderConfig> = {
+  Easy: {
+    alienRows: 3,
+    alienColumns: 7,
+    lives: 4,
+    playerSpeed: 2.8,
+    alienStepEvery: 32,
+    alienShotEvery: 62,
+  },
+  Medium: {
+    alienRows: 4,
+    alienColumns: 8,
+    lives: 3,
+    playerSpeed: 2.5,
+    alienStepEvery: 26,
+    alienShotEvery: 48,
+  },
+  Hard: {
+    alienRows: 5,
+    alienColumns: 9,
+    lives: 2,
+    playerSpeed: 2.2,
+    alienStepEvery: 21,
+    alienShotEvery: 36,
+  },
+};
+
+export function scaleInvaderConfigForPlayers(
+  config: InvaderConfig,
+  playerCount: number,
+): InvaderConfig {
+  if (playerCount <= 1) return { ...config };
+  return {
+    ...config,
+    alienRows: Math.min(5, config.alienRows + 1),
+    alienColumns: Math.min(10, config.alienColumns + 1),
+    alienStepEvery: Math.max(14, Math.round(config.alienStepEvery * 0.78)),
+    alienShotEvery: Math.max(18, Math.round(config.alienShotEvery * 0.68)),
+  };
+}
+
+export function newInvaderState(
+  config: InvaderConfig,
+  wave = 1,
+  players = newInvaderPlayers(1),
+): InvaderState {
+  const normalizedPlayers = players.length > 0 ? players : newInvaderPlayers(1);
   return {
     width: invaderWidth,
     height: invaderHeight,
-    player: { x: 45, y: 91, width: 10, height: 3 },
+    player: normalizedPlayers[0]!,
+    players: normalizedPlayers,
     aliens: newAliens(config.alienRows, config.alienColumns),
     barriers: newBarriers(),
     shots: [],
@@ -76,20 +134,53 @@ export function newBarriers(): InvaderBarrier[] {
   return [16, 38, 60, 82].map((center) => ({ x: center - 5, y: 76, width: 10, height: 5, hp: 3 }));
 }
 
+export function newInvaderPlayers(count = 1): InvaderPlayer[] {
+  if (count <= 1) return [newInvaderPlayer("p1", 45)];
+  return [newInvaderPlayer("p1", 28), newInvaderPlayer("p2", 62)].slice(0, count);
+}
+
 export function fireInvaderShot(state: InvaderState): InvaderState {
-  if (state.won || state.lost || state.shots.some((shot) => shot.owner === "player")) return state;
-  return {
-    ...state,
-    shots: [
-      ...state.shots,
-      {
-        x: state.player.x + state.player.width / 2,
-        y: state.player.y - 1,
-        vy: -2.4,
-        owner: "player",
-      },
-    ],
-  };
+  return fireInvaderPlayerShot(state, "p1");
+}
+
+export function fireInvaderPlayerShot(
+  state: InvaderState,
+  playerId: InvaderPlayerId,
+): InvaderState {
+  const players = invaderPlayers(state);
+  const player = players.find((candidate) => candidate.id === playerId);
+  if (!player || state.won || state.lost) return state;
+  if (state.shots.some((shot) => shot.owner === "player" && invaderShotPlayerId(shot) === playerId))
+    return state;
+  return withInvaderPlayers(
+    {
+      ...state,
+      shots: [
+        ...state.shots,
+        {
+          x: player.x + player.width / 2,
+          y: player.y - 1,
+          vy: -2.4,
+          owner: "player",
+          playerId,
+        },
+      ],
+    },
+    players,
+  );
+}
+
+export function aimInvaderPlayer(
+  state: InvaderState,
+  playerId: InvaderPlayerId,
+  centerX: number,
+): InvaderState {
+  const players = invaderPlayers(state).map((player) =>
+    player.id === playerId
+      ? { ...player, x: clamp(centerX - player.width / 2, 0, state.width - player.width) }
+      : player,
+  );
+  return withInvaderPlayers(state, players);
 }
 
 export function stepInvaders(
@@ -97,27 +188,43 @@ export function stepInvaders(
   config: InvaderConfig,
   input: InvaderInput = {},
 ): InvaderState {
+  return stepInvadersWithPlayerInputs(state, config, [{ playerId: "p1", move: input.move }]);
+}
+
+export function stepInvadersWithPlayerInputs(
+  state: InvaderState,
+  config: InvaderConfig,
+  inputs: readonly InvaderPlayerInput[] = [],
+): InvaderState {
   if (state.won || state.lost) return state;
 
   const tick = state.tick + 1;
-  const player = moveInvaderPlayer(state, config, input);
-  const { aliens, alienDirection } = advanceAlienFormation(state, config, tick);
-  const shots = maybeFireAlienShot(advanceInvaderShots(state), aliens, state.wave, config, tick);
+  const players = moveInvaderPlayers(state, config, inputs);
+  const activeState = withInvaderPlayers(state, players);
+  const { aliens, alienDirection } = advanceAlienFormation(activeState, config, tick);
+  const shots = maybeFireAlienShot(
+    advanceInvaderShots(activeState),
+    aliens,
+    state.wave,
+    config,
+    tick,
+  );
   const resolved = resolveInvaderCollisions({
     aliens,
     barriers: state.barriers,
     shots,
-    player,
+    players,
     score: state.score,
     lives: state.lives,
     wave: state.wave,
   });
   const won = resolved.aliens.every((alien) => !alien.alive);
-  const lost = !won && (resolved.lives <= 0 || hasInvadedPlayer(resolved.aliens, player));
+  const lost = !won && (resolved.lives <= 0 || hasInvadedPlayer(resolved.aliens, resolved.players));
 
   return {
     ...state,
-    player,
+    player: resolved.players[0] ?? state.player,
+    players: resolved.players,
     aliens: resolved.aliens,
     barriers: resolved.barriers,
     shots: resolved.shots,
@@ -131,7 +238,11 @@ export function stepInvaders(
 }
 
 export function nextInvaderWave(state: InvaderState, config: InvaderConfig): InvaderState {
-  const next = newInvaderState(config, state.wave + 1);
+  const next = newInvaderState(
+    config,
+    state.wave + 1,
+    newInvaderPlayers(invaderPlayers(state).length),
+  );
   return { ...next, score: state.score, lives: state.lives };
 }
 
@@ -144,25 +255,30 @@ type InvaderCollisionState = {
   aliens: InvaderAlien[];
   barriers: InvaderBarrier[];
   shots: InvaderShot[];
-  player: InvaderRect;
+  players: InvaderPlayer[];
   score: number;
   lives: number;
   wave: number;
 };
 
-function moveInvaderPlayer(
+function newInvaderPlayer(id: InvaderPlayerId, x: number): InvaderPlayer {
+  return { id, x, y: 91, width: 10, height: 3 };
+}
+
+function moveInvaderPlayers(
   state: InvaderState,
   config: InvaderConfig,
-  input: InvaderInput,
-): InvaderRect {
-  return {
-    ...state.player,
+  inputs: readonly InvaderPlayerInput[],
+): InvaderPlayer[] {
+  const moves = new Map(inputs.map((input) => [input.playerId, input.move ?? 0] as const));
+  return invaderPlayers(state).map((player) => ({
+    ...player,
     x: clamp(
-      state.player.x + (input.move ?? 0) * config.playerSpeed,
+      player.x + (moves.get(player.id) ?? 0) * config.playerSpeed,
       0,
-      state.width - state.player.width,
+      state.width - player.width,
     ),
-  };
+  }));
 }
 
 function advanceInvaderShots(state: InvaderState): InvaderShot[] {
@@ -238,7 +354,7 @@ function resolveInvaderCollisions(collision: InvaderCollisionState): InvaderColl
     score += 20 * collision.wave;
   }
 
-  const playerHit = findPlayerHit(shots, collision.player);
+  const playerHit = findPlayerHit(shots, collision.players);
   if (playerHit >= 0) {
     shots = shots.filter((_, index) => index !== playerHit);
     lives -= 1;
@@ -247,14 +363,18 @@ function resolveInvaderCollisions(collision: InvaderCollisionState): InvaderColl
   return { ...collision, aliens, barriers, shots, score, lives };
 }
 
-function findPlayerHit(shots: InvaderShot[], player: InvaderRect): number {
+function findPlayerHit(shots: InvaderShot[], players: readonly InvaderPlayer[]): number {
   return shots.findIndex(
-    (shot) => shot.owner === "alien" && rectsOverlap(shotHitbox(shot), playerHitbox(player)),
+    (shot) =>
+      shot.owner === "alien" &&
+      players.some((player) => rectsOverlap(shotHitbox(shot), playerHitbox(player))),
   );
 }
 
-function hasInvadedPlayer(aliens: InvaderAlien[], player: InvaderRect): boolean {
-  return aliens.some((alien) => alien.alive && alien.y + alien.height >= player.y);
+function hasInvadedPlayer(aliens: InvaderAlien[], players: readonly InvaderPlayer[]): boolean {
+  return aliens.some((alien) =>
+    players.some((player) => alien.alive && alien.y + alien.height >= player.y),
+  );
 }
 
 function resolveBarrierHits(
@@ -347,6 +467,20 @@ function insetRect(rect: Rect, x: number, y: number): Rect {
   const width = Math.max(0, rect.width - x * 2);
   const height = Math.max(0, rect.height - y * 2);
   return { x: rect.x + x, y: rect.y + y, width, height };
+}
+
+function invaderPlayers(state: InvaderState): InvaderPlayer[] {
+  if (state.players.length > 0) return state.players;
+  return [{ ...state.player, id: "p1" }];
+}
+
+function withInvaderPlayers(state: InvaderState, players: InvaderPlayer[]): InvaderState {
+  const normalized = players.length > 0 ? players : newInvaderPlayers(1);
+  return { ...state, player: normalized[0]!, players: normalized };
+}
+
+function invaderShotPlayerId(shot: InvaderShot): InvaderPlayerId {
+  return shot.playerId ?? "p1";
 }
 
 function chooseAlienShooter(aliens: InvaderAlien[], tick: number): InvaderAlien | undefined {
