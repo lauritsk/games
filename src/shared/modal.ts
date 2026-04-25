@@ -21,6 +21,37 @@ export type ModalController = {
   close(): void;
 };
 
+export type SingletonModalHandle = {
+  readonly isCurrent: boolean;
+  release(): void;
+};
+
+export type SingletonModalLifecycle = {
+  close(): void;
+  track(closeCurrent: () => void): SingletonModalHandle;
+};
+
+export function createSingletonModalLifecycle(): SingletonModalLifecycle {
+  let closeCurrent: (() => void) | null = null;
+
+  return {
+    close() {
+      closeCurrent?.();
+    },
+    track(nextClose) {
+      closeCurrent = nextClose;
+      return {
+        get isCurrent() {
+          return closeCurrent === nextClose;
+        },
+        release() {
+          if (closeCurrent === nextClose) closeCurrent = null;
+        },
+      };
+    },
+  };
+}
+
 export function isModalOpen(): boolean {
   return Boolean(document.querySelector('[data-modal="true"]'));
 }

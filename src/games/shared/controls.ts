@@ -18,6 +18,14 @@ export type DifficultyControl = {
   reset(): void;
 };
 
+export type GameDifficultyControl = DifficultyControl & {
+  button: HTMLButtonElement;
+  change(direction: "next" | "previous"): void;
+  next(): void;
+  previous(): void;
+  sync(label?: Difficulty | "Online", disabled?: boolean): void;
+};
+
 export type BotPlayMode = "bot" | "local";
 
 export function nextBotPlayMode(mode: BotPlayMode): BotPlayMode {
@@ -71,6 +79,24 @@ export function changeDifficulty(control: DifficultyControl, direction: "next" |
   );
   playSound("uiToggle");
   control.reset();
+}
+
+export function createGameDifficultyControl(
+  actions: HTMLElement,
+  control: DifficultyControl,
+): GameDifficultyControl {
+  const button = createDifficultyControl(actions, control);
+  return {
+    ...control,
+    button,
+    change: (direction) => changeDifficulty(control, direction),
+    next: () => changeDifficulty(control, "next"),
+    previous: () => changeDifficulty(control, "previous"),
+    sync: (label = control.get(), disabled = false) => {
+      setDifficultyControlIconLabel(button, label);
+      button.disabled = disabled;
+    },
+  };
 }
 
 export function createModeControl<TValue extends string>(

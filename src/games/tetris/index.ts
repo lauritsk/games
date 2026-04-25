@@ -28,7 +28,6 @@ import {
   pauseOnFocusLoss,
   resetGameProgress,
   setBoardGrid,
-  setDifficultyIconLabel,
   setIconLabel,
   syncChildren,
   type Difficulty,
@@ -50,11 +49,7 @@ import {
   saveGameSave,
 } from "@games/shared/game-state";
 import { playSound } from "@ui/sound";
-import {
-  changeDifficulty,
-  createDifficultyControl,
-  createResetControl,
-} from "@games/shared/controls";
+import { createGameDifficultyControl, createResetControl } from "@games/shared/controls";
 import {
   moveTetrisPiece,
   newTetrisState,
@@ -176,15 +171,14 @@ export function mountTetris(target: HTMLElement): () => void {
     },
     afterChange: render,
   });
-  const difficultyControl = {
+  const difficultyControl = createGameDifficultyControl(actions, {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
       savePreferences();
     },
     reset: resetGame,
-  };
-  const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  });
   const pauseButton = createPauseButton(actions, togglePause);
   const overlay = createPauseOverlay(viewport, togglePause);
   const requestReset = createResetControl(actions, shell, resetGame);
@@ -237,8 +231,8 @@ export function mountTetris(target: HTMLElement): () => void {
     handleStandardGameKey(event, {
       onDirection: (direction) => handleDirection(direction),
       onActivate: () => hardDrop(),
-      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
-      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
+      onNextDifficulty: difficultyControl.next,
+      onPreviousDifficulty: difficultyControl.previous,
       onReset: requestReset,
     });
   }
@@ -303,7 +297,7 @@ export function mountTetris(target: HTMLElement): () => void {
 
   function render(): void {
     setBoardGrid(board, tetrisColumns, tetrisRows);
-    setDifficultyIconLabel(difficultyButton, difficulty);
+    difficultyControl.sync();
     setIconLabel(
       pauseButton,
       mode === "paused" ? "▶" : "⏸",

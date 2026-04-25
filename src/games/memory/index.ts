@@ -55,11 +55,9 @@ import {
 } from "@features/multiplayer/multiplayer-protocol";
 import { playSound } from "@ui/sound";
 import {
-  changeDifficulty,
-  createDifficultyControl,
+  createGameDifficultyControl,
   createModeControl,
   createResetControl,
-  setDifficultyControlIconLabel,
   setPlayerModeIconLabel,
   toggleMode,
 } from "@games/shared/controls";
@@ -214,15 +212,14 @@ export function mountMemory(target: HTMLElement): () => void {
     reset: resetGame,
   };
   const modeButton = createModeControl(actions, modeControl);
-  const difficultyControl = {
+  const difficultyControl = createGameDifficultyControl(actions, {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
       savePreferences();
     },
     reset: resetAfterDifficultyChange,
-  };
-  const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  });
   const {
     onlineButton,
     startOnlineButton,
@@ -279,8 +276,7 @@ export function mountMemory(target: HTMLElement): () => void {
     online.renderPresence(onlinePresence);
     setPlayerModeIconLabel(modeButton, online.session ? "Online" : memoryModeLabel(mode));
     modeButton.disabled = Boolean(online.session);
-    setDifficultyControlIconLabel(difficultyButton, difficulty);
-    difficultyButton.disabled = Boolean(online.session && !canAdjustOnlineSettings());
+    difficultyControl.sync(difficulty, Boolean(online.session && !canAdjustOnlineSettings()));
     online.syncActionButtons(
       { onlineButton, startOnlineButton, rematchButton },
       isOnlineFinished(),
@@ -321,12 +317,10 @@ export function mountMemory(target: HTMLElement): () => void {
       onDirection: moveSelection,
       onActivate: () => flip(selected),
       onNextDifficulty: () => {
-        if (!online.session || canAdjustOnlineSettings())
-          changeDifficulty(difficultyControl, "next");
+        if (!online.session || canAdjustOnlineSettings()) difficultyControl.next();
       },
       onPreviousDifficulty: () => {
-        if (!online.session || canAdjustOnlineSettings())
-          changeDifficulty(difficultyControl, "previous");
+        if (!online.session || canAdjustOnlineSettings()) difficultyControl.previous();
       },
       onReset: requestReset,
     });

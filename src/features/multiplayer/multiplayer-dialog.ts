@@ -9,7 +9,11 @@ import {
   normalizeMultiplayerCode,
   type MultiplayerSession,
 } from "@features/multiplayer/multiplayer-protocol";
-import type { ModalController } from "@shared/modal";
+import {
+  createSingletonModalLifecycle,
+  type ModalController,
+  type SingletonModalHandle,
+} from "@shared/modal";
 import { playSound } from "@ui/sound";
 
 type MultiplayerSessionResponse =
@@ -26,19 +30,16 @@ export type MultiplayerDialog = {
 };
 
 export function createMultiplayerDialog(): MultiplayerDialog {
-  let cleanup: (() => void) | null = null;
-
-  function close(): void {
-    cleanup?.();
-  }
+  const lifecycle = createSingletonModalLifecycle();
 
   function show(
     game: GameDefinition,
     onSession: (session: MultiplayerSession) => void,
     getSettings?: () => unknown,
   ): void {
-    close();
+    lifecycle.close();
     let modal: ModalController | null = null;
+    let current: SingletonModalHandle | null = null;
     let created = false;
     const body = el("div", { className: "multiplayer-dialog__body" });
 
@@ -49,12 +50,10 @@ export function createMultiplayerDialog(): MultiplayerDialog {
       className: "multiplayer-dialog",
       panelClassName: "multiplayer-dialog__panel",
       dismissible: true,
-      onClose: () => {
-        if (cleanup === closeDialog) cleanup = null;
-      },
+      onClose: () => current?.release(),
       children: [body],
     });
-    cleanup = closeDialog;
+    current = lifecycle.track(closeDialog);
     void renderStart();
 
     async function renderStart(): Promise<void> {
@@ -143,12 +142,12 @@ export function createMultiplayerDialog(): MultiplayerDialog {
     }
 
     function closeDialog(): void {
-      if (cleanup !== closeDialog) return;
-      cleanup = null;
+      if (!current?.isCurrent) return;
+      current.release();
       modal?.close();
       if (!created) playSound("uiToggle");
     }
   }
 
-  return { show, close };
+  return { show, close: lifecycle.close };
 }

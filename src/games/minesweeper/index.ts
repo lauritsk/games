@@ -21,7 +21,6 @@ import {
   parseStartedAt,
   resetGameProgress,
   setBoardGrid,
-  setDifficultyIconLabel,
   setSelected,
   syncChildren,
   type Difficulty,
@@ -42,11 +41,7 @@ import {
   saveGameSave,
 } from "@games/shared/game-state";
 import { playSound } from "@ui/sound";
-import {
-  changeDifficulty,
-  createDifficultyControl,
-  createResetControl,
-} from "@games/shared/controls";
+import { createGameDifficultyControl, createResetControl } from "@games/shared/controls";
 import {
   flagMinesweeperCount,
   floodOpenMinesweeperInPlace,
@@ -155,15 +150,14 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   onDocumentKeyDown(onKeyDown, scope);
   const autosave = createAutosave({ gameId: minesweeper.id, scope, save: saveCurrentGame });
 
-  const difficultyControl = {
+  const difficultyControl = createGameDifficultyControl(actions, {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
       savePreferences();
     },
     reset: resetGame,
-  };
-  const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  });
   const requestReset = createResetControl(actions, shell, resetGame);
 
   function resetGame(): void {
@@ -193,7 +187,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       cellSize: config.layout === "scroll" ? gameLayouts.scrollGrid.cellSize : undefined,
     });
     status.textContent = statusText();
-    setDifficultyIconLabel(difficultyButton, difficulty);
+    difficultyControl.sync();
 
     const tiles = syncChildren(grid, shape.rows * shape.columns, () => {
       const tile = el("button", { className: "game-cell mine-cell", type: "button" });
@@ -263,8 +257,8 @@ export function mountMinesweeper(target: HTMLElement): () => void {
         render();
       },
       onActivate: () => openCell(selectedRow, selectedColumn),
-      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
-      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
+      onNextDifficulty: difficultyControl.next,
+      onPreviousDifficulty: difficultyControl.previous,
       onReset: requestReset,
     });
   }

@@ -127,209 +127,190 @@ function responseSchemaName(operationId: string): string {
 }
 
 function buildSchemas(): JsonObject {
-  const primitive = { oneOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] };
-  const primitiveRecord = { type: "object", additionalProperties: primitive };
-  const apiError = {
-    type: "object",
-    required: ["ok", "error"],
-    properties: { ok: { const: false }, error: { type: "string" } },
-    additionalProperties: true,
-  };
-  const syncSnapshot = {
-    type: "object",
-    required: ["preferences", "saves", "deletedSaves", "results", "resultClears"],
-    properties: {
-      preferences: { type: "array", items: schemaRef("SyncPreference") },
-      saves: { type: "array", items: schemaRef("SyncSave") },
-      deletedSaves: { type: "array", items: schemaRef("SyncSaveTombstone") },
-      results: { type: "array", items: schemaRef("SyncResult") },
-      resultClears: { type: "array", items: schemaRef("SyncResultClear") },
-    },
-  };
-  const resultMetrics = {
-    score: { type: "number" },
-    moves: { type: "number" },
-    durationMs: { type: "number" },
-    level: { type: "number" },
-    streak: { type: "number" },
-  };
+  const primitive = oneOf([stringSchema(), numberSchema(), { type: "boolean" }]);
+  const primitiveRecord = objectSchema({}, [], { additionalProperties: primitive });
+  const resultMetrics = resultMetricSchemas();
 
   return {
-    EmptyObject: { type: "object" },
-    ApiError: apiError,
-    SyncStatusResponse: {
-      oneOf: [
-        {
-          type: "object",
-          required: ["ok", "storage"],
-          properties: { ok: { const: true }, storage: { const: "bun:sqlite" } },
-        },
-        schemaRef("ApiError"),
-      ],
-    },
-    SyncSnapshotResponse: {
-      oneOf: [
-        {
-          type: "object",
-          required: ["ok", "snapshot"],
-          properties: { ok: { const: true }, snapshot: schemaRef("SyncSnapshot") },
-        },
-        schemaRef("ApiError"),
-      ],
-    },
-    SyncPush: {
-      type: "object",
-      required: ["deviceId"],
-      properties: {
-        deviceId: syncId(),
-        preferences: { type: "array", items: schemaRef("SyncPreference") },
-        saves: { type: "array", items: schemaRef("SyncSave") },
-        deletedSaves: { type: "array", items: schemaRef("SyncSaveTombstone") },
-        results: { type: "array", items: schemaRef("SyncResult") },
-        resultClears: { type: "array", items: schemaRef("SyncResultClear") },
-      },
-    },
-    SyncSnapshot: syncSnapshot,
-    SyncPreference: {
-      type: "object",
-      required: ["gameId", "updatedAt", "data"],
-      properties: { gameId: syncId(), updatedAt: timestamp(), data: {} },
-    },
-    SyncSave: {
-      type: "object",
-      required: ["gameId", "updatedAt", "data"],
-      properties: { gameId: syncId(), updatedAt: timestamp(), data: {} },
-    },
-    SyncSaveTombstone: {
-      type: "object",
-      required: ["gameId", "deletedAt"],
-      properties: { gameId: syncId(), deletedAt: timestamp() },
-    },
-    SyncResultClear: {
-      type: "object",
-      required: ["clearedAt"],
-      properties: { gameId: syncId(), clearedAt: timestamp() },
-    },
-    SyncResult: {
-      type: "object",
-      required: ["id", "runId", "gameId", "finishedAt", "outcome"],
-      properties: {
+    EmptyObject: objectSchema(),
+    ApiError: objectSchema({ ok: { const: false }, error: stringSchema() }, ["ok", "error"], {
+      additionalProperties: true,
+    }),
+    SyncStatusResponse: successResponse({ storage: { const: "bun:sqlite" } }, ["storage"]),
+    SyncSnapshotResponse: successResponse({ snapshot: schemaRef("SyncSnapshot") }, ["snapshot"]),
+    SyncPush: objectSchema({ deviceId: syncId(), ...syncCollectionProperties() }, ["deviceId"]),
+    SyncSnapshot: objectSchema(syncCollectionProperties(), [
+      "preferences",
+      "saves",
+      "deletedSaves",
+      "results",
+      "resultClears",
+    ]),
+    SyncPreference: syncPayloadSchema("data"),
+    SyncSave: syncPayloadSchema("data"),
+    SyncSaveTombstone: objectSchema({ gameId: syncId(), deletedAt: timestamp() }, [
+      "gameId",
+      "deletedAt",
+    ]),
+    SyncResultClear: objectSchema({ gameId: syncId(), clearedAt: timestamp() }, ["clearedAt"]),
+    SyncResult: objectSchema(
+      {
         id: syncId(),
         runId: syncId(),
         gameId: syncId(),
         finishedAt: timestamp(),
-        difficulty: { enum: ["Easy", "Medium", "Hard"] },
-        outcome: { enum: ["won", "lost", "draw", "completed"] },
+        difficulty: difficultySchema(),
+        outcome: outcomeSchema(),
         ...resultMetrics,
         metadata: primitiveRecord,
       },
-    },
-    LeaderboardSubmission: {
-      type: "object",
-      required: ["gameId", "username", "outcome"],
-      properties: {
-        deviceId: { type: "string" },
-        runId: { type: "string" },
-        gameId: { type: "string" },
-        username: { type: "string" },
-        difficulty: { enum: ["Easy", "Medium", "Hard"] },
-        outcome: { enum: ["won", "lost", "draw", "completed"] },
+      ["id", "runId", "gameId", "finishedAt", "outcome"],
+    ),
+    LeaderboardSubmission: objectSchema(
+      {
+        deviceId: stringSchema(),
+        runId: stringSchema(),
+        gameId: stringSchema(),
+        username: stringSchema(),
+        difficulty: difficultySchema(),
+        outcome: outcomeSchema(),
         ...resultMetrics,
         metadata: primitiveRecord,
       },
-      additionalProperties: true,
-    },
-    LeaderboardEntry: {
-      type: "object",
-      required: [
-        "id",
-        "gameId",
-        "username",
-        "outcome",
-        "metric",
-        "metricValue",
-        "metadata",
-        "createdAt",
-      ],
-      properties: {
-        id: { type: "string" },
-        gameId: { type: "string" },
-        username: { type: "string" },
-        difficulty: { enum: ["Easy", "Medium", "Hard"] },
-        outcome: { type: "string" },
-        metric: { type: "string" },
-        metricValue: { type: "number" },
+      ["gameId", "username", "outcome"],
+      { additionalProperties: true },
+    ),
+    LeaderboardEntry: objectSchema(
+      {
+        id: stringSchema(),
+        gameId: stringSchema(),
+        username: stringSchema(),
+        difficulty: difficultySchema(),
+        outcome: stringSchema(),
+        metric: stringSchema(),
+        metricValue: numberSchema(),
         ...resultMetrics,
         metadata: primitiveRecord,
-        createdAt: { type: "string" },
-        rank: { type: "integer" },
+        createdAt: stringSchema(),
+        rank: integerSchema(),
       },
-    },
-    LeaderboardListResponse: {
-      oneOf: [
-        {
-          type: "object",
-          required: ["ok", "entries"],
-          properties: {
-            ok: { const: true },
-            entries: { type: "array", items: schemaRef("LeaderboardEntry") },
-          },
-        },
-        schemaRef("ApiError"),
-      ],
-    },
-    LeaderboardSubmitResponse: {
-      oneOf: [
-        {
-          type: "object",
-          required: ["ok", "rank", "entry"],
-          properties: {
-            ok: { const: true },
-            rank: { type: "integer" },
-            entry: schemaRef("LeaderboardEntry"),
-          },
-        },
-        schemaRef("ApiError"),
-      ],
-    },
-    CreateMultiplayerRoomRequest: {
-      type: "object",
-      required: ["gameId"],
-      properties: { gameId: { type: "string", minLength: 1 }, settings: {} },
-    },
-    RoomCodeRequest: {
-      type: "object",
-      properties: { code: { type: "string", default: "" } },
-    },
-    MultiplayerStatusResponse: {
-      oneOf: [
-        { type: "object", required: ["ok"], properties: { ok: { const: true } } },
-        schemaRef("ApiError"),
-      ],
-    },
-    MultiplayerSessionResponse: {
-      oneOf: [
-        {
-          type: "object",
-          required: ["ok", "session"],
-          properties: { ok: { const: true }, session: schemaRef("MultiplayerSession") },
-        },
-        schemaRef("ApiError"),
-      ],
-    },
-    MultiplayerSession: {
-      type: "object",
-      required: ["code", "gameId", "playerId", "playerToken", "seat"],
-      properties: {
-        code: { type: "string" },
-        gameId: { type: "string" },
-        playerId: { type: "string" },
-        playerToken: { type: "string" },
-        seat: { enum: ["p1", "p2", "p3", "p4"] },
-        role: { enum: ["player", "spectator"] },
+      ["id", "gameId", "username", "outcome", "metric", "metricValue", "metadata", "createdAt"],
+    ),
+    LeaderboardListResponse: successResponse({ entries: arrayOf(schemaRef("LeaderboardEntry")) }, [
+      "entries",
+    ]),
+    LeaderboardSubmitResponse: successResponse(
+      { rank: integerSchema(), entry: schemaRef("LeaderboardEntry") },
+      ["rank", "entry"],
+    ),
+    CreateMultiplayerRoomRequest: objectSchema(
+      { gameId: stringSchema({ minLength: 1 }), settings: {} },
+      ["gameId"],
+    ),
+    RoomCodeRequest: objectSchema({ code: stringSchema({ default: "" }) }),
+    MultiplayerStatusResponse: successResponse(),
+    MultiplayerSessionResponse: successResponse({ session: schemaRef("MultiplayerSession") }, [
+      "session",
+    ]),
+    MultiplayerSession: objectSchema(
+      {
+        code: stringSchema(),
+        gameId: stringSchema(),
+        playerId: stringSchema(),
+        playerToken: stringSchema(),
+        seat: enumSchema(["p1", "p2", "p3", "p4"]),
+        role: enumSchema(["player", "spectator"]),
       },
-    },
+      ["code", "gameId", "playerId", "playerToken", "seat"],
+    ),
   };
+}
+
+function objectSchema(
+  properties: JsonObject = {},
+  required: readonly string[] = [],
+  extra: JsonObject = {},
+): JsonObject {
+  return {
+    type: "object",
+    ...(required.length ? { required: [...required] } : {}),
+    ...(Object.keys(properties).length ? { properties } : {}),
+    ...extra,
+  };
+}
+
+function successResponse(
+  properties: JsonObject = {},
+  required: readonly string[] = [],
+): JsonObject {
+  return oneOf([
+    objectSchema({ ok: { const: true }, ...properties }, ["ok", ...required]),
+    schemaRef("ApiError"),
+  ]);
+}
+
+function oneOf(schemas: JsonObject[]): JsonObject {
+  return { oneOf: schemas };
+}
+
+function arrayOf(items: JsonObject): JsonObject {
+  return { type: "array", items };
+}
+
+function arrayRef(name: string): JsonObject {
+  return arrayOf(schemaRef(name));
+}
+
+function stringSchema(extra: JsonObject = {}): JsonObject {
+  return { type: "string", ...extra };
+}
+
+function numberSchema(): JsonObject {
+  return { type: "number" };
+}
+
+function integerSchema(): JsonObject {
+  return { type: "integer" };
+}
+
+function enumSchema(values: readonly string[]): JsonObject {
+  return { enum: [...values] };
+}
+
+function difficultySchema(): JsonObject {
+  return enumSchema(["Easy", "Medium", "Hard"]);
+}
+
+function outcomeSchema(): JsonObject {
+  return enumSchema(["won", "lost", "draw", "completed"]);
+}
+
+function resultMetricSchemas(): JsonObject {
+  return {
+    score: numberSchema(),
+    moves: numberSchema(),
+    durationMs: numberSchema(),
+    level: numberSchema(),
+    streak: numberSchema(),
+  };
+}
+
+function syncCollectionProperties(): JsonObject {
+  return {
+    preferences: arrayRef("SyncPreference"),
+    saves: arrayRef("SyncSave"),
+    deletedSaves: arrayRef("SyncSaveTombstone"),
+    results: arrayRef("SyncResult"),
+    resultClears: arrayRef("SyncResultClear"),
+  };
+}
+
+function syncPayloadSchema(dataKey: "data"): JsonObject {
+  return objectSchema({ gameId: syncId(), updatedAt: timestamp(), [dataKey]: {} }, [
+    "gameId",
+    "updatedAt",
+    dataKey,
+  ]);
 }
 
 function syncId(): JsonObject {

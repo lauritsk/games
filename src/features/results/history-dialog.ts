@@ -7,7 +7,12 @@ import {
   resultDetails,
 } from "@features/results/game-result-format";
 import { clearGameResults, listGameResults, type GameResult } from "@features/results/game-results";
-import { openModal, type ModalController } from "@shared/modal";
+import {
+  createSingletonModalLifecycle,
+  openModal,
+  type ModalController,
+  type SingletonModalHandle,
+} from "@shared/modal";
 import { playSound } from "@ui/sound";
 
 export type GameHistoryDialog = {
@@ -25,16 +30,13 @@ export type GameHistoryDialogOptions = {
 };
 
 export function createGameHistoryDialog(options: GameHistoryDialogOptions = {}): GameHistoryDialog {
-  let cleanup: (() => void) | null = null;
-
-  function close(): void {
-    cleanup?.();
-  }
+  const lifecycle = createSingletonModalLifecycle();
 
   function show(game: GameSummary, highlight?: GameResult): void {
-    close();
+    lifecycle.close();
     let clearArmed = false;
     let modal: ModalController | null = null;
+    let current: SingletonModalHandle | null = null;
     const results = listGameResults(game.id);
     const title = el("h2", {
       className: "history-dialog__title popup-title",
@@ -73,12 +75,10 @@ export function createGameHistoryDialog(options: GameHistoryDialogOptions = {}):
       className: "history-dialog",
       panelClassName: "history-dialog__panel",
       dismissible: true,
-      onClose: () => {
-        if (cleanup === closeDialog) cleanup = null;
-      },
+      onClose: () => current?.release(),
       children: [title, details, historyScroll, actions],
     });
-    cleanup = closeDialog;
+    current = lifecycle.track(closeDialog);
     if (highlight) modal.dialog.addEventListener("keydown", onResultKeyDown);
     focusHistoryTop();
     requestAnimationFrame(focusHistoryTop);
@@ -90,8 +90,8 @@ export function createGameHistoryDialog(options: GameHistoryDialogOptions = {}):
     }
 
     function closeDialog(): void {
-      if (cleanup !== closeDialog) return;
-      cleanup = null;
+      if (!current?.isCurrent) return;
+      current.release();
       modal?.close();
     }
 
@@ -103,7 +103,7 @@ export function createGameHistoryDialog(options: GameHistoryDialogOptions = {}):
     }
   }
 
-  return { show, close };
+  return { show, close: lifecycle.close };
 }
 
 function resultSummary(result: GameResult): HTMLElement {

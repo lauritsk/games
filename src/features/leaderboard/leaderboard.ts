@@ -1,4 +1,3 @@
-import * as v from "valibot";
 import {
   leaderboardConfigForGame,
   type LeaderboardMetric,
@@ -7,6 +6,7 @@ import { formatMetric } from "@features/results/game-result-format";
 import type { GameResult } from "@features/results/game-results";
 import type { Difficulty } from "@shared/types";
 import { getDeviceId } from "@features/sync/sync";
+import { requestApiJson } from "@shared/api-client";
 import { integerBetweenSchema, parseWithSchema } from "@shared/validation";
 
 export type LeaderboardEntry = {
@@ -33,8 +33,6 @@ export type LeaderboardSubmitResponse =
   | ApiError;
 
 type ApiError = { ok: false; error: string };
-
-const apiResponseSchema = v.looseObject({ ok: v.boolean(), error: v.optional(v.string()) });
 
 export function hasLeaderboard(gameId: string): boolean {
   return leaderboardConfigForGame(gameId) !== null;
@@ -78,7 +76,10 @@ export async function fetchLeaderboard(
 ): Promise<LeaderboardListResponse> {
   const params = new URLSearchParams({ gameId, limit: String(options.limit ?? 10) });
   if (options.difficulty) params.set("difficulty", options.difficulty);
-  return requestJson<LeaderboardListResponse>(`/api/leaderboard?${params.toString()}`);
+  return requestApiJson<LeaderboardListResponse>(
+    `/api/leaderboard?${params.toString()}`,
+    "Leaderboard unavailable.",
+  );
 }
 
 export async function submitLeaderboardScore(
@@ -101,27 +102,9 @@ export async function submitLeaderboardScore(
     streak: result.streak,
     metadata: result.metadata ?? {},
   };
-  return requestJson<LeaderboardSubmitResponse>("/api/leaderboard", {
+  return requestApiJson<LeaderboardSubmitResponse>("/api/leaderboard", "Leaderboard unavailable.", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-}
-
-async function requestJson<T extends { ok: boolean; error?: string }>(
-  input: RequestInfo | URL,
-  init?: RequestInit,
-): Promise<T> {
-  try {
-    const response = await fetch(input, { cache: "no-store", ...init });
-    const value = (await response.json()) as unknown;
-    if (isApiResponse(value)) return value as T;
-    return { ok: false, error: "Leaderboard unavailable." } as T;
-  } catch {
-    return { ok: false, error: "Leaderboard unavailable." } as T;
-  }
-}
-
-function isApiResponse(value: unknown): value is { ok: boolean; error?: string } {
-  return parseWithSchema(apiResponseSchema, value) !== null;
 }

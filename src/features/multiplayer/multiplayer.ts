@@ -12,6 +12,7 @@ import {
   type MultiplayerSpectateResponse,
   type MultiplayerStatusResponse,
 } from "@features/multiplayer/multiplayer-protocol";
+import { requestApiJson } from "@shared/api-client";
 import { onlineFeaturesEnabled } from "@shared/bundle-flags";
 import { parseJsonSafely } from "@shared/json";
 import {
@@ -37,7 +38,6 @@ export type MultiplayerConnectionHandlers = {
   onStatus(status: MultiplayerConnectionStatus): void;
 };
 
-const apiResponseSchema = v.looseObject({ ok: v.boolean(), error: v.optional(v.string()) });
 const serverMessageBaseSchema = v.looseObject({ type: v.string() });
 const roomBaseSchema = v.looseObject({
   code: v.string(),
@@ -64,7 +64,10 @@ const snapshotYouSchema = v.looseObject({
 export async function fetchMultiplayerStatus(): Promise<MultiplayerStatusResponse> {
   if (!onlineFeaturesEnabled())
     return { ok: false, error: "Online features disabled in this build." };
-  return requestJson<MultiplayerStatusResponse>("/api/multiplayer/status");
+  return requestApiJson<MultiplayerStatusResponse>(
+    "/api/multiplayer/status",
+    "Online multiplayer unavailable.",
+  );
 }
 
 export async function createMultiplayerRoom(
@@ -73,11 +76,15 @@ export async function createMultiplayerRoom(
 ): Promise<MultiplayerCreateResponse> {
   if (!onlineFeaturesEnabled())
     return { ok: false, error: "Online features disabled in this build." };
-  return requestJson<MultiplayerCreateResponse>("/api/multiplayer/rooms", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ gameId, ...(settings === undefined ? {} : { settings }) }),
-  });
+  return requestApiJson<MultiplayerCreateResponse>(
+    "/api/multiplayer/rooms",
+    "Online multiplayer unavailable.",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ gameId, ...(settings === undefined ? {} : { settings }) }),
+    },
+  );
 }
 
 export async function joinMultiplayerRoom(code: string): Promise<MultiplayerJoinResponse> {
@@ -208,25 +215,11 @@ function requestRoomCode<T extends { ok: boolean; error?: string }>(
   path: string,
   code: string,
 ): Promise<T> {
-  return requestJson<T>(path, {
+  return requestApiJson<T>(path, "Online multiplayer unavailable.", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ code: normalizeMultiplayerCode(code) }),
   });
-}
-
-async function requestJson<T extends { ok: boolean; error?: string }>(
-  input: RequestInfo | URL,
-  init?: RequestInit,
-): Promise<T> {
-  try {
-    const response = await fetch(input, { cache: "no-store", ...init });
-    const value = (await response.json()) as unknown;
-    if (isApiResponse(value)) return value as T;
-    return { ok: false, error: "Online multiplayer unavailable." } as T;
-  } catch {
-    return { ok: false, error: "Online multiplayer unavailable." } as T;
-  }
 }
 
 function parseServerMessage(value: unknown): MultiplayerServerMessage | null {
@@ -291,8 +284,4 @@ function parseSeat(value: unknown): { joined: boolean; connected: boolean; ready
     connected: parsed.connected === true,
     ready: parsed.ready === true,
   };
-}
-
-function isApiResponse(value: unknown): value is { ok: boolean; error?: string } {
-  return parseWithSchema(apiResponseSchema, value) !== null;
 }

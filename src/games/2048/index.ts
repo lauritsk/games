@@ -15,7 +15,6 @@ import {
   onDocumentKeyDown,
   resetGameProgress,
   setBoardGrid,
-  setDifficultyIconLabel,
   syncChildren,
   type Difficulty,
   type Direction,
@@ -36,11 +35,7 @@ import {
   saveGameSave,
 } from "@games/shared/game-state";
 import { playSound } from "@ui/sound";
-import {
-  changeDifficulty,
-  createDifficultyControl,
-  createResetControl,
-} from "@games/shared/controls";
+import { createGameDifficultyControl, createResetControl } from "@games/shared/controls";
 import {
   addRandom2048Tile,
   canMove2048,
@@ -116,15 +111,14 @@ export function mount2048(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
-  const difficultyControl = {
+  const difficultyControl = createGameDifficultyControl(actions, {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
       savePreferences();
     },
     reset: resetGame,
-  };
-  const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  });
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
   addTouchGestureControls(grid, { onSwipe: move }, { signal: scope.signal, touchAction: "none" });
@@ -146,7 +140,7 @@ export function mount2048(target: HTMLElement): () => void {
   function render(): void {
     setBoardGrid(grid, size);
     status.textContent = over ? `Done · ${score}` : String(score);
-    setDifficultyIconLabel(difficultyButton, difficulty);
+    difficultyControl.sync();
 
     const values = board.flat();
     const tiles = syncChildren(grid, values.length, () =>
@@ -164,8 +158,8 @@ export function mount2048(target: HTMLElement): () => void {
     handleStandardGameKey(event, {
       onDirection: (direction) => move(direction),
       onActivate: requestReset,
-      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
-      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
+      onNextDifficulty: difficultyControl.next,
+      onPreviousDifficulty: difficultyControl.previous,
       onReset: requestReset,
     });
   }

@@ -73,6 +73,10 @@ type UpgradePreparation =
   | { ok: true; data: MultiplayerSocketData }
   | { ok: false; response: Response };
 
+type MultiplayerSessionResult =
+  | { ok: true; session: MultiplayerSession }
+  | { ok: false; error: string };
+
 const maxRooms = 500;
 const maxSpectatorsPerRoom = 32;
 const lobbyTtlMs = 10 * 60_000;
@@ -137,44 +141,41 @@ export class MultiplayerHub {
     }
     const body = parseWithSchema(createMultiplayerRoomRequestSchema, await readSmallJson(request));
     if (!body) return apiError("Invalid room request", 400);
-    const result = await this.createRoom(body.gameId, body.settings);
-    return apiJson(multiplayerSessionResponseSchema, result, result.ok ? 200 : 400);
+    return multiplayerSessionJson(await this.createRoom(body.gameId, body.settings));
   }
 
-  private async handleJoinRoomRequest(request: Request): Promise<Response> {
+  private handleJoinRoomRequest(request: Request): Promise<Response> {
+    return this.handleRoomCodeRequest(request, "multiplayer-join", 20, (code) =>
+      this.joinRoom(code),
+    );
+  }
+
+  private handleSpectateRoomRequest(request: Request): Promise<Response> {
+    return this.handleRoomCodeRequest(request, "multiplayer-spectate", 30, (code) =>
+      this.spectateRoom(code),
+    );
+  }
+
+  private async handleRoomCodeRequest(
+    request: Request,
+    rateLimitPrefix: string,
+    rateLimitMax: number,
+    enterRoom: (code: string) => Promise<MultiplayerSessionResult>,
+  ): Promise<Response> {
     const body = parseWithSchema(roomCodeRequestSchema, await readSmallJson(request));
     const normalized = normalizeMultiplayerCode(body?.code ?? "");
     if (
-      !checkRequestRateLimit(request, `multiplayer-join:${normalized}`, {
+      !checkRequestRateLimit(request, `${rateLimitPrefix}:${normalized}`, {
         windowMs: 60_000,
-        max: 20,
+        max: rateLimitMax,
       })
     ) {
       return tooManyRequests();
     }
-    const result = await this.joinRoom(normalized);
-    return apiJson(multiplayerSessionResponseSchema, result, result.ok ? 200 : 400);
+    return multiplayerSessionJson(await enterRoom(normalized));
   }
 
-  private async handleSpectateRoomRequest(request: Request): Promise<Response> {
-    const body = parseWithSchema(roomCodeRequestSchema, await readSmallJson(request));
-    const normalized = normalizeMultiplayerCode(body?.code ?? "");
-    if (
-      !checkRequestRateLimit(request, `multiplayer-spectate:${normalized}`, {
-        windowMs: 60_000,
-        max: 30,
-      })
-    ) {
-      return tooManyRequests();
-    }
-    const result = await this.spectateRoom(normalized);
-    return apiJson(multiplayerSessionResponseSchema, result, result.ok ? 200 : 400);
-  }
-
-  async createRoom(
-    gameId: string,
-    requestedSettings?: unknown,
-  ): Promise<{ ok: true; session: MultiplayerSession } | { ok: false; error: string }> {
+  async createRoom(gameId: string, requestedSettings?: unknown): Promise<MultiplayerSessionResult> {
     this.cleanup();
     if (this.rooms.size >= maxRooms) return { ok: false, error: "Too many active rooms" };
     const adapter = multiplayerAdapterForGame(gameId);
@@ -213,9 +214,7 @@ export class MultiplayerHub {
     return { ok: true, session };
   }
 
-  async joinRoom(
-    code: string,
-  ): Promise<{ ok: true; session: MultiplayerSession } | { ok: false; error: string }> {
+  async joinRoom(code: string): Promise<MultiplayerSessionResult> {
     this.cleanup();
     const room = this.rooms.get(normalizeMultiplayerCode(code));
     if (!room || room.status !== "lobby") {
@@ -236,9 +235,7 @@ export class MultiplayerHub {
     return { ok: true, session };
   }
 
-  async spectateRoom(
-    code: string,
-  ): Promise<{ ok: true; session: MultiplayerSession } | { ok: false; error: string }> {
+  async spectateRoom(code: string): Promise<MultiplayerSessionResult> {
     this.cleanup();
     const room = this.rooms.get(normalizeMultiplayerCode(code));
     if (!room) return { ok: false, error: "Room not found or unavailable" };
@@ -360,7 +357,7 @@ export class MultiplayerHub {
       return;
     }
     this.applyRoomResult(room, result);
-    this.publishRoom(ws, room);
+    this.broadcastRoom(room, ws);
   }
 
   onClose(ws: ServerWebSocket<MultiplayerSocketData>): void {
@@ -425,10 +422,6 @@ export class MultiplayerHub {
     };
   }
 
-  private publishRoom(ws: ServerWebSocket<MultiplayerSocketData>, room: Room): void {
-    this.broadcastRoom(room, ws);
-  }
-
   private broadcastRoom(room: Room, fallback?: ServerWebSocket<MultiplayerSocketData>): void {
     const publisher = fallback ?? room.sockets.values().next().value;
     if (publisher && canPublishTopic(publisher)) {
@@ -466,7 +459,7 @@ export class MultiplayerHub {
       this.sendError(ws, started.error, room);
       return;
     }
-    this.publishRoom(ws, room);
+    this.broadcastRoom(room, ws);
   }
 
   private handleSettings(
@@ -492,7 +485,7 @@ export class MultiplayerHub {
     room.rematchReady = {};
     room.revision += 1;
     room.lastActivityAt = Date.now();
-    this.publishRoom(ws, room);
+    this.broadcastRoom(room, ws);
   }
 
   private handleRematch(ws: ServerWebSocket<MultiplayerSocketData>, room: Room): void {
@@ -508,7 +501,7 @@ export class MultiplayerHub {
     const readySeats = connectedReadySeats(room);
     if (ws.data.seat !== "p1") {
       if (!alreadyReady) room.revision += 1;
-      this.publishRoom(ws, room);
+      this.broadcastRoom(room, ws);
       return;
     }
     if (readySeats.length < minPlayers(room)) {
@@ -524,7 +517,7 @@ export class MultiplayerHub {
       this.sendError(ws, started.error, room);
       return;
     }
-    this.publishRoom(ws, room);
+    this.broadcastRoom(room, ws);
   }
 
   private beginRoomCountdown(
@@ -656,6 +649,10 @@ export class MultiplayerHub {
     this.stopRoomCountdown(room);
     this.rooms.delete(code);
   }
+}
+
+function multiplayerSessionJson(result: MultiplayerSessionResult): Response {
+  return apiJson(multiplayerSessionResponseSchema, result, result.ok ? 200 : 400);
 }
 
 function parseClientMessage(message: string | Buffer): MultiplayerClientMessage | null {

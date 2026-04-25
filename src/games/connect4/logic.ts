@@ -10,6 +10,13 @@ export const connect4Length = 4;
 export const connect4Human: Connect4Player = 1;
 export const connect4Bot: Connect4Player = 2;
 
+const connect4Directions = [
+  [0, 1],
+  [1, 0],
+  [1, 1],
+  [1, -1],
+] as const;
+
 export function newConnect4Board(): Connect4Cell[][] {
   return Array.from({ length: connect4Rows }, () => Array<Connect4Cell>(connect4Columns).fill(0));
 }
@@ -79,14 +86,7 @@ export function findConnect4Win(
   column: number,
   player: Connect4Player,
 ): Connect4WinLine | null {
-  const directions = [
-    [0, 1],
-    [1, 0],
-    [1, 1],
-    [1, -1],
-  ] as const;
-
-  for (const [dr, dc] of directions) {
+  for (const [dr, dc] of connect4Directions) {
     const line: Connect4WinLine = [[row, column]];
     line.push(...walk(board, row, column, dr, dc, player));
     line.push(...walk(board, row, column, -dr, -dc, player));
@@ -141,14 +141,8 @@ function longestLine(
   column: number,
   player: Connect4Player,
 ): number {
-  const directions = [
-    [0, 1],
-    [1, 0],
-    [1, 1],
-    [1, -1],
-  ] as const;
   return Math.max(
-    ...directions.map(
+    ...connect4Directions.map(
       ([dr, dc]) =>
         1 +
         walk(board, row, column, dr, dc, player).length +

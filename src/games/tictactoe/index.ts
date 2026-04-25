@@ -46,13 +46,11 @@ import {
 import { playSound } from "@ui/sound";
 import {
   botPlayModeLabel,
-  changeDifficulty,
-  createDifficultyControl,
+  createGameDifficultyControl,
   createModeControl,
   createResetControl,
   nextBotPlayMode,
   setBotPlayModeIconLabel,
-  setDifficultyControlIconLabel,
   toggleMode,
   type BotPlayMode,
 } from "@games/shared/controls";
@@ -180,7 +178,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     reset: resetGame,
   };
   const modeButton = createModeControl(actions, modeControl);
-  const difficultyControl = {
+  const difficultyControl = createGameDifficultyControl(actions, {
     get: () => difficulty,
     set: (next: Difficulty) => {
       resetAbandonedBotStreak();
@@ -189,8 +187,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
       savePreferences();
     },
     reset: resetGame,
-  };
-  const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  });
   const {
     onlineButton,
     startOnlineButton,
@@ -227,8 +224,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     online.renderPresence(onlinePresence);
     setBotPlayModeIconLabel(modeButton, online.session ? "Online" : mode);
     modeButton.disabled = Boolean(online.session);
-    setDifficultyControlIconLabel(difficultyButton, online.session ? "Online" : difficulty);
-    difficultyButton.disabled = Boolean(online.session);
+    difficultyControl.sync(online.session ? "Online" : difficulty, Boolean(online.session));
     online.syncActionButtons(
       { onlineButton, startOnlineButton, rematchButton },
       isOnlineFinished(),
@@ -268,8 +264,8 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     handleStandardGameKey(event, {
       onDirection: moveSelection,
       onActivate: () => playTurn(selected),
-      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
-      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
+      onNextDifficulty: difficultyControl.next,
+      onPreviousDifficulty: difficultyControl.previous,
       onReset: requestReset,
     });
   }

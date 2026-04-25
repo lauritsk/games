@@ -33,7 +33,6 @@ import {
   pauseGameOnRequest,
   pauseOnFocusLoss,
   resetGameProgress,
-  setDifficultyIconLabel,
   setIconLabel,
   type Difficulty,
   type Direction,
@@ -63,11 +62,7 @@ import {
   saveGameSave,
 } from "@games/shared/game-state";
 import { playSound } from "@ui/sound";
-import {
-  changeDifficulty,
-  createDifficultyControl,
-  createResetControl,
-} from "@games/shared/controls";
+import { createGameDifficultyControl, createResetControl } from "@games/shared/controls";
 import {
   aimInvaderPlayer,
   fireInvaderShot,
@@ -234,15 +229,14 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     fire,
   });
 
-  const difficultyControl = {
+  const difficultyControl = createGameDifficultyControl(actions, {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
       savePreferences();
     },
     reset: resetAfterDifficultyChange,
-  };
-  const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  });
   const pauseButton = createPauseButton(actions, togglePause);
   const {
     onlineButton,
@@ -343,8 +337,8 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
         start();
         fire();
       },
-      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
-      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
+      onNextDifficulty: difficultyControl.next,
+      onPreviousDifficulty: difficultyControl.previous,
       onReset: requestReset,
     });
   }
@@ -445,8 +439,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   function render(): void {
     const current = currentInvaderState();
     online.renderPresence(onlinePresence);
-    setDifficultyIconLabel(difficultyButton, difficulty);
-    difficultyButton.disabled = Boolean(online.session && !canAdjustOnlineSettings());
+    difficultyControl.sync(difficulty, Boolean(online.session && !canAdjustOnlineSettings()));
     setIconLabel(
       pauseButton,
       mode === "paused" ? "▶" : "⏸",

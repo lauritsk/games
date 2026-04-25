@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 
 declare global {
   interface Window {
@@ -21,6 +21,40 @@ async function openGame(page: Page, name: string): Promise<void> {
   await page.goto("/");
   await page.getByRole("link", { name }).click();
   await expect(page.getByRole("link", { name: "Back to games" })).toBeVisible();
+}
+
+type OnlineRoom = {
+  guest: Page;
+  close(): Promise<void>;
+};
+
+async function startOnlineRoom(
+  host: Page,
+  browser: Browser,
+  gameName: string,
+): Promise<OnlineRoom> {
+  await openGame(host, gameName);
+  await host.getByRole("button", { name: "Play online" }).click();
+  await host.getByRole("button", { name: "Create room" }).click();
+  const code = (await host.locator(".online-presence__room-code").textContent())?.trim();
+  expect(code).toMatch(/^[2-9A-HJKMNP-Z]{6}$/);
+
+  const guestContext = await browser.newContext();
+  const guest = await guestContext.newPage();
+  await watchForClientErrors(guest);
+  await openGame(guest, gameName);
+  await guest.getByRole("button", { name: "Play online" }).click();
+  await guest.getByLabel("Room code").fill(code!);
+  await guest.getByRole("button", { name: "Join room" }).click();
+  await host.getByRole("button", { name: "Start", exact: true }).click();
+
+  return {
+    guest,
+    async close() {
+      await guest.evaluate(() => window.assertNoClientErrors());
+      await guestContext.close();
+    },
+  };
 }
 
 async function expectElementsNotToOverlap(a: Locator, b: Locator): Promise<void> {
@@ -127,20 +161,7 @@ test("leaderboard navigation opens public leaderboard games", async ({ page }) =
 });
 
 test("plays a live Tic-Tac-Toe room across two browsers", async ({ page, browser }) => {
-  await openGame(page, "Tic-Tac-Toe");
-  await page.getByRole("button", { name: "Play online" }).click();
-  await page.getByRole("button", { name: "Create room" }).click();
-  const code = (await page.locator(".online-presence__room-code").textContent())?.trim();
-  expect(code).toMatch(/^[2-9A-HJKMNP-Z]{6}$/);
-
-  const guestContext = await browser.newContext();
-  const guest = await guestContext.newPage();
-  await watchForClientErrors(guest);
-  await openGame(guest, "Tic-Tac-Toe");
-  await guest.getByRole("button", { name: "Play online" }).click();
-  await guest.getByLabel("Room code").fill(code!);
-  await guest.getByRole("button", { name: "Join room" }).click();
-  await page.getByRole("button", { name: "Start", exact: true }).click();
+  const { guest, close } = await startOnlineRoom(page, browser, "Tic-Tac-Toe");
 
   await expect(page.getByText("Your turn")).toBeVisible({ timeout: 7000 });
   await page.getByRole("button", { name: "Row 2, column 2, empty" }).click();
@@ -154,26 +175,12 @@ test("plays a live Tic-Tac-Toe room across two browsers", async ({ page, browser
   await expect(page.getByText("You win")).toBeVisible();
   await expect(guest.getByText("Opponent wins")).toBeVisible();
 
-  await guest.evaluate(() => window.assertNoClientErrors());
-  await guestContext.close();
+  await close();
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
 test("syncs a live Connect 4 room across two browsers", async ({ page, browser }) => {
-  await openGame(page, "Connect 4");
-  await page.getByRole("button", { name: "Play online" }).click();
-  await page.getByRole("button", { name: "Create room" }).click();
-  const code = (await page.locator(".online-presence__room-code").textContent())?.trim();
-  expect(code).toMatch(/^[2-9A-HJKMNP-Z]{6}$/);
-
-  const guestContext = await browser.newContext();
-  const guest = await guestContext.newPage();
-  await watchForClientErrors(guest);
-  await openGame(guest, "Connect 4");
-  await guest.getByRole("button", { name: "Play online" }).click();
-  await guest.getByLabel("Room code").fill(code!);
-  await guest.getByRole("button", { name: "Join room" }).click();
-  await page.getByRole("button", { name: "Start", exact: true }).click();
+  const { guest, close } = await startOnlineRoom(page, browser, "Connect 4");
 
   await expect(page.getByText("Your turn")).toBeVisible({ timeout: 7000 });
   await page.getByRole("button", { name: "Row 1, column 4, empty" }).click();
@@ -181,8 +188,7 @@ test("syncs a live Connect 4 room across two browsers", async ({ page, browser }
   await guest.getByRole("button", { name: "Row 1, column 5, empty" }).click();
   await expect(page.getByRole("button", { name: "Row 6, column 5, Gold disc" })).toBeVisible();
 
-  await guest.evaluate(() => window.assertNoClientErrors());
-  await guestContext.close();
+  await close();
   await page.evaluate(() => window.assertNoClientErrors());
 });
 

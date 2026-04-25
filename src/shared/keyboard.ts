@@ -12,17 +12,21 @@ export const Keys = {
   previousDifficulty: ["-", "_", "<"],
 } as const;
 
+const directionKeyMap: ReadonlyArray<readonly [Direction, readonly string[]]> = [
+  ["up", [...Keys.up, "w"]],
+  ["right", [...Keys.right, "d"]],
+  ["down", [...Keys.down, "s"]],
+  ["left", [...Keys.left, "a"]],
+];
+
 export function matchesKey(event: KeyboardEvent, keys: readonly string[]): boolean {
   const key = event.key.toLowerCase();
   return keys.some((candidate) => candidate.toLowerCase() === key);
 }
 
 export function directionFromKey(event: KeyboardEvent): Direction | null {
-  if (matchesKey(event, [...Keys.up, "w"])) return "up";
-  if (matchesKey(event, [...Keys.right, "d"])) return "right";
-  if (matchesKey(event, [...Keys.down, "s"])) return "down";
-  if (matchesKey(event, [...Keys.left, "a"])) return "left";
-  return null;
+  const key = event.key.toLowerCase();
+  return directionKeyMap.find(([, keys]) => keys.includes(key))?.[0] ?? null;
 }
 
 export function moveGridIndex(

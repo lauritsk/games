@@ -11,7 +11,12 @@ import {
   submitLeaderboardScore,
   type LeaderboardEntry,
 } from "@features/leaderboard/leaderboard";
-import { openModal, type ModalController } from "@shared/modal";
+import {
+  createSingletonModalLifecycle,
+  openModal,
+  type ModalController,
+  type SingletonModalHandle,
+} from "@shared/modal";
 import { playSound } from "@ui/sound";
 import type { Difficulty } from "@shared/types";
 
@@ -23,15 +28,12 @@ export type LeaderboardDialog = {
 const difficulties: Difficulty[] = ["Easy", "Medium", "Hard"];
 
 export function createLeaderboardDialog(): LeaderboardDialog {
-  let cleanup: (() => void) | null = null;
-
-  function close(): void {
-    cleanup?.();
-  }
+  const lifecycle = createSingletonModalLifecycle();
 
   function show(game: GameSummary, highlight?: GameResult): void {
-    close();
+    lifecycle.close();
     let modal: ModalController | null = null;
+    let current: SingletonModalHandle | null = null;
     const title = el("h2", {
       className: "leaderboard-dialog__title popup-title",
       text: `${game.name} leaderboard`,
@@ -70,12 +72,10 @@ export function createLeaderboardDialog(): LeaderboardDialog {
       className: "leaderboard-dialog",
       panelClassName: "leaderboard-dialog__panel",
       dismissible: true,
-      onClose: () => {
-        if (cleanup === closeDialog) cleanup = null;
-      },
+      onClose: () => current?.release(),
       children: [title, summary, filters, body, actions],
     });
-    cleanup = closeDialog;
+    current = lifecycle.track(closeDialog);
     void refreshScores();
 
     function renderFilters(): void {
@@ -106,13 +106,13 @@ export function createLeaderboardDialog(): LeaderboardDialog {
     }
 
     function closeDialog(): void {
-      if (cleanup !== closeDialog) return;
-      cleanup = null;
+      if (!current?.isCurrent) return;
+      current.release();
       modal?.close();
     }
   }
 
-  return { show, close };
+  return { show, close: lifecycle.close };
 }
 
 function createSubmitForm(

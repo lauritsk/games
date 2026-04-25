@@ -30,7 +30,6 @@ import {
   pauseGameOnRequest,
   pauseOnFocusLoss,
   resetGameProgress,
-  setDifficultyIconLabel,
   setIconLabel,
   type Difficulty,
   type Direction,
@@ -51,11 +50,7 @@ import {
   saveGameSave,
 } from "@games/shared/game-state";
 import { playSound } from "@ui/sound";
-import {
-  changeDifficulty,
-  createDifficultyControl,
-  createResetControl,
-} from "@games/shared/controls";
+import { createGameDifficultyControl, createResetControl } from "@games/shared/controls";
 import {
   moveBreakoutPaddle,
   newBreakoutState,
@@ -180,15 +175,14 @@ export function mountBreakout(target: HTMLElement): () => void {
   });
   const overlay = createPauseOverlay(board, togglePause);
 
-  const difficultyControl = {
+  const difficultyControl = createGameDifficultyControl(actions, {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
       savePreferences();
     },
     reset: resetGame,
-  };
-  const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  });
   const pauseButton = createPauseButton(actions, togglePause);
   const requestReset = createResetControl(actions, shell, resetGame);
 
@@ -252,8 +246,8 @@ export function mountBreakout(target: HTMLElement): () => void {
     handleStandardGameKey(event, {
       onDirection: (direction) => movePaddleByKey(direction),
       onActivate: start,
-      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
-      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
+      onNextDifficulty: difficultyControl.next,
+      onPreviousDifficulty: difficultyControl.previous,
       onReset: requestReset,
     });
   }
@@ -315,7 +309,7 @@ export function mountBreakout(target: HTMLElement): () => void {
   }
 
   function render(): void {
-    setDifficultyIconLabel(difficultyButton, difficulty);
+    difficultyControl.sync();
     setIconLabel(
       pauseButton,
       mode === "paused" ? "▶" : "⏸",

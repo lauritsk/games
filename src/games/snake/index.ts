@@ -56,11 +56,9 @@ import {
 } from "@features/multiplayer/multiplayer-protocol";
 import { playSound } from "@ui/sound";
 import {
-  changeDifficulty,
-  createDifficultyControl,
+  createGameDifficultyControl,
   createModeControl,
   createResetControl,
-  setDifficultyControlIconLabel,
   setPlayerModeIconLabel,
 } from "@games/shared/controls";
 import {
@@ -245,15 +243,14 @@ export function mountSnake(target: HTMLElement): () => void {
     reset: resetAfterSettingChange,
   };
   const wallModeButton = createModeControl(actions, wallModeControl);
-  const difficultyControl = {
+  const difficultyControl = createGameDifficultyControl(actions, {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
       savePreferences();
     },
     reset: resetAfterSettingChange,
-  };
-  const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  });
   const overlay = createPauseOverlay(viewport, togglePause);
   const {
     onlineButton,
@@ -317,8 +314,7 @@ export function mountSnake(target: HTMLElement): () => void {
     status.textContent = statusText();
     online.renderPresence(onlinePresence);
     overlay.setVisible(!online.session && state === "paused");
-    setDifficultyControlIconLabel(difficultyButton, difficulty);
-    difficultyButton.disabled = Boolean(online.session && !canAdjustOnlineSettings());
+    difficultyControl.sync(difficulty, Boolean(online.session && !canAdjustOnlineSettings()));
     setPlayerModeIconLabel(wallModeButton, wallModeLabel(wallMode));
     wallModeButton.disabled = Boolean(online.session && !canAdjustOnlineSettings());
     online.syncActionButtons(
@@ -366,12 +362,10 @@ export function mountSnake(target: HTMLElement): () => void {
       onDirection: handleDirectionInput,
       onActivate: activate,
       onNextDifficulty: () => {
-        if (!online.session || canAdjustOnlineSettings())
-          changeDifficulty(difficultyControl, "next");
+        if (!online.session || canAdjustOnlineSettings()) difficultyControl.next();
       },
       onPreviousDifficulty: () => {
-        if (!online.session || canAdjustOnlineSettings())
-          changeDifficulty(difficultyControl, "previous");
+        if (!online.session || canAdjustOnlineSettings()) difficultyControl.previous();
       },
       onReset: requestReset,
     });

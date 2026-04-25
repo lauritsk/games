@@ -5,13 +5,13 @@
 - [x] Extract shared online multiplayer game-session helper for repeated client boilerplate.
 - [x] Replace manual board parsers with shared fixed array/grid parsers.
 - [x] Remove unused exports and dead helper functions after confirming no external API dependency.
-- [ ] Extract shared singleton modal lifecycle helper for dialogs.
-- [ ] Extract repeated E2E online room setup helpers.
-- [ ] Extract shared client JSON request helper for leaderboard and multiplayer fetch flows.
-- [ ] Simplify OpenAPI docs schema generation with small schema factory helpers.
-- [ ] Simplify server multiplayer request handlers and inline trivial publish wrapper.
-- [ ] Extract repeated difficulty-control setup helper for game mounts.
-- [ ] Apply small logic cleanups for Connect 4 directions and keyboard direction lookup.
+- [x] Extract shared singleton modal lifecycle helper for dialogs.
+- [x] Extract repeated E2E online room setup helpers.
+- [x] Extract shared client JSON request helper for leaderboard and multiplayer fetch flows.
+- [x] Simplify OpenAPI docs schema generation with small schema factory helpers.
+- [x] Simplify server multiplayer request handlers and inline trivial publish wrapper.
+- [x] Extract repeated difficulty-control setup helper for game mounts.
+- [x] Apply small logic cleanups for Connect 4 directions and keyboard direction lookup.
 - [x] Refactor shared result-pruning maintainability hot spot.
 - [x] Refactor current maintainability hot spots.
 - [x] Extract shared array/grid parsing helpers for save-state parsers.
