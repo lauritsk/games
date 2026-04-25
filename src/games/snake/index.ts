@@ -213,16 +213,6 @@ export function mountSnake(target: HTMLElement): () => void {
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
   const onlineCountdown = createMultiplayerCountdown(render);
-  const difficultyControl = {
-    get: () => difficulty,
-    set: (next: Difficulty) => {
-      difficulty = next;
-      savePreferences();
-    },
-    reset: resetGame,
-  };
-  const difficultyButton = createDifficultyControl(actions, difficultyControl);
-  const overlay = createPauseOverlay(viewport, togglePause);
   const wallModeButton = createModeControl(actions, {
     get: () => wallMode,
     set: (next) => {
@@ -233,6 +223,16 @@ export function mountSnake(target: HTMLElement): () => void {
     label: wallModeLabel,
     reset: resetGame,
   });
+  const difficultyControl = {
+    get: () => difficulty,
+    set: (next: Difficulty) => {
+      difficulty = next;
+      savePreferences();
+    },
+    reset: resetGame,
+  };
+  const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  const overlay = createPauseOverlay(viewport, togglePause);
   const {
     onlineButton,
     startOnlineButton,
@@ -463,11 +463,11 @@ export function mountSnake(target: HTMLElement): () => void {
 
   function statusText(): string {
     if (onlineSession) return onlineStatusText();
-    if (state === "ready") return `Ready · ${wallModeLabel(wallMode)}`;
+    if (state === "ready") return "Ready";
     if (state === "paused") return `Paused · ${snake.length}`;
     if (state === "won") return "Full";
     if (state === "lost") return `Crash · ${snake.length}`;
-    return `Length ${snake.length} · ${wallModeLabel(wallMode)}`;
+    return `Length ${snake.length}`;
   }
 
   function wallModeLabel(mode: WallMode): string {

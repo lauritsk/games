@@ -77,6 +77,7 @@ export function createModeControl<TValue extends string>(
   control: ToggleControl<TValue>,
 ): HTMLButtonElement {
   const modeButton = actionButton("");
+  modeButton.dataset.action = "mode";
   setPlayerModeIconLabel(modeButton, control.label(control.get()));
   modeButton.addEventListener("click", () => toggleMode(control));
   actions.append(modeButton);

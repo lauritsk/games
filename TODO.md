@@ -1,5 +1,10 @@
 # TODO
 
+- [x] Improve icon consistency and top-bar title hierarchy.
+- [x] Normalize game action ordering by generic-to-specific priority.
+- [x] Remove duplicated game-setting display.
+- [x] Change difficulty icons to horizontal stacked bars.
+- [x] Update new-game and difficulty icons.
 - [x] Use computer icon for system appearance mode, then commit and push.
 - [x] Unify dashboard and game top bar actions with appearance toggle.
 - [x] Standardize duplicated CSS values and hierarchy.

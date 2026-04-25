@@ -72,6 +72,7 @@
     --font-size-xs: 0.82rem;
     --font-size-sm: 0.86rem;
     --font-size-control: 0.94rem;
+    --font-size-top-title: 1rem;
     --font-size-dialog-title: 1.2rem;
     --font-weight-strong: 850;
     --font-weight-heavy: 900;
@@ -312,6 +313,9 @@
     min-width: 0;
     overflow: hidden;
     color: var(--ink);
+    font-size: var(--font-size-top-title);
+    font-weight: var(--font-weight-heavy);
+    letter-spacing: -0.02em;
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -794,6 +798,28 @@
     gap: var(--space-sm);
     flex-wrap: wrap;
     overflow: visible;
+  }
+
+  .game__actions .button[data-action="mode"] {
+    order: 10;
+  }
+
+  .game__actions .button[data-action="difficulty"] {
+    order: 20;
+  }
+
+  .game__actions .button[data-action="online"],
+  .game__actions .button[data-action="online-start"],
+  .game__actions .button[data-action="online-rematch"] {
+    order: 30;
+  }
+
+  .game__actions .button[data-action="pause"] {
+    order: 40;
+  }
+
+  .game__actions .button[data-action="reset"] {
+    order: 50;
   }
 
   .game__actions .button:disabled {

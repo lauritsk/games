@@ -30,16 +30,19 @@ export function createMultiplayerActionButtons(
 ): MultiplayerActionButtons {
   const dialog = createMultiplayerDialog();
   const onlineButton = actionButton("");
+  onlineButton.dataset.action = "online";
   setIconLabel(onlineButton, "🌐", "Play online");
   onlineButton.addEventListener("click", () => {
     if (!options.getSession()) dialog.show(options.game, options.onSession);
   });
 
   const startOnlineButton = actionButton("");
+  startOnlineButton.dataset.action = "online-start";
   setIconLabel(startOnlineButton, "▶", "Start");
   startOnlineButton.addEventListener("click", options.onStart);
 
   const rematchButton = actionButton("");
+  rematchButton.dataset.action = "online-rematch";
   setIconLabel(rematchButton, "↺", "Rematch");
   rematchButton.addEventListener("click", options.onRematch);
 

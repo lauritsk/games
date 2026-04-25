@@ -312,6 +312,7 @@ export function createPauseOverlay(board: HTMLElement, onResume: () => void): Pa
 
 export function createPauseButton(actions: HTMLElement, onToggle: () => void): HTMLButtonElement {
   const pauseButton = actionButton("");
+  pauseButton.dataset.action = "pause";
   setIconLabel(pauseButton, "⏸", "Pause");
   pauseButton.addEventListener("click", onToggle);
   actions.append(pauseButton);

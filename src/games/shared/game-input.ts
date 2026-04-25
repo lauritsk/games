@@ -217,6 +217,7 @@ export function createDifficultyButton(
   onClick: () => void,
 ): HTMLButtonElement {
   const difficultyButton = actionButton("");
+  difficultyButton.dataset.action = "difficulty";
   difficultyButton.addEventListener("click", onClick);
   actions.append(difficultyButton);
   return difficultyButton;
@@ -224,7 +225,8 @@ export function createDifficultyButton(
 
 export function createResetButton(actions: HTMLElement, onClick: () => void): HTMLButtonElement {
   const resetButton = actionButton("");
-  setIconLabel(resetButton, "↻", "New");
+  resetButton.dataset.action = "reset";
+  setIconLabel(resetButton, "✚", "New");
   resetButton.addEventListener("click", onClick);
   actions.append(resetButton);
   return resetButton;

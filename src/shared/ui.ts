@@ -35,8 +35,8 @@ export function setIconLabel(element: HTMLElement, icon: string, label: string):
 }
 
 export function difficultyIcon(difficulty: Difficulty): string {
-  if (difficulty === "Easy") return "▮▯▯";
-  if (difficulty === "Medium") return "▮▮▯";
+  if (difficulty === "Easy") return "▮";
+  if (difficulty === "Medium") return "▮▮";
   return "▮▮▮";
 }
 
@@ -148,46 +148,24 @@ const svgIconShapes: Record<string, readonly SvgShape[]> = {
     strokeShape("path", { d: "M4 12a8 8 0 1 0 2.3-5.7" }),
     strokeShape("path", { d: "M4 4v6h6" }),
   ],
+  "✚": [
+    strokeShape("line", { x1: "12", y1: "5", x2: "12", y2: "19" }),
+    strokeShape("line", { x1: "5", y1: "12", x2: "19", y2: "12" }),
+  ],
   "▶": [fillShape("polygon", { points: "8,5 19,12 8,19" })],
   "⏸": [
     fillShape("rect", { x: "7", y: "5", width: "3.8", height: "14", rx: "1" }),
     fillShape("rect", { x: "13.2", y: "5", width: "3.8", height: "14", rx: "1" }),
   ],
   "✓": [strokeShape("polyline", { points: "5 13 10 18 20 6" })],
-  "▮▯▯": [
-    fillShape("rect", { x: "5", y: "14", width: "3.5", height: "5", rx: "0.8" }),
-    fillShape("rect", {
-      x: "10.25",
-      y: "10",
-      width: "3.5",
-      height: "9",
-      rx: "0.8",
-      opacity: "0.28",
-    }),
-    fillShape("rect", {
-      x: "15.5",
-      y: "6",
-      width: "3.5",
-      height: "13",
-      rx: "0.8",
-      opacity: "0.28",
-    }),
-  ],
-  "▮▮▯": [
-    fillShape("rect", { x: "5", y: "14", width: "3.5", height: "5", rx: "0.8" }),
-    fillShape("rect", { x: "10.25", y: "10", width: "3.5", height: "9", rx: "0.8" }),
-    fillShape("rect", {
-      x: "15.5",
-      y: "6",
-      width: "3.5",
-      height: "13",
-      rx: "0.8",
-      opacity: "0.28",
-    }),
+  "▮": [fillShape("rect", { x: "6", y: "10.25", width: "12", height: "3.5", rx: "0.8" })],
+  "▮▮": [
+    fillShape("rect", { x: "6", y: "7.4", width: "12", height: "3.5", rx: "0.8" }),
+    fillShape("rect", { x: "6", y: "13.1", width: "12", height: "3.5", rx: "0.8" }),
   ],
   "▮▮▮": [
-    fillShape("rect", { x: "5", y: "14", width: "3.5", height: "5", rx: "0.8" }),
-    fillShape("rect", { x: "10.25", y: "10", width: "3.5", height: "9", rx: "0.8" }),
-    fillShape("rect", { x: "15.5", y: "6", width: "3.5", height: "13", rx: "0.8" }),
+    fillShape("rect", { x: "6", y: "5", width: "12", height: "3.5", rx: "0.8" }),
+    fillShape("rect", { x: "6", y: "10.25", width: "12", height: "3.5", rx: "0.8" }),
+    fillShape("rect", { x: "6", y: "15.5", width: "12", height: "3.5", rx: "0.8" }),
   ],
 };
