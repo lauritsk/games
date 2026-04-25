@@ -1,8 +1,40 @@
 import { describe, expect, test } from "bun:test";
-import { MultiplayerHub } from "../src/server/multiplayer";
+import type { ServerWebSocket } from "bun";
+import { MultiplayerHub, type MultiplayerSocketData } from "../src/server/multiplayer";
 
 async function json(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
+}
+
+type TestSocket = ServerWebSocket<MultiplayerSocketData> & {
+  sent: string[];
+  published: string[];
+};
+
+function fakeSocket(data: MultiplayerSocketData): TestSocket {
+  const sent: string[] = [];
+  const published: string[] = [];
+  return {
+    data,
+    sent,
+    published,
+    send(message: string) {
+      sent.push(message);
+      return 0;
+    },
+    publish(_topic: string, message: string) {
+      published.push(message);
+      return 0;
+    },
+    subscribe() {},
+    close() {},
+  } as unknown as TestSocket;
+}
+
+function lastSentJson(socket: TestSocket): Record<string, unknown> {
+  const message = socket.sent.at(-1);
+  if (!message) throw new Error("No socket message sent");
+  return JSON.parse(message) as Record<string, unknown>;
 }
 
 describe("multiplayer API", () => {
@@ -36,6 +68,52 @@ describe("multiplayer API", () => {
     expect(join?.status).toBe(200);
     const joined = await json(join!);
     expect((joined.session as { seat: string }).seat).toBe("p2");
+    hub.dispose();
+  });
+
+  test("rematches finished rooms without creating a new session", async () => {
+    const hub = new MultiplayerHub();
+    const created = await hub.createRoom("tictactoe");
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const joined = await hub.joinRoom(created.session.code);
+    expect(joined.ok).toBe(true);
+    if (!joined.ok) return;
+
+    const p1 = fakeSocket({
+      code: created.session.code,
+      playerId: created.session.playerId,
+      seat: "p1",
+    });
+    const p2 = fakeSocket({
+      code: joined.session.code,
+      playerId: joined.session.playerId,
+      seat: "p2",
+    });
+    const play = (socket: TestSocket, revision: number, index: number): void => {
+      hub.onMessage(
+        socket,
+        JSON.stringify({ type: "action", revision, action: { type: "place", index } }),
+      );
+    };
+
+    play(p1, 1, 0);
+    play(p2, 2, 3);
+    play(p1, 3, 1);
+    play(p2, 4, 4);
+    play(p1, 5, 2);
+
+    hub.onMessage(p1, JSON.stringify({ type: "rematch", revision: 6 }));
+
+    const message = lastSentJson(p1);
+    expect(message.type).toBe("snapshot");
+    const room = message.room as { status: string; revision: number; state: unknown };
+    expect(room.status).toBe("playing");
+    expect(room.revision).toBe(7);
+    const state = room.state as { board: string[]; moves: number; winner: string | null };
+    expect(state.moves).toBe(0);
+    expect(state.winner).toBeNull();
+    expect(state.board.every((cell) => cell === "")).toBe(true);
     hub.dispose();
   });
 

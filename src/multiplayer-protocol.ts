@@ -47,7 +47,12 @@ export type MultiplayerActionMessage = {
   action: unknown;
 };
 
-export type MultiplayerClientMessage = MultiplayerActionMessage;
+export type MultiplayerRematchMessage = {
+  type: "rematch";
+  revision: number;
+};
+
+export type MultiplayerClientMessage = MultiplayerActionMessage | MultiplayerRematchMessage;
 
 export type MultiplayerCreateResponse =
   | { ok: true; session: MultiplayerSession }

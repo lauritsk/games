@@ -3,7 +3,7 @@ import {
   multiplayerCodeAlphabet,
   multiplayerCodeLength,
   normalizeMultiplayerCode,
-  type MultiplayerActionMessage,
+  type MultiplayerClientMessage,
   type MultiplayerRoomSnapshot,
   type MultiplayerSeat,
   type MultiplayerSession,
@@ -229,6 +229,10 @@ export class MultiplayerHub {
       this.sendError(ws, "Stale game state", room);
       return;
     }
+    if (parsed.type === "rematch") {
+      this.handleRematch(ws, room);
+      return;
+    }
     if (room.status !== "playing") {
       this.sendError(ws, "Room is not ready", room);
       return;
@@ -317,6 +321,22 @@ export class MultiplayerHub {
     );
   }
 
+  private handleRematch(ws: ServerWebSocket<MultiplayerSocketData>, room: Room): void {
+    if (room.status !== "finished") {
+      this.sendError(ws, "Rematch is available after the game ends", room);
+      return;
+    }
+    if (!room.players.p1 || !room.players.p2) {
+      this.sendError(ws, "Room is not ready", room);
+      return;
+    }
+    room.state = room.adapter.newState();
+    room.status = "playing";
+    room.revision += 1;
+    room.lastActivityAt = Date.now();
+    this.publishRoom(ws, room);
+  }
+
   private cleanup(now = Date.now()): void {
     for (const [code, room] of this.rooms) {
       const age = now - room.createdAt;
@@ -331,12 +351,16 @@ export class MultiplayerHub {
   }
 }
 
-function parseClientMessage(message: string | Buffer): MultiplayerActionMessage | null {
+function parseClientMessage(message: string | Buffer): MultiplayerClientMessage | null {
   try {
     const value = JSON.parse(typeof message === "string" ? message : message.toString()) as unknown;
-    if (!isRecord(value) || value.type !== "action") return null;
-    if (typeof value.revision !== "number" || !Number.isInteger(value.revision)) return null;
-    return { type: "action", revision: value.revision, action: value.action };
+    if (!isRecord(value) || typeof value.revision !== "number") return null;
+    if (!Number.isInteger(value.revision)) return null;
+    if (value.type === "rematch") return { type: "rematch", revision: value.revision };
+    if (value.type === "action") {
+      return { type: "action", revision: value.revision, action: value.action };
+    }
+    return null;
   } catch {
     return null;
   }

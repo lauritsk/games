@@ -171,8 +171,17 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     text: "Play online",
     type: "button",
   });
-  onlineButton.addEventListener("click", () => onlineDialog.show(tictactoe, startOnline));
+  onlineButton.addEventListener("click", () => {
+    if (!onlineSession) onlineDialog.show(tictactoe, startOnline);
+  });
   actions.append(onlineButton);
+  const rematchButton = el("button", {
+    className: "button pill surface interactive",
+    text: "Rematch",
+    type: "button",
+  });
+  rematchButton.addEventListener("click", requestOnlineRematch);
+  actions.append(rematchButton);
   const requestReset = createResetControl(actions, shell, resetGame);
 
   function resetGame(): void {
@@ -199,6 +208,9 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     difficultyButton.textContent = onlineSession ? "Online" : difficulty;
     difficultyButton.disabled = Boolean(onlineSession);
     onlineButton.textContent = onlineSession ? `Room ${onlineSession.code}` : "Play online";
+    onlineButton.disabled = Boolean(onlineSession);
+    rematchButton.hidden = !canOnlineRematch();
+    rematchButton.disabled = onlineStatus !== "connected" || !canOnlineRematch();
 
     const cells = syncChildren(grid, board.length, (index) => {
       const cell = el("button", { className: "game-cell ttt-cell", type: "button" });
@@ -386,6 +398,17 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     render();
   }
 
+  function requestOnlineRematch(): void {
+    if (!canOnlineRematch()) return;
+    onlineError = "Starting rematch…";
+    onlineConnection?.requestRematch(onlineRevision);
+    render();
+  }
+
+  function canOnlineRematch(): boolean {
+    return Boolean(onlineSession && winner);
+  }
+
   function stopOnline(): void {
     onlineDialog.close();
     onlineConnection?.close();
@@ -401,9 +424,16 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   function applyOnlineSnapshot(room: MultiplayerRoomSnapshot, seat: MultiplayerSeat): void {
     const state = parseOnlineTicTacToeState(room.state);
     if (!state || room.gameId !== tictactoe.id) return;
+    const wasInFinishedOrStartedOnlineGame =
+      onlineResultRecorded || winner !== null || board.some(Boolean);
     onlineError = "";
     onlineSeat = seat;
     onlineRevision = room.revision;
+    if (wasInFinishedOrStartedOnlineGame && state.moves === 0 && !state.winner) {
+      resetGameProgress(shell);
+      runId = createRunId();
+      onlineResultRecorded = false;
+    }
     board = state.board;
     current = markForSeat(state.current);
     winner = state.winner === "draw" ? "draw" : state.winner ? markForSeat(state.winner) : null;

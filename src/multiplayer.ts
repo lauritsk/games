@@ -16,6 +16,7 @@ export type MultiplayerConnectionStatus = "connecting" | "connected" | "reconnec
 
 export type MultiplayerConnection = {
   sendAction(revision: number, action: unknown): void;
+  requestRematch(revision: number): void;
   close(): void;
 };
 
@@ -102,15 +103,22 @@ export function connectMultiplayerSession(
     });
   };
 
+  const sendClientMessage = (message: unknown): void => {
+    if (socket?.readyState !== WebSocket.OPEN) {
+      handlers.onError("Not connected");
+      return;
+    }
+    socket.send(JSON.stringify(message));
+  };
+
   connect();
 
   return {
     sendAction(revision, action) {
-      if (socket?.readyState !== WebSocket.OPEN) {
-        handlers.onError("Not connected");
-        return;
-      }
-      socket.send(JSON.stringify({ type: "action", revision, action }));
+      sendClientMessage({ type: "action", revision, action });
+    },
+    requestRematch(revision) {
+      sendClientMessage({ type: "rematch", revision });
     },
     close() {
       closed = true;

@@ -180,8 +180,18 @@ export function mountConnect4(target: HTMLElement): () => void {
     text: "Play online",
     type: "button",
   });
-  onlineButton.addEventListener("click", () => onlineDialog.show(connect4, startOnline));
+  onlineButton.addEventListener("click", () => {
+    if (!onlineSession) onlineDialog.show(connect4, startOnline);
+  });
   actions.append(onlineButton);
+
+  const rematchButton = el("button", {
+    className: "button pill surface interactive",
+    text: "Rematch",
+    type: "button",
+  });
+  rematchButton.addEventListener("click", requestOnlineRematch);
+  actions.append(rematchButton);
 
   const requestReset = createResetControl(actions, shell, resetGame);
 
@@ -211,6 +221,9 @@ export function mountConnect4(target: HTMLElement): () => void {
     difficultyButton.textContent = onlineSession ? "Online" : difficulty;
     difficultyButton.disabled = Boolean(onlineSession);
     onlineButton.textContent = onlineSession ? `Room ${onlineSession.code}` : "Play online";
+    onlineButton.disabled = Boolean(onlineSession);
+    rematchButton.hidden = !canOnlineRematch();
+    rematchButton.disabled = onlineStatus !== "connected" || !canOnlineRematch();
 
     const cells = syncChildren(grid, connect4Rows * connect4Columns, (index) => {
       const column = index % connect4Columns;
@@ -415,6 +428,17 @@ export function mountConnect4(target: HTMLElement): () => void {
     render();
   }
 
+  function requestOnlineRematch(): void {
+    if (!canOnlineRematch()) return;
+    onlineError = "Starting rematch…";
+    onlineConnection?.requestRematch(onlineRevision);
+    render();
+  }
+
+  function canOnlineRematch(): boolean {
+    return Boolean(onlineSession && (winner || moves === connect4Rows * connect4Columns));
+  }
+
   function stopOnline(): void {
     onlineDialog.close();
     onlineConnection?.close();
@@ -430,9 +454,15 @@ export function mountConnect4(target: HTMLElement): () => void {
   function applyOnlineSnapshot(room: MultiplayerRoomSnapshot, seat: MultiplayerSeat): void {
     const state = parseOnlineConnect4State(room.state);
     if (!state || room.gameId !== connect4.id) return;
+    const wasInFinishedOrStartedOnlineGame = onlineResultRecorded || winner !== null || moves > 0;
     onlineError = "";
     onlineSeat = seat;
     onlineRevision = room.revision;
+    if (wasInFinishedOrStartedOnlineGame && state.moves === 0 && !state.winner) {
+      resetGameProgress(shell);
+      runId = createRunId();
+      onlineResultRecorded = false;
+    }
     board = state.board;
     current = playerForSeat(state.current);
     winner = state.winner === "draw" || state.winner === null ? null : playerForSeat(state.winner);
