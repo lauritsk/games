@@ -3,6 +3,7 @@ import {
   createDifficultyButton,
   createResetButton,
   nextDifficulty,
+  onGameResetRequest,
   previousDifficulty,
   requestGameReset,
   setDifficultyIconLabel,
@@ -99,6 +100,7 @@ export function createResetControl(
     playSound("uiReset");
     requestGameReset(shell, resetGame);
   };
+  onGameResetRequest(shell, requestReset);
   createResetButton(actions, requestReset);
   return requestReset;
 }

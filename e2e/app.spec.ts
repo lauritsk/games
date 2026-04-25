@@ -299,6 +299,46 @@ test("result history dismisses when clicking outside the popup", async ({ page }
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
+test("new game key dismisses result popup and resets finished game", async ({ page }) => {
+  await openGame(page, "Tic-Tac-Toe");
+  const mode = page.getByRole("button", { name: "Vs bot" });
+  if (await mode.count()) {
+    await page.keyboard.press("m");
+    await expect(page.getByRole("button", { name: "2 players" })).toBeVisible();
+  }
+
+  const center = page.locator(".ttt-cell").nth(4);
+  await page.locator(".game").focus();
+  await page.keyboard.press("Space");
+  await expect(center).toHaveText("X");
+  await page.evaluate(() => {
+    const game = document.querySelector<HTMLElement>(".game");
+    if (game) game.dataset.finished = "true";
+    window.dispatchEvent(
+      new CustomEvent("games:result-recorded", {
+        detail: {
+          id: "result-new-key-e2e",
+          runId: "run-new-key-e2e",
+          gameId: "tictactoe",
+          outcome: "won",
+          difficulty: "Medium",
+          moves: 5,
+          finishedAt: new Date().toISOString(),
+        },
+      }),
+    );
+  });
+
+  const dialog = page.getByRole("dialog", { name: "Tic-Tac-Toe result history" });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("n");
+
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("button", { name: "Row 2, column 2, empty" })).toHaveText("");
+  await expect(page.getByLabel("Game status")).toHaveText("X turn");
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
 test("keyboard routing selects games, plays current game, and protects escape navigation", async ({
   page,
 }) => {

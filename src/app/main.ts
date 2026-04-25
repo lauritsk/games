@@ -4,6 +4,7 @@ import {
   confirmChoice,
   createMountScope,
   el,
+  emitGameResetRequest,
   isGameInProgress,
   Keys,
   matchesKey,
@@ -60,6 +61,11 @@ const page = el("main", { className: "app-shell center-screen" });
 const workspace = el("section", { className: "workspace center-screen" });
 const leaderboardDialog = createLeaderboardDialog();
 const historyDialog = createGameHistoryDialog({
+  onNewGameShortcut: (_game, _result, closeCurrent) => {
+    closeCurrent();
+    const gameElement = workspace.querySelector<HTMLElement>(".game");
+    if (gameElement) emitGameResetRequest(gameElement);
+  },
   resultActions: (game, result, closeCurrent) => {
     if (!isLeaderboardEligible(result)) return [];
     const submit = pillButton("Submit to leaderboard");

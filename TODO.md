@@ -1,5 +1,6 @@
 # TODO
 
+- [x] Make results screen `n` key dismiss and start a new game instantly.
 - [x] Shorten online waiting player labels.
 - [x] Improve multiplayer room popups and bottom status visual hierarchy.
 - [x] Unify game paused popup with shared popup tokens/components.

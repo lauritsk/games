@@ -2,6 +2,7 @@ import { confirmChoice } from "@shared/dialog";
 import type { MountScope } from "@shared/lifecycle";
 
 const gamePauseRequestEvent = "games:pause-request";
+const gameResetRequestEvent = "games:reset-request";
 
 export type GamePauseRequestOptions = {
   canPause(): boolean;
@@ -29,6 +30,14 @@ export function markGameFinished(shell: HTMLElement): void {
 export function requestGameReset(shell: HTMLElement, resetGame: () => void): void {
   if (isGameInProgress(shell)) confirmChoice("Start a new game?", resetGame);
   else resetGame();
+}
+
+export function emitGameResetRequest(shell: HTMLElement): void {
+  shell.dispatchEvent(new Event(gameResetRequestEvent));
+}
+
+export function onGameResetRequest(shell: HTMLElement, resetGame: () => void): void {
+  shell.addEventListener(gameResetRequestEvent, () => requestGameReset(shell, resetGame));
 }
 
 export function requestGamePause(shell: HTMLElement): boolean {

@@ -20,6 +20,7 @@ export type GameHistoryDialogOptions = {
     result: GameResult,
     closeCurrent: () => void,
   ) => HTMLElement[];
+  onNewGameShortcut?: (game: GameDefinition, result: GameResult, closeCurrent: () => void) => void;
 };
 
 export function createGameHistoryDialog(options: GameHistoryDialogOptions = {}): GameHistoryDialog {
@@ -77,6 +78,7 @@ export function createGameHistoryDialog(options: GameHistoryDialogOptions = {}):
       children: [title, details, historyScroll, actions],
     });
     cleanup = closeDialog;
+    if (highlight) modal.dialog.addEventListener("keydown", onResultKeyDown);
     focusHistoryTop();
     requestAnimationFrame(focusHistoryTop);
 
@@ -90,6 +92,13 @@ export function createGameHistoryDialog(options: GameHistoryDialogOptions = {}):
       if (cleanup !== closeDialog) return;
       cleanup = null;
       modal?.close();
+    }
+
+    function onResultKeyDown(event: KeyboardEvent): void {
+      if (event.key.toLowerCase() !== "n" || !highlight || !options.onNewGameShortcut) return;
+      event.preventDefault();
+      event.stopPropagation();
+      options.onNewGameShortcut(game, highlight, closeDialog);
     }
   }
 
