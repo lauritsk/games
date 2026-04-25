@@ -275,7 +275,7 @@ export function mountMemory(target: HTMLElement): () => void {
     startOnlineButton.hidden =
       !onlineSession || onlineRoomStatus !== "lobby" || onlineSeat !== "p1";
     startOnlineButton.disabled = !canOnlineStart();
-    rematchButton.hidden = !isOnlineFinished();
+    rematchButton.hidden = !isOnlineFinished() || !onlineSeat;
     setIconLabel(
       rematchButton,
       onlineSeat === "p1" ? "▶" : "✓",
@@ -493,14 +493,15 @@ export function mountMemory(target: HTMLElement): () => void {
     clearGameSave(memory.id);
     resetGameProgress(shell);
     onlineConnection?.close();
+    const spectator = session.role === "spectator";
     onlineSession = session;
-    onlineSeat = session.seat;
+    onlineSeat = spectator ? null : session.seat;
     onlineRevision = 0;
     onlineStatus = "connecting";
     onlineRoomStatus = "lobby";
     onlineCountdownEndsAt = undefined;
     onlineSeats = emptyMultiplayerSeatSnapshots();
-    onlineSeats[session.seat] = { joined: true, connected: false };
+    if (!spectator) onlineSeats[session.seat] = { joined: true, connected: false };
     onlineResultRecorded = false;
     onlineError = "";
     runId = createRunId();
@@ -514,10 +515,14 @@ export function mountMemory(target: HTMLElement): () => void {
     lock = false;
     startedAt = null;
     onlineConnection = connectMultiplayerSession(session, {
-      onSnapshot: (message) => applyOnlineSnapshot(message.room, message.you.seat),
+      onSnapshot: (message) =>
+        applyOnlineSnapshot(
+          message.room,
+          message.you.role === "spectator" ? null : message.you.seat,
+        ),
       onError: (error, room) => {
         onlineError = error;
-        if (room) applyOnlineSnapshot(room, onlineSeat ?? session.seat);
+        if (room) applyOnlineSnapshot(room, onlineSeat);
         else render();
       },
       onStatus: (status) => {
@@ -605,7 +610,7 @@ export function mountMemory(target: HTMLElement): () => void {
     onlineResultRecorded = false;
   }
 
-  function applyOnlineSnapshot(room: MultiplayerRoomSnapshot, seat: MultiplayerSeat): void {
+  function applyOnlineSnapshot(room: MultiplayerRoomSnapshot, seat: MultiplayerSeat | null): void {
     const state = parseOnlineMemoryState(room.state);
     if (!state || room.gameId !== memory.id) return;
     const nextConfig = configForCardCount(state.cards.length);
@@ -648,7 +653,7 @@ export function mountMemory(target: HTMLElement): () => void {
     if (onlineStatus === "connecting") return "Connecting…";
     if (onlineStatus === "reconnecting") return "Reconnecting…";
     if (!onlineSession) return "Online";
-    if (!onlineSeat) return "Joining…";
+    if (!onlineSeat) return spectatorStatusText();
     if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
     if (onlineRoomStatus === "lobby") {
       const joined = multiplayerJoinedSeatCount(onlineSeats);
@@ -675,6 +680,18 @@ export function mountMemory(target: HTMLElement): () => void {
     return currentPlayer === playerForSeat(onlineSeat)
       ? `Your turn · ${scoreText()}`
       : `Opponent turn · ${scoreText()}`;
+  }
+
+  function spectatorStatusText(): string {
+    if (!onlineSession) return "Spectating";
+    if (onlineRoomStatus === "countdown")
+      return `Spectating · Starting in ${onlineCountdownText()}`;
+    if (onlineRoomStatus === "lobby") return `Room ${onlineSession.code} · Spectating`;
+    if (winner === "draw") return `Spectating · Draw · ${scoreText()}`;
+    if (winner) return `Spectating · P${winner} wins · ${scoreText()}`;
+    if (onlineRevision === 0) return `Room ${onlineSession.code} · Spectating`;
+    if (lock) return `Spectating · Settling · ${scoreText()}`;
+    return `Spectating · P${currentPlayer} turn · ${scoreText()}`;
   }
 
   function onlineCountdownText(): string {

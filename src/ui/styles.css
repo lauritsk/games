@@ -756,7 +756,7 @@
   .multiplayer-dialog__join {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     gap: var(--space-md);
     align-items: center;
   }
@@ -851,7 +851,10 @@
 
   @media (max-width: 370px) {
     .multiplayer-dialog__join {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .multiplayer-dialog__join input {
+      grid-column: 1 / -1;
     }
   }
 

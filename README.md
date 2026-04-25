@@ -18,7 +18,7 @@
 - Static builds and a Docker image for simple deployment.
 - Local-first saves/results with optional Bun SQLite sync when served by the included Bun server.
 - Public leaderboards for scores, fastest times, and bot win streaks when the Bun server is available.
-- Live private-room multiplayer for Tic-Tac-Toe, Connect 4, Snake, Memory, and 2-player Space Invaders co-op when the Bun server is available.
+- Live private-room multiplayer for Tic-Tac-Toe, Connect 4, Snake, Memory, and 2-player Space Invaders co-op, with spectator room-code viewing when the Bun server is available.
 
 ## Demo locally
 
@@ -123,7 +123,7 @@ When served by `src/server/index.ts`, supported games offer casual live private 
 
 1. Open a supported game.
 2. Select `Play online`.
-3. Create a room and share the 6-character code, or join with a code from another player.
+3. Create a room and share the 6-character code, join with a code from another player, or choose `Spectate` to watch without taking a seat.
 4. In Space Invaders, two online players control separate cannons against scaled-up co-op waves.
 
 Room codes use a cryptographically random ambiguity-safe base32 alphabet such as `K7P9Q2`. Each player also receives a separate high-entropy session token that is required for the WebSocket connection and reconnects. The server enforces room capacity, turn order, move validation, short request rate limits, and room cleanup TTLs.

@@ -14,6 +14,7 @@ export type MultiplayerPresenceOptions = {
   status: MultiplayerRoomStatus;
   seats: Record<MultiplayerSeat, MultiplayerSeatSnapshot>;
   countdown: string | null;
+  spectatorCount?: number;
 };
 
 export type MultiplayerPlayerDescriptor = {
@@ -56,8 +57,11 @@ export function renderMultiplayerPresence(
   clearNode(container);
   if (!session || !shouldShow) return;
 
-  const localSeat = options.seat ?? session.seat;
-  const seats = joinedSeatsWithLocalFallback(options.seats, session.seat);
+  const isSpectator = session.role === "spectator";
+  const localSeat = isSpectator ? null : (options.seat ?? session.seat);
+  const seats = isSpectator
+    ? options.seats
+    : joinedSeatsWithLocalFallback(options.seats, session.seat);
   const countdownText = options.status === "countdown" ? (options.countdown ?? "…") : null;
   container.setAttribute("aria-live", options.status === "countdown" ? "assertive" : "polite");
   container.dataset.status = options.status;
@@ -82,7 +86,20 @@ export function renderMultiplayerPresence(
       ariaLabel: `Room code ${session.code}`,
       text: session.code,
     }),
+    el("span", {
+      className: "online-presence__mode",
+      text: isSpectator ? "Spectating" : "Playing",
+    }),
   );
+  const spectatorCount = options.spectatorCount ?? (isSpectator ? 1 : 0);
+  if (spectatorCount > 0) {
+    summary.append(
+      el("span", {
+        className: "online-presence__mode",
+        text: `${spectatorCount} spectator${spectatorCount === 1 ? "" : "s"}`,
+      }),
+    );
+  }
   headline.append(summary);
 
   const list = el("div", { className: "online-presence__seats" });
@@ -141,7 +158,11 @@ export function multiplayerPlayerDescriptor(
   };
 }
 
-function seatMeta(joined: boolean, seat: MultiplayerSeat, localSeat: MultiplayerSeat): string {
+function seatMeta(
+  joined: boolean,
+  seat: MultiplayerSeat,
+  localSeat: MultiplayerSeat | null,
+): string {
   if (!joined) return "Waiting";
   if (seat === localSeat) return "You";
   if (seat === "p1") return "Host";

@@ -8,6 +8,7 @@ import {
   type MultiplayerRoomSnapshot,
   type MultiplayerSeat,
   type MultiplayerSession,
+  type MultiplayerSessionRole,
 } from "@features/multiplayer/multiplayer-protocol";
 import { isRecord } from "@shared/validation";
 import { checkRateLimit, rateLimitKey } from "@server/rate-limit";
@@ -21,9 +22,16 @@ export type MultiplayerSocketData = {
   code: string;
   playerId: string;
   seat: MultiplayerSeat;
+  role?: MultiplayerSessionRole;
 };
 
 type PlayerState = {
+  id: string;
+  tokenHash: string;
+  connectedCount: number;
+};
+
+type SpectatorState = {
   id: string;
   tokenHash: string;
   connectedCount: number;
@@ -39,6 +47,7 @@ type Room = {
   createdAt: number;
   lastActivityAt: number;
   players: Partial<Record<MultiplayerSeat, PlayerState>>;
+  spectators: Map<string, SpectatorState>;
   rematchReady: Partial<Record<MultiplayerSeat, boolean>>;
   sockets: Set<ServerWebSocket<MultiplayerSocketData>>;
   tickTimer: ReturnType<typeof setInterval> | null;
@@ -53,11 +62,12 @@ type UpgradePreparation =
   | { ok: false; response: Response };
 
 const maxRooms = 500;
+const maxSpectatorsPerRoom = 32;
 const lobbyTtlMs = 10 * 60_000;
 const disconnectedTtlMs = 2 * 60_000;
 const hardTtlMs = 24 * 60 * 60_000;
 const maxRequestBytes = 10_000;
-const defaultCountdownMs = 5000;
+const defaultCountdownMs = 3000;
 
 export type MultiplayerHubOptions = {
   countdownMs?: number;
@@ -96,6 +106,9 @@ export class MultiplayerHub {
       }
       if (url.pathname === "/api/multiplayer/rooms/join" && request.method === "POST") {
         return this.handleJoinRoomRequest(request);
+      }
+      if (url.pathname === "/api/multiplayer/rooms/spectate" && request.method === "POST") {
+        return this.handleSpectateRoomRequest(request);
       }
       if (url.pathname === "/api/multiplayer/socket") {
         return json({ ok: false, error: "Upgrade required" }, 426);
@@ -138,6 +151,22 @@ export class MultiplayerHub {
     return json(result, result.ok ? 200 : 400);
   }
 
+  private async handleSpectateRoomRequest(request: Request): Promise<Response> {
+    const body = await readSmallJson(request);
+    const code = isRecord(body) && typeof body.code === "string" ? body.code : "";
+    const normalized = normalizeMultiplayerCode(code);
+    if (
+      !checkRateLimit(rateLimitKey(request, `multiplayer-spectate:${normalized}`), {
+        windowMs: 60_000,
+        max: 30,
+      })
+    ) {
+      return json({ ok: false, error: "Too many requests" }, 429);
+    }
+    const result = await this.spectateRoom(normalized);
+    return json(result, result.ok ? 200 : 400);
+  }
+
   async createRoom(
     gameId: string,
     requestedSettings?: unknown,
@@ -168,6 +197,7 @@ export class MultiplayerHub {
           connectedCount: 0,
         },
       },
+      spectators: new Map(),
       rematchReady: {},
       sockets: new Set(),
       tickTimer: null,
@@ -202,6 +232,27 @@ export class MultiplayerHub {
     return { ok: true, session };
   }
 
+  async spectateRoom(
+    code: string,
+  ): Promise<{ ok: true; session: MultiplayerSession } | { ok: false; error: string }> {
+    this.cleanup();
+    const room = this.rooms.get(normalizeMultiplayerCode(code));
+    if (!room) return { ok: false, error: "Room not found or unavailable" };
+    if (room.spectators.size >= maxSpectatorsPerRoom) {
+      return { ok: false, error: "Room has too many spectators" };
+    }
+
+    const session = await this.createPlayerSession(room.code, room.gameId, "p1", "spectator");
+    room.spectators.set(session.playerId, {
+      id: session.playerId,
+      tokenHash: await hashToken(session.playerToken),
+      connectedCount: 0,
+    });
+    room.lastActivityAt = Date.now();
+
+    return { ok: true, session };
+  }
+
   async prepareUpgrade(request: Request): Promise<UpgradePreparation> {
     const url = new URL(request.url);
     if (url.pathname !== "/api/multiplayer/socket") {
@@ -218,23 +269,34 @@ export class MultiplayerHub {
     const room = this.rooms.get(code);
     if (!room) return { ok: false, response: json({ ok: false, error: "Room not found" }, 404) };
     const seat = findSeat(room, playerId);
-    if (!seat) return { ok: false, response: json({ ok: false, error: "Unauthorized" }, 401) };
-    const player = room.players[seat];
-    if (!player || player.tokenHash !== (await hashToken(token))) {
+    if (seat) {
+      const player = room.players[seat];
+      if (!player || player.tokenHash !== (await hashToken(token))) {
+        return { ok: false, response: json({ ok: false, error: "Unauthorized" }, 401) };
+      }
+      room.lastActivityAt = Date.now();
+      return { ok: true, data: { code, playerId, seat, role: "player" } };
+    }
+    const spectator = room.spectators.get(playerId);
+    if (!spectator || spectator.tokenHash !== (await hashToken(token))) {
       return { ok: false, response: json({ ok: false, error: "Unauthorized" }, 401) };
     }
     room.lastActivityAt = Date.now();
-    return { ok: true, data: { code, playerId, seat } };
+    return { ok: true, data: { code, playerId, seat: "p1", role: "spectator" } };
   }
 
   onOpen(ws: ServerWebSocket<MultiplayerSocketData>): void {
     const room = this.rooms.get(ws.data.code);
-    const player = room?.players[ws.data.seat];
-    if (!room || !player) {
+    if (!room) {
       ws.close(1008, "Room unavailable");
       return;
     }
-    player.connectedCount += 1;
+    const participant = participantState(room, ws.data);
+    if (!participant) {
+      ws.close(1008, "Room unavailable");
+      return;
+    }
+    participant.connectedCount += 1;
     room.lastActivityAt = Date.now();
     room.sockets.add(ws);
     ws.subscribe(roomTopic(room.code));
@@ -254,6 +316,10 @@ export class MultiplayerHub {
       })
     ) {
       this.sendError(ws, "Too many actions");
+      return;
+    }
+    if (ws.data.role === "spectator") {
+      this.sendError(ws, "Spectators cannot act", room);
       return;
     }
     const parsed = parseClientMessage(message);
@@ -297,10 +363,14 @@ export class MultiplayerHub {
 
   onClose(ws: ServerWebSocket<MultiplayerSocketData>): void {
     const room = this.rooms.get(ws.data.code);
-    const player = room?.players[ws.data.seat];
-    if (!room || !player) return;
+    if (!room) return;
+    const participant = participantState(room, ws.data);
+    if (!participant) return;
     room.sockets.delete(ws);
-    player.connectedCount = Math.max(0, player.connectedCount - 1);
+    participant.connectedCount = Math.max(0, participant.connectedCount - 1);
+    if (ws.data.role === "spectator" && participant.connectedCount === 0) {
+      room.spectators.delete(ws.data.playerId);
+    }
     room.lastActivityAt = Date.now();
     this.broadcastRoom(room);
   }
@@ -309,6 +379,7 @@ export class MultiplayerHub {
     code: string,
     gameId: string,
     seat: MultiplayerSeat,
+    role: MultiplayerSessionRole = "player",
   ): Promise<MultiplayerSession> {
     return {
       code,
@@ -316,6 +387,7 @@ export class MultiplayerHub {
       seat,
       playerId: crypto.randomUUID(),
       playerToken: randomToken(),
+      ...(role === "spectator" ? { role } : {}),
     };
   }
 
@@ -341,6 +413,7 @@ export class MultiplayerHub {
       },
       state: room.adapter.publicSnapshot(room.state),
       settings: room.settings,
+      spectatorCount: connectedSpectatorCount(room),
       ...(room.countdownEndsAt ? { countdownEndsAt: room.countdownEndsAt } : {}),
     };
   }
@@ -348,7 +421,7 @@ export class MultiplayerHub {
   private snapshotMessage(room: Room, data: MultiplayerSocketData) {
     return {
       type: "snapshot" as const,
-      you: { playerId: data.playerId, seat: data.seat },
+      you: { playerId: data.playerId, seat: data.seat, role: data.role ?? "player" },
       room: this.publicRoom(room),
     };
   }
@@ -562,9 +635,9 @@ export class MultiplayerHub {
     for (const [code, room] of this.rooms) {
       const age = now - room.createdAt;
       const idle = now - room.lastActivityAt;
-      const connected = Object.values(room.players).some(
-        (player) => (player?.connectedCount ?? 0) > 0,
-      );
+      const connected =
+        Object.values(room.players).some((player) => (player?.connectedCount ?? 0) > 0) ||
+        connectedSpectatorCount(room) > 0;
       if (age > hardTtlMs) this.deleteRoom(code);
       else if (room.status === "lobby" && idle > lobbyTtlMs) this.deleteRoom(code);
       else if (!connected && idle > disconnectedTtlMs) this.deleteRoom(code);
@@ -640,6 +713,18 @@ function connectedReadySeats(room: Room): MultiplayerSeat[] {
   return joinedSeats(room).filter(
     (seat) => room.rematchReady[seat] === true && (room.players[seat]?.connectedCount ?? 0) > 0,
   );
+}
+
+function participantState(
+  room: Room,
+  data: MultiplayerSocketData,
+): PlayerState | SpectatorState | undefined {
+  if (data.role === "spectator") return room.spectators.get(data.playerId);
+  return room.players[data.seat];
+}
+
+function connectedSpectatorCount(room: Room): number {
+  return [...room.spectators.values()].filter((spectator) => spectator.connectedCount > 0).length;
 }
 
 function seatSnapshot(player: PlayerState | undefined, ready = false) {

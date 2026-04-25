@@ -3,6 +3,7 @@ import {
   createMultiplayerRoom,
   fetchMultiplayerStatus,
   joinMultiplayerRoom,
+  spectateMultiplayerRoom,
 } from "@features/multiplayer/multiplayer";
 import {
   normalizeMultiplayerCode,
@@ -97,11 +98,14 @@ export function createMultiplayerDialog(): MultiplayerDialog {
       const join = pillButton("Join room");
       join.type = "submit";
       form.append(input, join);
+      const spectate = pillButton("Spectate");
+      spectate.type = "button";
+      form.append(spectate);
       joinOption.append(
         el("h3", { className: "multiplayer-dialog__option-title", text: "Join room" }),
         el("p", {
           className: "multiplayer-dialog__option-copy muted",
-          text: "Use the room code from another player.",
+          text: "Use the room code from another player, or watch without taking a seat.",
         }),
         form,
       );
@@ -130,10 +134,27 @@ export function createMultiplayerDialog(): MultiplayerDialog {
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         join.disabled = true;
+        spectate.disabled = true;
         statusLine.textContent = "Joining room…";
         const response = await joinMultiplayerRoom(input.value);
         if (!response.ok) {
           join.disabled = false;
+          spectate.disabled = false;
+          statusLine.textContent = response.error;
+          return;
+        }
+        playSound("gameGood");
+        onSession(response.session);
+        closeDialog();
+      });
+      spectate.addEventListener("click", async () => {
+        join.disabled = true;
+        spectate.disabled = true;
+        statusLine.textContent = "Opening spectator view…";
+        const response = await spectateMultiplayerRoom(input.value);
+        if (!response.ok) {
+          join.disabled = false;
+          spectate.disabled = false;
           statusLine.textContent = response.error;
           return;
         }

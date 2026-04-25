@@ -8,6 +8,7 @@ import {
   type MultiplayerServerMessage,
   type MultiplayerSession,
   type MultiplayerSnapshotMessage,
+  type MultiplayerSpectateResponse,
   type MultiplayerStatusResponse,
 } from "@features/multiplayer/multiplayer-protocol";
 import { isRecord } from "@shared/validation";
@@ -45,6 +46,14 @@ export async function createMultiplayerRoom(
 
 export async function joinMultiplayerRoom(code: string): Promise<MultiplayerJoinResponse> {
   return requestJson<MultiplayerJoinResponse>("/api/multiplayer/rooms/join", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code: normalizeMultiplayerCode(code) }),
+  });
+}
+
+export async function spectateMultiplayerRoom(code: string): Promise<MultiplayerSpectateResponse> {
+  return requestJson<MultiplayerSpectateResponse>("/api/multiplayer/rooms/spectate", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ code: normalizeMultiplayerCode(code) }),
@@ -90,7 +99,7 @@ export function connectMultiplayerSession(
         ...message,
         you: message.you.playerId
           ? message.you
-          : { playerId: session.playerId, seat: session.seat },
+          : { playerId: session.playerId, seat: session.seat, role: session.role },
       });
     });
     socket.addEventListener("close", () => {
@@ -174,10 +183,11 @@ function parseServerMessage(value: unknown): MultiplayerServerMessage | null {
     if (parsed.type === "snapshot") {
       const room = parseRoom(parsed.room);
       if (!room) return null;
-      const you = isRecord(parsed.you)
+      const you: MultiplayerSnapshotMessage["you"] | undefined = isRecord(parsed.you)
         ? {
             playerId: typeof parsed.you.playerId === "string" ? parsed.you.playerId : "",
             seat: parseMultiplayerSeat(parsed.you.seat) ?? "p1",
+            role: parsed.you.role === "spectator" ? "spectator" : "player",
           }
         : undefined;
       return { type: "snapshot", room, you: you ?? { playerId: "", seat: "p1" } };
@@ -208,6 +218,10 @@ function parseRoom(value: unknown): MultiplayerRoomSnapshot | null {
     typeof value.countdownEndsAt === "number" && Number.isFinite(value.countdownEndsAt)
       ? value.countdownEndsAt
       : undefined;
+  const spectatorCount =
+    typeof value.spectatorCount === "number" && Number.isInteger(value.spectatorCount)
+      ? Math.max(0, value.spectatorCount)
+      : undefined;
   return {
     code: value.code,
     gameId: value.gameId,
@@ -217,6 +231,7 @@ function parseRoom(value: unknown): MultiplayerRoomSnapshot | null {
     state: value.state,
     ...(Object.hasOwn(value, "settings") ? { settings: value.settings } : {}),
     ...(countdownEndsAt ? { countdownEndsAt } : {}),
+    ...(spectatorCount !== undefined ? { spectatorCount } : {}),
   };
 }
 

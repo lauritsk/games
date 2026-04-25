@@ -85,7 +85,7 @@ export function canRequestMultiplayerRematch(
   seat: MultiplayerSeat | null,
   isSeatReady: boolean,
 ): boolean {
-  return isFinished && (seat === "p1" || !isSeatReady);
+  return Boolean(seat) && isFinished && (seat === "p1" || !isSeatReady);
 }
 
 export function multiplayerRematchActionLabel(

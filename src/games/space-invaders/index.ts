@@ -452,7 +452,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     startOnlineButton.hidden =
       !onlineSession || onlineRoomStatus !== "lobby" || onlineSeat !== "p1";
     startOnlineButton.disabled = !canOnlineStart();
-    rematchButton.hidden = !isOnlineFinished();
+    rematchButton.hidden = !isOnlineFinished() || !onlineSeat;
     setIconLabel(
       rematchButton,
       onlineSeat === "p1" ? "▶" : "✓",
@@ -631,14 +631,15 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     clearGameSave(spaceInvaders.id);
     resetGameProgress(shell);
     onlineConnection?.close();
+    const spectator = session.role === "spectator";
     onlineSession = session;
-    onlineSeat = session.seat;
+    onlineSeat = spectator ? null : session.seat;
     onlineRevision = 0;
     onlineStatus = "connecting";
     onlineRoomStatus = "lobby";
     onlineCountdownEndsAt = undefined;
     onlineSeats = emptyMultiplayerSeatSnapshots();
-    onlineSeats[session.seat] = { joined: true, connected: false };
+    if (!spectator) onlineSeats[session.seat] = { joined: true, connected: false };
     onlineState = null;
     onlineResultRecorded = false;
     onlineError = "";
@@ -649,10 +650,14 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     mode = "ready";
     input.clear();
     onlineConnection = connectMultiplayerSession(session, {
-      onSnapshot: (message) => applyOnlineSnapshot(message.room, message.you.seat),
+      onSnapshot: (message) =>
+        applyOnlineSnapshot(
+          message.room,
+          message.you.role === "spectator" ? null : message.you.seat,
+        ),
       onError: (error, room) => {
         onlineError = error;
-        if (room) applyOnlineSnapshot(room, onlineSeat ?? session.seat);
+        if (room) applyOnlineSnapshot(room, onlineSeat);
         else render();
       },
       onStatus: (connectionStatus) => {
@@ -694,7 +699,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function sendOnlineMove(move: -1 | 0 | 1): void {
-    if (onlineStatus !== "connected" || onlineRoomStatus !== "playing") return;
+    if (!onlineSeat || onlineStatus !== "connected" || onlineRoomStatus !== "playing") return;
     if (move === lastOnlineMove) return;
     lastOnlineMove = move;
     onlineConnection?.sendAction(onlineRevision, { type: "move", move });
@@ -702,7 +707,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
 
   function sendOnlineMoveStep(direction: Direction): void {
     if (direction !== "left" && direction !== "right") return;
-    if (onlineStatus !== "connected" || onlineRoomStatus !== "playing") {
+    if (!onlineSeat || onlineStatus !== "connected" || onlineRoomStatus !== "playing") {
       invalidMove.trigger();
       return;
     }
@@ -714,13 +719,13 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function sendOnlineFire(): void {
-    if (onlineStatus !== "connected" || onlineRoomStatus !== "playing") return;
+    if (!onlineSeat || onlineStatus !== "connected" || onlineRoomStatus !== "playing") return;
     onlineConnection?.sendAction(onlineRevision, { type: "fire" });
     playSound("uiToggle");
   }
 
   function sendOnlineAim(centerX: number): void {
-    if (onlineStatus !== "connected" || onlineRoomStatus !== "playing") return;
+    if (!onlineSeat || onlineStatus !== "connected" || onlineRoomStatus !== "playing") return;
     if (lastOnlineAimX !== null && Math.abs(centerX - lastOnlineAimX) < 1.2) return;
     lastOnlineAimX = centerX;
     onlineConnection?.sendAction(onlineRevision, { type: "aim", x: centerX });
@@ -780,7 +785,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     lastOnlineAimX = null;
   }
 
-  function applyOnlineSnapshot(room: MultiplayerRoomSnapshot, seat: MultiplayerSeat): void {
+  function applyOnlineSnapshot(room: MultiplayerRoomSnapshot, seat: MultiplayerSeat | null): void {
     const snapshot = parseOnlineInvaderState(room.state);
     if (!snapshot || room.gameId !== spaceInvaders.id) return;
     const previous = onlineState;
@@ -816,23 +821,30 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     if (onlineStatus === "connecting") return "Connecting…";
     if (onlineStatus === "reconnecting") return "Reconnecting…";
     if (!onlineSession) return "Online";
-    if (!onlineSeat) return "Joining…";
-    if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
+    if (onlineRoomStatus === "countdown") {
+      return onlineSeat
+        ? `Starting in ${onlineCountdownText()}`
+        : `Spectating · Starting in ${onlineCountdownText()}`;
+    }
     if (onlineRoomStatus === "lobby") {
       const joined = multiplayerJoinedSeatCount(onlineSeats);
+      if (!onlineSeat) return `Room ${onlineSession.code} · Spectating`;
       if (onlineSeat === "p1") return `Room ${onlineSession.code} · ${joined}/2 · Start at 2`;
       return `Room ${onlineSession.code} · Waiting host`;
     }
     const snapshot = onlineState;
     if (!snapshot) return `Room ${onlineSession.code} · Waiting`;
     if (snapshot.lost) {
+      const result = `Over · ${snapshot.score}`;
+      if (!onlineSeat) return `Spectating · ${result}`;
       return multiplayerRematchStatusText({
-        result: `Over · ${snapshot.score}`,
+        result,
         localSeat: onlineSeat,
         seats: onlineSeats,
       });
     }
-    return `${snapshot.score} · W${snapshot.wave} · ${"♥".repeat(snapshot.lives)} · Co-op`;
+    const summary = `${snapshot.score} · W${snapshot.wave} · ${"♥".repeat(snapshot.lives)} · Co-op`;
+    return onlineSeat ? summary : `Spectating · ${summary}`;
   }
 
   function onlineCountdownText(): string {

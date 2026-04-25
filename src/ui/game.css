@@ -322,6 +322,14 @@
     text-align: center;
   }
 
+  .online-presence__mode {
+    color: var(--muted);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-heavy);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
   .online-presence__seat {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;

@@ -247,7 +247,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     startOnlineButton.hidden =
       !onlineSession || onlineRoomStatus !== "lobby" || onlineSeat !== "p1";
     startOnlineButton.disabled = !canOnlineStart();
-    rematchButton.hidden = !isOnlineFinished();
+    rematchButton.hidden = !isOnlineFinished() || !onlineSeat;
     setIconLabel(
       rematchButton,
       onlineSeat === "p1" ? "▶" : "✓",
@@ -415,14 +415,15 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     clearGameSave(tictactoe.id);
     resetGameProgress(shell);
     onlineConnection?.close();
+    const spectator = session.role === "spectator";
     onlineSession = session;
-    onlineSeat = session.seat;
+    onlineSeat = spectator ? null : session.seat;
     onlineRevision = 0;
     onlineStatus = "connecting";
     onlineRoomStatus = "lobby";
     onlineCountdownEndsAt = undefined;
     onlineSeats = emptyMultiplayerSeatSnapshots();
-    onlineSeats[session.seat] = { joined: true, connected: false };
+    if (!spectator) onlineSeats[session.seat] = { joined: true, connected: false };
     onlineResultRecorded = false;
     onlineError = "";
     runId = createRunId();
@@ -431,10 +432,14 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     winner = null;
     winLine = [];
     onlineConnection = connectMultiplayerSession(session, {
-      onSnapshot: (message) => applyOnlineSnapshot(message.room, message.you.seat),
+      onSnapshot: (message) =>
+        applyOnlineSnapshot(
+          message.room,
+          message.you.role === "spectator" ? null : message.you.seat,
+        ),
       onError: (error, room) => {
         onlineError = error;
-        if (room) applyOnlineSnapshot(room, onlineSeat ?? session.seat);
+        if (room) applyOnlineSnapshot(room, onlineSeat);
         else render();
       },
       onStatus: (status) => {
@@ -502,7 +507,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     onlineResultRecorded = false;
   }
 
-  function applyOnlineSnapshot(room: MultiplayerRoomSnapshot, seat: MultiplayerSeat): void {
+  function applyOnlineSnapshot(room: MultiplayerRoomSnapshot, seat: MultiplayerSeat | null): void {
     const state = parseOnlineTicTacToeState(room.state);
     if (!state || room.gameId !== tictactoe.id) return;
     const wasInFinishedOrStartedOnlineGame =
@@ -536,7 +541,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     if (onlineStatus === "connecting") return "Connecting…";
     if (onlineStatus === "reconnecting") return "Reconnecting…";
     if (!onlineSession) return "Online";
-    if (!onlineSeat) return "Joining…";
+    if (!onlineSeat) return spectatorStatusText();
     if (winner) {
       const result =
         winner === "draw"
@@ -553,6 +558,16 @@ export function mountTicTacToe(target: HTMLElement): () => void {
       return `Room ${onlineSession.code} · Waiting host`;
     }
     return current === markForSeat(onlineSeat) ? "Your turn" : "Opponent turn";
+  }
+
+  function spectatorStatusText(): string {
+    if (!onlineSession) return "Spectating";
+    if (winner === "draw") return "Spectating · Draw";
+    if (winner) return `Spectating · ${winner} wins`;
+    if (onlineRoomStatus === "countdown")
+      return `Spectating · Starting in ${onlineCountdownText()}`;
+    if (onlineRoomStatus === "lobby") return `Room ${onlineSession.code} · Spectating`;
+    return `Spectating · ${current} turn`;
   }
 
   function onlineCountdownText(): string {

@@ -318,6 +318,39 @@ describe("multiplayer API", () => {
     hub.dispose();
   });
 
+  test("creates spectator sessions without consuming player seats", async () => {
+    const hub = new MultiplayerHub({ countdownMs: 0 });
+    const created = await hub.createRoom("tictactoe");
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const spectated = await hub.spectateRoom(created.session.code);
+    expect(spectated.ok).toBe(true);
+    if (!spectated.ok) return;
+    expect(spectated.session.role).toBe("spectator");
+
+    const joined = await hub.joinRoom(created.session.code);
+    expect(joined.ok).toBe(true);
+    if (joined.ok) expect(joined.session.seat).toBe("p2");
+
+    const spectator = fakeSocket({
+      code: spectated.session.code,
+      playerId: spectated.session.playerId,
+      seat: "p1",
+      role: "spectator",
+    });
+    hub.onOpen(spectator);
+    const snapshot = lastSentJson(spectator);
+    expect(snapshot.type).toBe("snapshot");
+    expect((snapshot.you as { role: string }).role).toBe("spectator");
+    expect((snapshot.room as { spectatorCount: number }).spectatorCount).toBe(1);
+
+    hub.onMessage(spectator, JSON.stringify({ type: "start", revision: 1 }));
+    const error = lastSentJson(spectator);
+    expect(error.type).toBe("error");
+    expect(error.error).toBe("Spectators cannot act");
+    hub.dispose();
+  });
+
   test("rejects third players and bad socket tokens", async () => {
     const hub = new MultiplayerHub();
     const created = await hub.createRoom("connect4");

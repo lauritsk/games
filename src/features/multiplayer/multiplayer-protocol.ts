@@ -1,4 +1,5 @@
 export type MultiplayerSeat = "p1" | "p2" | "p3" | "p4";
+export type MultiplayerSessionRole = "player" | "spectator";
 export type MultiplayerRoomStatus = "lobby" | "countdown" | "playing" | "finished";
 
 export const multiplayerCodeAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
@@ -16,6 +17,7 @@ export type MultiplayerSession = {
   playerId: string;
   playerToken: string;
   seat: MultiplayerSeat;
+  role?: MultiplayerSessionRole;
 };
 
 export type MultiplayerSeatSnapshot = {
@@ -33,11 +35,12 @@ export type MultiplayerRoomSnapshot = {
   state: unknown;
   settings?: unknown;
   countdownEndsAt?: number;
+  spectatorCount?: number;
 };
 
 export type MultiplayerSnapshotMessage = {
   type: "snapshot";
-  you: { playerId: string; seat: MultiplayerSeat };
+  you: { playerId: string; seat: MultiplayerSeat; role?: MultiplayerSessionRole };
   room: MultiplayerRoomSnapshot;
 };
 
@@ -83,6 +86,9 @@ export type MultiplayerCreateResponse =
 export type MultiplayerJoinResponse =
   | { ok: true; session: MultiplayerSession }
   | MultiplayerApiError;
+export type MultiplayerSpectateResponse =
+  | { ok: true; session: MultiplayerSession }
+  | MultiplayerApiError;
 export type MultiplayerStatusResponse = { ok: true } | MultiplayerApiError;
 
 export type MultiplayerApiError = { ok: false; error: string };
@@ -93,6 +99,12 @@ export function normalizeMultiplayerCode(value: string): string {
 
 export function isMultiplayerSeat(value: unknown): value is MultiplayerSeat {
   return typeof value === "string" && multiplayerSeats.includes(value as MultiplayerSeat);
+}
+
+export function isMultiplayerSpectatorSession(
+  session: MultiplayerSession | null | undefined,
+): boolean {
+  return session?.role === "spectator";
 }
 
 export function parseMultiplayerSeat(value: unknown): MultiplayerSeat | null {
