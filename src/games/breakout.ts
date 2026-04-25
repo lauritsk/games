@@ -10,6 +10,7 @@ import {
   type FixedStepLoop,
 } from "../arcade";
 import {
+  addTouchGestureControls,
   createDelayedAction,
   createGameShell,
   createMountScope,
@@ -164,6 +165,16 @@ export function mountBreakout(target: HTMLElement): () => void {
     },
     { signal: scope.signal },
   );
+  addTouchGestureControls(
+    board,
+    {
+      onSwipe: (direction) => {
+        if (direction === "left" || direction === "right") nudgePaddle(direction);
+        else start();
+      },
+    },
+    { signal: scope.signal, touchAction: "none" },
+  );
 
   function resetGame(): void {
     stopTimer();
@@ -215,6 +226,14 @@ export function mountBreakout(target: HTMLElement): () => void {
     if (left === right) return;
     const step = left ? -2.8 : 2.8;
     state = moveBreakoutPaddle(state, state.paddle.x + state.paddle.width / 2 + step);
+  }
+
+  function nudgePaddle(direction: "left" | "right"): void {
+    const delta = direction === "left" ? -state.width * 0.12 : state.width * 0.12;
+    state = moveBreakoutPaddle(state, state.paddle.x + state.paddle.width / 2 + delta);
+    start();
+    autosave.request();
+    render();
   }
 
   function onPointerMove(event: PointerEvent): void {

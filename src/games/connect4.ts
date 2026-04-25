@@ -1,4 +1,5 @@
 import {
+  addTouchGestureControls,
   createDelayedAction,
   createGameShell,
   createMountScope,
@@ -18,6 +19,7 @@ import {
   setSelected,
   syncChildren,
   type Difficulty,
+  type Direction,
   type GameDefinition,
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
@@ -113,6 +115,11 @@ export function mountConnect4(target: HTMLElement): () => void {
   const invalidMove = createInvalidMoveFeedback(shell);
   const botMove = createDelayedAction();
   onDocumentKeyDown(onKeyDown, scope);
+  addTouchGestureControls(
+    grid,
+    { onSwipe: handleDirectionInput },
+    { signal: scope.signal, touchAction: "none" },
+  );
 
   const modeControl = {
     get: () => mode,
@@ -208,18 +215,20 @@ export function mountConnect4(target: HTMLElement): () => void {
       return;
     }
     handleStandardGameKey(event, {
-      onDirection: (direction) => {
-        if (direction === "left") selectedColumn = Math.max(0, selectedColumn - 1);
-        else if (direction === "right")
-          selectedColumn = Math.min(connect4Columns - 1, selectedColumn + 1);
-        else if (direction === "down") playTurn(selectedColumn);
-        render();
-      },
+      onDirection: handleDirectionInput,
       onActivate: () => playTurn(selectedColumn),
       onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
       onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
       onReset: requestReset,
     });
+  }
+
+  function handleDirectionInput(direction: Direction): void {
+    if (direction === "left") selectedColumn = Math.max(0, selectedColumn - 1);
+    else if (direction === "right")
+      selectedColumn = Math.min(connect4Columns - 1, selectedColumn + 1);
+    else if (direction === "down") playTurn(selectedColumn);
+    render();
   }
 
   function statusText(): string {

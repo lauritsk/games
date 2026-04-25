@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createDelayedAction,
   createMountScope,
+  directionFromSwipeDelta,
   durationSince,
   isFiniteNumber,
   isIntegerInRange,
@@ -26,6 +27,16 @@ describe("difficulty cycling", () => {
     expect(previousDifficulty("Hard")).toBe("Medium");
     expect(previousDifficulty("Medium")).toBe("Easy");
     expect(previousDifficulty("Easy")).toBe("Hard");
+  });
+});
+
+describe("touch gestures", () => {
+  test("classifies dominant swipe direction after threshold", () => {
+    expect(directionFromSwipeDelta(40, 8)).toBe("right");
+    expect(directionFromSwipeDelta(-40, 8)).toBe("left");
+    expect(directionFromSwipeDelta(6, 40)).toBe("down");
+    expect(directionFromSwipeDelta(6, -40)).toBe("up");
+    expect(directionFromSwipeDelta(10, 10)).toBeNull();
   });
 });
 

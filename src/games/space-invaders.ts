@@ -12,6 +12,7 @@ import {
   type FixedStepLoop,
 } from "../arcade";
 import {
+  addTouchGestureControls,
   createDelayedAction,
   createGameShell,
   createMountScope,
@@ -205,6 +206,16 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     { signal: scope.signal },
   );
   board.addEventListener("pointermove", movePointer, { signal: scope.signal });
+  addTouchGestureControls(
+    board,
+    {
+      onSwipe: (direction) => {
+        if (direction === "left" || direction === "right") moveByDirection(direction);
+        else fire();
+      },
+    },
+    { signal: scope.signal, touchAction: "none" },
+  );
 
   function resetGame(): void {
     stopTimer();

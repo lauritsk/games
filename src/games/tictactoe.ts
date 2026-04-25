@@ -1,4 +1,5 @@
 import {
+  addTouchGestureControls,
   createDelayedAction,
   createGameShell,
   createMountScope,
@@ -17,6 +18,7 @@ import {
   setSelected,
   syncChildren,
   type Difficulty,
+  type Direction,
   type GameDefinition,
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
@@ -106,6 +108,11 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   const invalidMove = createInvalidMoveFeedback(shell);
   const botMove = createDelayedAction();
   onDocumentKeyDown(onKeyDown, scope);
+  addTouchGestureControls(
+    grid,
+    { onSwipe: moveSelection },
+    { signal: scope.signal, touchAction: "none" },
+  );
 
   const modeControl = {
     get: () => mode,
@@ -186,15 +193,17 @@ export function mountTicTacToe(target: HTMLElement): () => void {
       return;
     }
     handleStandardGameKey(event, {
-      onDirection: (direction) => {
-        selected = moveGridIndex(selected, direction, ticTacToeSize, board.length);
-        render();
-      },
+      onDirection: moveSelection,
       onActivate: () => playTurn(selected),
       onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
       onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
       onReset: requestReset,
     });
+  }
+
+  function moveSelection(direction: Direction): void {
+    selected = moveGridIndex(selected, direction, ticTacToeSize, board.length);
+    render();
   }
 
   function statusText(): string {

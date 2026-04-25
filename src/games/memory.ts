@@ -1,5 +1,6 @@
 import {
   createDelayedAction,
+  addTouchGestureControls,
   createGameShell,
   durationSince,
   createMountScope,
@@ -17,6 +18,7 @@ import {
   setSelected,
   syncChildren,
   type Difficulty,
+  type Direction,
   type GameDefinition,
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
@@ -113,6 +115,11 @@ export function mountMemory(target: HTMLElement): () => void {
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
+  addTouchGestureControls(
+    grid,
+    { onSwipe: moveSelection },
+    { signal: scope.signal, touchAction: "none" },
+  );
   const autosave = createAutosave({ gameId: memory.id, scope, save: saveCurrentGame });
 
   function resetGame(): void {
@@ -161,15 +168,17 @@ export function mountMemory(target: HTMLElement): () => void {
 
   function onKeyDown(event: KeyboardEvent): void {
     handleStandardGameKey(event, {
-      onDirection: (direction) => {
-        selected = moveGridIndex(selected, direction, config.columns, cards.length);
-        render();
-      },
+      onDirection: moveSelection,
       onActivate: () => flip(selected),
       onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
       onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
       onReset: requestReset,
     });
+  }
+
+  function moveSelection(direction: Direction): void {
+    selected = moveGridIndex(selected, direction, config.columns, cards.length);
+    render();
   }
 
   function flip(index: number): void {

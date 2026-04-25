@@ -1,5 +1,6 @@
 import { createArcadeModeController, createPauseButton, createPauseOverlay } from "../arcade";
 import {
+  addTouchGestureControls,
   createGameShell,
   createMountScope,
   durationSince,
@@ -145,6 +146,17 @@ export function mountTetris(target: HTMLElement): () => void {
   const overlay = createPauseOverlay(viewport, togglePause);
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
+  addTouchGestureControls(
+    board,
+    {
+      onTap: () => handleDirection("up"),
+      onSwipe: (direction) => {
+        if (direction === "down") hardDrop();
+        else handleDirection(direction);
+      },
+    },
+    { signal: scope.signal, touchAction: "none" },
+  );
   pauseOnFocusLoss(scope, { isActive: () => mode === "playing", pause: togglePause });
 
   function resetGame(): void {

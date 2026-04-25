@@ -1,5 +1,7 @@
 # TODO
 
+- [x] Optimize games for touchscreen controls.
+
 - [x] Apply refactor/design cleanup pass.
 - [x] Apply web design review to current project.
 - [x] Refactor maintainability hotspots.

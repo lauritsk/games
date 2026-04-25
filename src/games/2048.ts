@@ -1,4 +1,5 @@
 import {
+  addTouchGestureControls,
   createGameShell,
   createMountScope,
   el,
@@ -106,6 +107,7 @@ export function mount2048(target: HTMLElement): () => void {
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
+  addTouchGestureControls(grid, { onSwipe: move }, { signal: scope.signal, touchAction: "none" });
   const autosave = createAutosave({ gameId, scope, save: saveCurrentGame });
 
   function resetGame(): void {

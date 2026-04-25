@@ -1,5 +1,6 @@
 import { createPauseOverlay } from "../arcade";
 import {
+  addTouchGestureControls,
   createGameShell,
   createMountScope,
   durationSince,
@@ -164,6 +165,11 @@ export function mountSnake(target: HTMLElement): () => void {
   });
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
+  addTouchGestureControls(
+    grid,
+    { onTap: start, onSwipe: handleDirectionInput },
+    { signal: scope.signal, touchAction: "none" },
+  );
   pauseOnFocusLoss(scope, { isActive: () => state === "playing", pause: togglePause });
   const autosave = createAutosave({ gameId, scope, save: saveCurrentGame });
 
@@ -215,17 +221,19 @@ export function mountSnake(target: HTMLElement): () => void {
       return;
     }
     handleStandardGameKey(event, {
-      onDirection: (next) => {
-        if (queueDirection(next)) playSound("gameMove");
-        else if (state === "playing" && next === oppositeSnakeDirection[direction])
-          invalidMove.trigger();
-        start();
-      },
+      onDirection: handleDirectionInput,
       onActivate: start,
       onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
       onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
       onReset: requestReset,
     });
+  }
+
+  function handleDirectionInput(next: Direction): void {
+    if (queueDirection(next)) playSound("gameMove");
+    else if (state === "playing" && next === oppositeSnakeDirection[direction])
+      invalidMove.trigger();
+    start();
   }
 
   function start(): void {

@@ -1,4 +1,5 @@
 import {
+  addTouchGestureControls,
   applyGameLayout,
   createGameShell,
   createMountScope,
@@ -175,6 +176,13 @@ export function mountMinesweeper(target: HTMLElement): () => void {
         event.preventDefault();
         toggleFlag(Number(tile.dataset.row), Number(tile.dataset.column));
       });
+      addTouchGestureControls(
+        tile,
+        {
+          onLongPress: () => toggleFlag(Number(tile.dataset.row), Number(tile.dataset.column)),
+        },
+        { signal: scope.signal, touchAction: "manipulation" },
+      );
       return tile;
     });
     tiles.forEach((tile, index) => {
