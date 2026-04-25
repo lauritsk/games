@@ -1,8 +1,16 @@
 import { shuffleInPlace, type RandomSource } from "../core";
+import type { Difficulty } from "../types";
 
 export type MemoryCard = { id: number; symbol: string; open: boolean; matched: boolean };
+export type MemoryConfig = { pairs: number; columns: number; rows: number };
 
 export const memorySymbols = ["★", "◆", "●", "▲", "☽", "✿", "♣", "☀", "♥", "✦", "⬟", "☂"];
+
+export const memoryConfigs: Record<Difficulty, MemoryConfig> = {
+  Easy: { pairs: 6, columns: 4, rows: 3 },
+  Medium: { pairs: 8, columns: 4, rows: 4 },
+  Hard: { pairs: 12, columns: 6, rows: 4 },
+};
 
 export function newMemoryDeck(pairs: number, rng?: RandomSource): MemoryCard[] {
   return shuffleInPlace(

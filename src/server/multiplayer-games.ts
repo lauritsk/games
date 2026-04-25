@@ -12,6 +12,13 @@ import {
   type Connect4WinLine,
 } from "../games/connect4.logic";
 import {
+  allMemoryMatched,
+  memoryConfigs,
+  newMemoryDeck,
+  openUnmatchedMemoryCards,
+  type MemoryCard,
+} from "../games/memory.logic";
+import {
   moveSnakePoint,
   nextSnakeDirection,
   randomSnakeFood,
@@ -378,10 +385,91 @@ export const snakeMultiplayerAdapter: MultiplayerAdapter<SnakeOnlineState, Snake
   publicSnapshot: (state) => ({ ...state }),
 };
 
+type MemoryOnlineState = {
+  cards: MemoryCard[];
+  current: MultiplayerSeat;
+  scores: Record<MultiplayerSeat, number>;
+  moves: number;
+  winner: MultiplayerSeat | "draw" | null;
+  pendingCloseAt: number | null;
+};
+
+type MemoryAction = { type: "flip"; index: number };
+
+const memoryMismatchDelayMs = 650;
+const memoryOnlineConfig = memoryConfigs.Medium;
+
+export const memoryMultiplayerAdapter: MultiplayerAdapter<MemoryOnlineState, MemoryAction> = {
+  gameId: "memory",
+  maxPlayers: 2,
+  tickMs: 100,
+  newState: () => newMemoryOnlineState(),
+  parseAction(value) {
+    if (!isRecord(value) || value.type !== "flip") return null;
+    const index = parseIntegerInRange(value.index, 0, memoryConfigs.Hard.pairs * 2);
+    return index === null ? null : { type: "flip", index };
+  },
+  applyAction(state, seat, action) {
+    if (state.winner) return { ok: false, error: "Game already finished" };
+    if (state.pendingCloseAt !== null) return { ok: false, error: "Cards are settling" };
+    if (state.current !== seat) return { ok: false, error: "Not your turn" };
+    const card = state.cards[action.index];
+    if (!card || card.open || card.matched) return { ok: false, error: "Invalid move" };
+
+    const cards = state.cards.map((entry, index) =>
+      index === action.index ? { ...entry, open: true } : { ...entry },
+    );
+    const open = openUnmatchedMemoryCards(cards);
+    if (open.length < 2) return { ok: true, state: { ...state, cards } };
+
+    const [a, b] = open;
+    if (!a || !b) return { ok: false, error: "Invalid move" };
+    const moves = state.moves + 1;
+    if (a.symbol !== b.symbol) {
+      return {
+        ok: true,
+        state: { ...state, cards, moves, pendingCloseAt: Date.now() + memoryMismatchDelayMs },
+      };
+    }
+
+    const matchedCards = cards.map((entry) =>
+      entry.open && !entry.matched ? { ...entry, open: false, matched: true } : entry,
+    );
+    const scores = { ...state.scores, [seat]: state.scores[seat] + 1 };
+    const winner = allMemoryMatched(matchedCards) ? memoryWinner(scores) : null;
+    return {
+      ok: true,
+      state: { ...state, cards: matchedCards, scores, moves, winner },
+      ...(winner ? { finished: { winner } } : {}),
+    };
+  },
+  tick(state) {
+    if (state.winner || state.pendingCloseAt === null || Date.now() < state.pendingCloseAt) {
+      return null;
+    }
+    const cards = state.cards.map((card) =>
+      card.open && !card.matched ? { ...card, open: false } : card,
+    );
+    return {
+      ok: true,
+      state: {
+        ...state,
+        cards,
+        current: oppositeMultiplayerSeat(state.current),
+        pendingCloseAt: null,
+      },
+    };
+  },
+  publicSnapshot: (state) => ({ ...state }),
+};
+
 const adapters = new Map<string, MultiplayerAdapter>(
-  [ticTacToeMultiplayerAdapter, connect4MultiplayerAdapter, snakeMultiplayerAdapter].map(
-    (adapter) => [adapter.gameId, adapter],
-  ),
+  [
+    ticTacToeMultiplayerAdapter,
+    connect4MultiplayerAdapter,
+    snakeMultiplayerAdapter,
+    memoryMultiplayerAdapter,
+  ].map((adapter) => [adapter.gameId, adapter]),
 );
 
 export function multiplayerAdapterForGame(gameId: string): MultiplayerAdapter | null {
@@ -394,6 +482,22 @@ export function supportedMultiplayerGameIds(): string[] {
 
 export function oppositeSeat(seat: MultiplayerSeat): MultiplayerSeat {
   return oppositeMultiplayerSeat(seat);
+}
+
+function newMemoryOnlineState(): MemoryOnlineState {
+  return {
+    cards: newMemoryDeck(memoryOnlineConfig.pairs),
+    current: "p1",
+    scores: { p1: 0, p2: 0, p3: 0, p4: 0 },
+    moves: 0,
+    winner: null,
+    pendingCloseAt: null,
+  };
+}
+
+function memoryWinner(scores: Record<MultiplayerSeat, number>): MultiplayerSeat | "draw" {
+  if (scores.p1 === scores.p2) return "draw";
+  return scores.p1 > scores.p2 ? "p1" : "p2";
 }
 
 function newSnakeOnlinePlayer(size: number, seat: MultiplayerSeat): SnakeOnlinePlayer {

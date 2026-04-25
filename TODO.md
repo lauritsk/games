@@ -28,7 +28,7 @@
 - [x] Add live multiplayer, starting with 1v1 for games where it fits; use short-lived CSPRNG room codes (prefer 6+ base32/alphanumeric chars over 6 digits), join rate limits, and per-player session tokens.
 - [x] Refactor multiplayer mode maintainability without behavior change.
 - [x] Enable online multiplayer rematch in same room without new setup.
-- [ ] Add Memory local PvP and online PvP modes.
+- [x] Add Memory local PvP and online PvP modes.
 - [ ] Add Space Invaders online-only 2-player co-op with two shooters and scaled harder difficulty for 2 players.
 - [ ] Add spectator view for online rooms with room/game code support, available for any game that has online mode/room-code generation.
 - [ ] Add Ballz / Bricks n Balls.

@@ -66,6 +66,7 @@ import {
 } from "../src/games/tictactoe.logic";
 import {
   connect4MultiplayerAdapter,
+  memoryMultiplayerAdapter,
   snakeMultiplayerAdapter,
   ticTacToeMultiplayerAdapter,
 } from "../src/server/multiplayer-games";
@@ -531,6 +532,74 @@ describe("multiplayer adapters", () => {
       column: 4,
     });
     expect(ticked.state.players.find((player) => player.seat === "p3")?.direction).toBe("right");
+  });
+
+  test("scores Memory matches and changes turns after mismatches", () => {
+    const state = memoryMultiplayerAdapter.newState();
+    const first = state.cards[0]!;
+    const matchIndex = state.cards.findIndex(
+      (card, index) => index !== 0 && card.symbol === first.symbol,
+    );
+    expect(matchIndex).toBeGreaterThan(0);
+
+    const opened = memoryMultiplayerAdapter.applyAction(state, "p1", { type: "flip", index: 0 });
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    const matched = memoryMultiplayerAdapter.applyAction(opened.state, "p1", {
+      type: "flip",
+      index: matchIndex,
+    });
+    expect(matched.ok).toBe(true);
+    if (!matched.ok) return;
+    expect(matched.state.scores.p1).toBe(1);
+    expect(matched.state.current).toBe("p1");
+
+    const hidden = matched.state.cards
+      .map((card, index) => ({ card, index }))
+      .filter(({ card }) => !card.matched);
+    const a = hidden[0]!;
+    const b = hidden.find(({ card }) => card.symbol !== a.card.symbol)!;
+    const mismatchOpen = memoryMultiplayerAdapter.applyAction(matched.state, "p1", {
+      type: "flip",
+      index: a.index,
+    });
+    expect(mismatchOpen.ok).toBe(true);
+    if (!mismatchOpen.ok) return;
+    const mismatch = memoryMultiplayerAdapter.applyAction(mismatchOpen.state, "p1", {
+      type: "flip",
+      index: b.index,
+    });
+    expect(mismatch.ok).toBe(true);
+    if (!mismatch.ok) return;
+    expect(mismatch.state.pendingCloseAt).not.toBeNull();
+    expect(
+      memoryMultiplayerAdapter.applyAction(mismatch.state, "p2", { type: "flip", index: 1 }).ok,
+    ).toBe(false);
+
+    const ticked = memoryMultiplayerAdapter.tick?.({ ...mismatch.state, pendingCloseAt: 0 });
+    expect(ticked?.ok).toBe(true);
+    if (!ticked?.ok) return;
+    expect(ticked.state.current).toBe("p2");
+    expect(ticked.state.cards.filter((card) => card.open && !card.matched)).toHaveLength(0);
+  });
+
+  test("finishes Memory online with winner by pair score", () => {
+    let state = {
+      ...memoryMultiplayerAdapter.newState(),
+      cards: [
+        { id: 0, symbol: "★", open: false, matched: false },
+        { id: 1, symbol: "★", open: false, matched: false },
+      ],
+    };
+    const first = memoryMultiplayerAdapter.applyAction(state, "p1", { type: "flip", index: 0 });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    state = first.state;
+    const second = memoryMultiplayerAdapter.applyAction(state, "p1", { type: "flip", index: 1 });
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.finished).toEqual({ winner: "p1" });
+    expect(second.state.winner).toBe("p1");
   });
 });
 
