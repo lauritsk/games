@@ -1,6 +1,7 @@
 import type { Difficulty } from "./types";
 import { readStored, storageKey, writeStored } from "./storage";
 import { parseDifficulty } from "./game-preferences";
+import { isFiniteNumber, isRecord } from "./validation";
 
 export type GameOutcome = "won" | "lost" | "draw" | "completed";
 
@@ -163,12 +164,4 @@ function createResultId(): string {
 function dispatchResultRecorded(result: GameResult): void {
   if (typeof window === "undefined" || typeof CustomEvent === "undefined") return;
   window.dispatchEvent(new CustomEvent<GameResult>("games:result-recorded", { detail: result }));
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

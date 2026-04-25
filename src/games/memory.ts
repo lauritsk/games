@@ -1,14 +1,17 @@
 import {
   createDelayedAction,
   createGameShell,
+  durationSince,
   createMountScope,
   el,
   gameLayouts,
   handleStandardGameKey,
+  isRecord,
   markGameFinished,
   markGameStarted,
   moveGridIndex,
   onDocumentKeyDown,
+  parseStartedAt,
   resetGameProgress,
   setBoardGrid,
   syncChildren,
@@ -263,7 +266,7 @@ export function mountMemory(target: HTMLElement): () => void {
   }
 
   function durationMs(): number | undefined {
-    return startedAt === null ? undefined : Math.max(0, Date.now() - startedAt);
+    return durationSince(startedAt);
   }
 
   function savePreferences(): void {
@@ -292,17 +295,14 @@ function parseSaveMemory(value: unknown): SaveMemory | null {
     return null;
   if (typeof value.moves !== "number" || !Number.isInteger(value.moves) || value.moves < 0)
     return null;
-  if (
-    value.startedAt !== null &&
-    (typeof value.startedAt !== "number" || !Number.isFinite(value.startedAt))
-  )
-    return null;
+  const startedAt = parseStartedAt(value.startedAt);
+  if (startedAt === undefined) return null;
   return {
     difficulty,
     cards,
     selected: value.selected,
     moves: value.moves,
-    startedAt: value.startedAt,
+    startedAt,
   };
 }
 
@@ -318,8 +318,4 @@ function parseCard(value: unknown): MemoryCard | null {
   if (typeof value.symbol !== "string") return null;
   if (typeof value.open !== "boolean" || typeof value.matched !== "boolean") return null;
   return { id: value.id, symbol: value.symbol, open: value.open, matched: value.matched };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

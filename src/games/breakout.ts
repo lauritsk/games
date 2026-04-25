@@ -13,13 +13,17 @@ import {
   createDelayedAction,
   createGameShell,
   createMountScope,
+  durationSince,
   el,
   gameLayouts,
   handleStandardGameKey,
   isConfirmOpen,
+  isFiniteNumber,
+  isRecord,
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
+  parseStartedAt,
   resetGameProgress,
   type Difficulty,
   type Direction,
@@ -356,7 +360,7 @@ export function mountBreakout(target: HTMLElement): () => void {
   }
 
   function durationMs(): number | undefined {
-    return startedAt === null ? undefined : Math.max(0, Date.now() - startedAt);
+    return durationSince(startedAt);
   }
 
   function savePreferences(): void {
@@ -449,17 +453,4 @@ function parseMode(value: unknown): Mode | null {
     value === "lost"
     ? value
     : null;
-}
-
-function parseStartedAt(value: unknown): number | null | undefined {
-  if (value === null) return null;
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

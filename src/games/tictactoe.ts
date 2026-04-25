@@ -6,6 +6,7 @@ import {
   gameLayouts,
   handleStandardGameKey,
   isConfirmOpen,
+  isRecord,
   moveGridIndex,
   markGameFinished,
   markGameStarted,
@@ -307,10 +308,6 @@ function parseMark(value: unknown): Mark | null {
 function parseWinner(value: unknown): Mark | "draw" | null | undefined {
   if (value === null || value === "draw") return value;
   return parseMark(value) ?? undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function labelFor(index: number, value: TicTacToeCell): string {

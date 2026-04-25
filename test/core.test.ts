@@ -1,9 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import {
   createDelayedAction,
+  durationSince,
+  isFiniteNumber,
+  isIntegerInRange,
   moveGridIndex,
   moveGridPoint,
   nextDifficulty,
+  parseStartedAt,
   previousDifficulty,
   shuffleInPlace,
 } from "../src/core";
@@ -39,6 +43,25 @@ describe("grid movement", () => {
     expect(moveGridPoint({ row: 1, column: 1 }, "left", 3, 3)).toEqual({ row: 1, column: 0 });
     expect(moveGridPoint({ row: 0, column: 0 }, "up", 3, 3)).toEqual({ row: 0, column: 0 });
     expect(moveGridPoint({ row: 2, column: 2 }, "right", 3, 3)).toEqual({ row: 2, column: 2 });
+  });
+});
+
+describe("shared guards and clocks", () => {
+  test("recognizes finite numbers and board indexes", () => {
+    expect(isFiniteNumber(4)).toBe(true);
+    expect(isFiniteNumber(Number.POSITIVE_INFINITY)).toBe(false);
+    expect(isIntegerInRange(2, 3)).toBe(true);
+    expect(isIntegerInRange(3, 3)).toBe(false);
+    expect(isIntegerInRange(1.5, 3)).toBe(false);
+  });
+
+  test("parses nullable start times and elapsed durations", () => {
+    expect(parseStartedAt(null)).toBeNull();
+    expect(parseStartedAt(100)).toBe(100);
+    expect(parseStartedAt(Number.NaN)).toBeUndefined();
+    expect(durationSince(null, 150)).toBeUndefined();
+    expect(durationSince(100, 150)).toBe(50);
+    expect(durationSince(200, 150)).toBe(0);
   });
 });
 

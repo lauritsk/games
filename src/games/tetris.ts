@@ -2,13 +2,18 @@ import { createArcadeModeController, createPauseButton } from "../arcade";
 import {
   createGameShell,
   createMountScope,
+  durationSince,
   el,
   gameLayouts,
   handleStandardGameKey,
   isConfirmOpen,
+  isNonNegativeInteger,
+  isPositiveInteger,
+  isRecord,
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
+  parseStartedAt,
   resetGameProgress,
   setBoardGrid,
   syncChildren,
@@ -303,7 +308,7 @@ export function mountTetris(target: HTMLElement): () => void {
   }
 
   function durationMs(): number | undefined {
-    return startedAt === null ? undefined : Math.max(0, Date.now() - startedAt);
+    return durationSince(startedAt);
   }
 
   function savePreferences(): void {
@@ -399,21 +404,4 @@ function parseMode(value: unknown): Mode | null {
   return value === "ready" || value === "playing" || value === "paused" || value === "over"
     ? value
     : null;
-}
-
-function parseStartedAt(value: unknown): number | null | undefined {
-  if (value === null) return null;
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-function isNonNegativeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0;
-}
-
-function isPositiveInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

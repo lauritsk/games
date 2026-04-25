@@ -1,3 +1,5 @@
+import { isRecord } from "./validation";
+
 export type StoredEnvelope<T> = {
   schemaVersion: number;
   updatedAt: string;
@@ -73,8 +75,4 @@ function getLocalStorage(): Storage | null {
   } catch {
     return null;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

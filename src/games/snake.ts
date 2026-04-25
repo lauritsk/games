@@ -1,12 +1,17 @@
 import {
   createGameShell,
   createMountScope,
+  durationSince,
   el,
   gameLayouts,
   handleStandardGameKey,
+  isFiniteNumber,
+  isIntegerInRange,
+  isRecord,
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
+  parseStartedAt,
   resetGameProgress,
   required,
   setBoardGrid,
@@ -454,7 +459,7 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function durationMs(): number | undefined {
-    return startedAt === null ? undefined : Math.max(0, Date.now() - startedAt);
+    return durationSince(startedAt);
   }
 
   function savePreferences(): void {
@@ -490,7 +495,7 @@ function parseSaveSnake(value: unknown): SaveSnake | null {
   const state = parseState(value.state);
   const startedAt = parseStartedAt(value.startedAt);
   if (!config || !snake || !food || !direction || !queuedDirection || !state) return null;
-  if (typeof value.score !== "number" || !Number.isFinite(value.score)) return null;
+  if (!isFiniteNumber(value.score)) return null;
   if (startedAt === undefined) return null;
   return {
     difficulty,
@@ -521,9 +526,7 @@ function parsePoint(value: unknown, size: number): SnakePoint | null {
   if (!isRecord(value)) return null;
   const row = value.row;
   const column = value.column;
-  if (!Number.isInteger(row) || !Number.isInteger(column)) return null;
-  if (typeof row !== "number" || typeof column !== "number") return null;
-  if (row < 0 || column < 0 || row >= size || column >= size) return null;
+  if (!isIntegerInRange(row, size) || !isIntegerInRange(column, size)) return null;
   return { row, column };
 }
 
@@ -539,13 +542,4 @@ function parseState(value: unknown): State | null {
     value === "lost"
     ? value
     : null;
-}
-
-function parseStartedAt(value: unknown): number | null | undefined {
-  if (value === null) return null;
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

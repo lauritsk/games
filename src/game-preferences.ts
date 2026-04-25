@@ -1,5 +1,6 @@
 import type { Difficulty } from "./types";
 import { readStored, storageKey, writeStored } from "./storage";
+import { isRecord } from "./validation";
 
 export type GamePreferences = {
   difficulty?: Difficulty;
@@ -66,8 +67,4 @@ function parseOptions(value: unknown): Record<string, string | number | boolean>
     }
   }
   return Object.keys(options).length ? options : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

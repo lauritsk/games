@@ -6,6 +6,7 @@ import {
   gameLayouts,
   handleStandardGameKey,
   isConfirmOpen,
+  isRecord,
   Keys,
   markGameFinished,
   markGameStarted,
@@ -348,10 +349,6 @@ function parsePlayer(value: unknown): Connect4Player | null {
 function parseWinner(value: unknown): Connect4Player | null | undefined {
   if (value === null) return null;
   return parsePlayer(value) ?? undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function labelFor(row: number, column: number, value: Connect4Cell): string {

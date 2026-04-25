@@ -4,6 +4,8 @@ import {
   el,
   gameLayouts,
   handleStandardGameKey,
+  isFiniteNumber,
+  isRecord,
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
@@ -216,7 +218,7 @@ function parseSave2048(value: unknown): Save2048 | null {
   if (typeof size !== "number" || sizes[difficulty] !== size) return null;
   const board = parseBoard2048(value.board, size);
   if (!board) return null;
-  if (typeof value.score !== "number" || !Number.isFinite(value.score)) return null;
+  if (!isFiniteNumber(value.score)) return null;
   if (typeof value.started !== "boolean" || typeof value.finished !== "boolean") return null;
   return {
     board,
@@ -232,13 +234,8 @@ function parseBoard2048(value: unknown, size: number): Board2048 | null {
   if (!Array.isArray(value) || value.length !== size) return null;
   const board = value.map((row) => {
     if (!Array.isArray(row) || row.length !== size) return null;
-    if (row.some((cell) => typeof cell !== "number" || !Number.isFinite(cell) || cell < 0))
-      return null;
+    if (row.some((cell) => !isFiniteNumber(cell) || cell < 0)) return null;
     return [...row] as number[];
   });
   return board.every((row): row is number[] => row !== null) ? board : null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

@@ -2,14 +2,18 @@ import {
   applyGameLayout,
   createGameShell,
   createMountScope,
+  durationSince,
   el,
   gameLayouts,
   handleStandardGameKey,
   isConfirmOpen,
+  isIntegerInRange,
+  isRecord,
   markGameFinished,
   markGameStarted,
   moveGridPoint,
   onDocumentKeyDown,
+  parseStartedAt,
   resetGameProgress,
   setBoardGrid,
   syncChildren,
@@ -367,7 +371,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   }
 
   function durationMs(): number | undefined {
-    return startedAt === null ? undefined : Math.max(0, Date.now() - startedAt);
+    return durationSince(startedAt);
   }
 
   function savePreferences(): void {
@@ -398,8 +402,8 @@ function parseSaveMinesweeper(value: unknown): SaveMinesweeper | null {
   if (!state) return null;
   if (typeof value.firstMove !== "boolean") return null;
   if (
-    !isValidIndex(value.selectedRow, shape.rows) ||
-    !isValidIndex(value.selectedColumn, shape.columns)
+    !isIntegerInRange(value.selectedRow, shape.rows) ||
+    !isIntegerInRange(value.selectedColumn, shape.columns)
   )
     return null;
   const startedAt = parseStartedAt(value.startedAt);
@@ -451,19 +455,6 @@ function parseCell(value: unknown): MinesweeperCell | null {
 
 function parseState(value: unknown): State | null {
   return value === "playing" || value === "won" || value === "lost" ? value : null;
-}
-
-function parseStartedAt(value: unknown): number | null | undefined {
-  if (value === null) return null;
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-function isValidIndex(value: unknown, length: number): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value < length;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function cellText(cell: MinesweeperCell): string {

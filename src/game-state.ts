@@ -1,5 +1,6 @@
 import type { MountScope } from "./lifecycle";
 import { readStored, removeStored, storageKey, writeStored } from "./storage";
+import { isRecord } from "./validation";
 
 export type SaveStatus = "ready" | "playing" | "paused";
 
@@ -124,8 +125,4 @@ function parseGameSave<T>(
     status: value.status as SaveStatus,
     payload,
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
