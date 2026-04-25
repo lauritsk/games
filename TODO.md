@@ -1,5 +1,6 @@
 # TODO
 
+- [x] Update TypeScript to v6.
 - [x] Design bot win-streak leaderboards for Tic-Tac-Toe and Connect 4 before implementation.
 - [x] Add first-class `streak` result/leaderboard metric across local results, sync, server schema, and formatting.
 - [x] Add shared bot streak state/eligibility handling, including loss/draw/abandon reset behavior.
