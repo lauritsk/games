@@ -20,6 +20,7 @@ import {
   onDocumentKeyDown,
   parseOneOf,
   parseStartedAt,
+  pauseGameOnRequest,
   pauseOnFocusLoss,
   resetGameProgress,
   setBoardGrid,
@@ -160,6 +161,11 @@ export function mountTetris(target: HTMLElement): () => void {
   const overlay = createPauseOverlay(viewport, togglePause);
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
+  pauseGameOnRequest(shell, scope, {
+    canPause: () => mode === "playing",
+    isPaused: () => mode === "paused",
+    pause: togglePause,
+  });
   addTouchGestureControls(
     board,
     {

@@ -1,5 +1,7 @@
 # TODO
 
+- [x] Pause pausable games when showing leave-game prompt.
+- [x] Make all button clicks feel instant and reliable.
 - [x] Fix split CSS layer ordering for game controls.
 - [x] Reduce CSS duplication and share common game element styles.
 - [x] Improve icon consistency and top-bar title hierarchy.

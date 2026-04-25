@@ -15,6 +15,7 @@ import {
   onDocumentKeyDown,
   parseOneOf,
   parseStartedAt,
+  pauseGameOnRequest,
   pauseOnFocusLoss,
   resetGameProgress,
   required,
@@ -247,6 +248,11 @@ export function mountSnake(target: HTMLElement): () => void {
   });
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
+  pauseGameOnRequest(shell, scope, {
+    canPause: () => !onlineSession && state === "playing",
+    isPaused: () => !onlineSession && state === "paused",
+    pause: togglePause,
+  });
   addTouchGestureControls(
     grid,
     { onTap: activate, onSwipe: handleDirectionInput },

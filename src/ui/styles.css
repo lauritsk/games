@@ -35,6 +35,9 @@
     border: 0;
     cursor: pointer;
     padding: 0;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
   button:disabled {
     cursor: not-allowed;
@@ -219,6 +222,10 @@
   .interactive:hover {
     transform: translateY(-1px);
     background: var(--surface-hover);
+  }
+  .interactive:active:not(:disabled) {
+    transform: translateY(0) scale(0.97);
+    transition-duration: 40ms;
   }
   .interactive:disabled {
     opacity: 0.46;

@@ -11,8 +11,10 @@ import {
   nextDifficulty,
   parseOneOf,
   parseStartedAt,
+  pauseGameOnRequest,
   pauseOnFocusLoss,
   previousDifficulty,
+  requestGamePause,
   shuffleInPlace,
 } from "@shared/core";
 
@@ -142,6 +144,35 @@ test("pauses active games on focus loss and tab hide", () => {
     restoreGlobal("window", previousWindow);
     restoreGlobal("document", previousDocument);
   }
+});
+
+test("pause requests pause active pausable games", () => {
+  const shell = new EventTarget() as HTMLElement;
+  const scope = createMountScope();
+  let mode: "ready" | "playing" | "paused" = "ready";
+  let pauses = 0;
+
+  pauseGameOnRequest(shell, scope, {
+    canPause: () => mode === "playing",
+    isPaused: () => mode === "paused",
+    pause: () => {
+      mode = "paused";
+      pauses += 1;
+    },
+  });
+
+  expect(requestGamePause(shell)).toBe(false);
+  mode = "playing";
+  expect(requestGamePause(shell)).toBe(true);
+  expect(pauses).toBe(1);
+  expect(mode).toBe("paused");
+  expect(requestGamePause(shell)).toBe(true);
+  expect(pauses).toBe(1);
+
+  mode = "playing";
+  scope.cleanup();
+  expect(requestGamePause(shell)).toBe(false);
+  expect(pauses).toBe(1);
 });
 
 test("delayed actions can be rescheduled and cleared", async () => {

@@ -9,6 +9,7 @@ import {
   matchesKey,
   onDocumentKeyDown,
   pillButton,
+  requestGamePause,
   required,
   setIconLabel,
   syncChildren,
@@ -306,6 +307,7 @@ function renderGame(game: GameDefinition): void {
     event.preventDefault();
     const gameElement = gameHost.querySelector<HTMLElement>(".game");
     if (gameElement && isGameInProgress(gameElement)) {
+      requestGamePause(gameElement);
       confirmCleanup = confirmChoice(
         "Leave this game?",
         () => {
