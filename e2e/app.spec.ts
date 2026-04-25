@@ -45,14 +45,15 @@ test("appearance defaults to system and can persist explicit choice", async ({ p
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-appearance", "dark");
-  await expect(page.getByRole("radio", { name: "System" })).toHaveAttribute("aria-checked", "true");
+  const themeToggle = page.getByRole("button", { name: "Color theme: System" });
+  await expect(themeToggle).toBeVisible();
 
-  await page.getByRole("radio", { name: "Light" }).click();
+  await themeToggle.click();
   await expect(page.locator("html")).toHaveAttribute("data-appearance", "light");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-appearance", "light");
 
-  await page.getByRole("radio", { name: "System" }).click();
+  await page.getByRole("button", { name: "Color theme: Light" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-appearance", "dark");
   await page.evaluate(() => window.assertNoClientErrors());
 });
@@ -61,7 +62,7 @@ test("game header controls do not overlap the appearance toggle", async ({ page 
   await openGame(page, "Tic-Tac-Toe");
 
   const history = page.getByRole("button", { name: "History" });
-  const appearance = page.getByRole("radiogroup", { name: "Color theme" });
+  const appearance = page.getByRole("button", { name: /Color theme/ });
   await expect(history).toBeVisible();
   await expect(appearance).toBeVisible();
 
@@ -73,7 +74,7 @@ test("mobile game navigation remains tappable below the appearance toggle", asyn
   await page.setViewportSize({ width: 375, height: 667 });
   await openGame(page, "Tic-Tac-Toe");
 
-  const appearance = page.getByRole("radiogroup", { name: "Color theme" });
+  const appearance = page.getByRole("button", { name: /Color theme/ });
   const history = page.getByRole("button", { name: "History" });
   const leaderboard = page.getByRole("button", { name: "Leaderboard" });
   await expect(appearance).toBeVisible();

@@ -230,15 +230,10 @@ function renderGame(game: GameDefinition): void {
 
   const screen = el("section", { className: "game-screen" });
   const nav = el("header", { className: "game-screen__nav" });
-  const crumb = el("div", { className: "game-screen__crumb" });
   const back = el("a", { className: "back-button", ariaLabel: "← Selection" });
   back.href = "#/";
   setIconLabel(back, "←", "← Selection");
-  crumb.append(
-    back,
-    el("span", { className: "game-screen__crumb-separator", text: "/" }),
-    el("strong", { className: "game-screen__title", text: game.name }),
-  );
+  const title = el("strong", { className: "game-screen__title", text: game.name });
   const navActions = el("div", { className: "game-screen__nav-actions" });
   const history = button("", "nav-action");
   setIconLabel(history, "⏱", "History");
@@ -250,7 +245,7 @@ function renderGame(game: GameDefinition): void {
     leaderboard.addEventListener("click", () => leaderboardDialog.show(game));
     navActions.append(leaderboard);
   }
-  nav.append(crumb, navActions);
+  nav.append(back, title, navActions);
   const gameHost = el("div", { className: "game-host center-screen" });
   screen.append(nav, gameHost);
   workspace.append(screen);

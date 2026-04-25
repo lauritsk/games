@@ -4,36 +4,39 @@ import {
   setAppearanceMode,
   type AppearanceMode,
 } from "@ui/appearance";
-import { el, setIconLabel, setSelected } from "@shared/core";
+import { el, setIconLabel } from "@shared/core";
 
 const appearanceModes = ["system", "light", "dark"] as const satisfies AppearanceMode[];
 
-export function createAppearanceControl(): HTMLElement {
-  const control = el("div", { className: "appearance-toggle surface", ariaLabel: "Color theme" });
-  control.setAttribute("role", "radiogroup");
-  for (const mode of appearanceModes) {
-    const option = el("button", {
-      className: "appearance-toggle__option interactive",
-      type: "button",
-    });
-    option.dataset.mode = mode;
-    option.setAttribute("role", "radio");
-    setIconLabel(option, iconAppearanceMode(mode), labelAppearanceMode(mode));
-    option.addEventListener("click", () => setAppearanceMode(mode));
-    control.append(option);
-  }
+export function createAppearanceControl(): HTMLButtonElement {
+  const control = el("button", {
+    className: "appearance-toggle surface interactive",
+    type: "button",
+  });
+  control.addEventListener("click", () =>
+    setAppearanceMode(nextAppearanceMode(getAppearanceMode())),
+  );
   updateAppearanceControl(control);
   return control;
 }
 
 export function updateAppearanceControl(control: HTMLElement): void {
   const currentMode = getAppearanceMode();
-  control.querySelectorAll<HTMLButtonElement>("button[data-mode]").forEach((option) => {
-    const selected = option.dataset.mode === currentMode;
-    setSelected(option, selected);
-    option.setAttribute("aria-checked", String(selected));
-    option.title = currentMode === "system" ? `System: ${getResolvedAppearance()}` : "";
-  });
+  setIconLabel(
+    control,
+    iconAppearanceMode(currentMode),
+    `Color theme: ${labelAppearanceMode(currentMode)}`,
+  );
+  control.dataset.mode = currentMode;
+  control.dataset.resolved = getResolvedAppearance();
+  control.title = `Color theme: ${labelAppearanceMode(currentMode)}. Click for ${labelAppearanceMode(
+    nextAppearanceMode(currentMode),
+  )}.`;
+}
+
+function nextAppearanceMode(mode: AppearanceMode): AppearanceMode {
+  const index = appearanceModes.indexOf(mode);
+  return appearanceModes[(index + 1) % appearanceModes.length] ?? "system";
 }
 
 function labelAppearanceMode(mode: AppearanceMode): string {

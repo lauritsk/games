@@ -85,3 +85,4 @@
 - [x] Roll out Space Invaders leaderboard: score max, metadata wave/lives.
 - [x] Roll out Minesweeper leaderboard: winning duration min.
 - [x] Roll out Memory leaderboard: completion duration min.
+- [x] Refine icon state toggles and centered game title.

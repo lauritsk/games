@@ -236,22 +236,14 @@
   .appearance-toggle {
     position: relative;
     z-index: 4;
-    display: flex;
-    justify-self: end;
-    gap: 3px;
-    width: max-content;
-    padding: 4px;
-    border-radius: var(--round);
-  }
-
-  .appearance-toggle__option {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    justify-self: end;
+    min-width: 52px;
     min-block-size: 36px;
-    border-radius: var(--round);
-    background: transparent;
-    padding: 7px 10px;
+    padding: 7px 12px;
+    border-radius: var(--radius-md);
     color: var(--muted);
     font-size: 1rem;
     font-weight: 850;
@@ -259,9 +251,9 @@
     text-align: center;
   }
 
-  .appearance-toggle__option[data-selected="true"] {
-    background: color-mix(in srgb, var(--accent), transparent 78%);
+  .appearance-toggle:hover {
     color: var(--ink);
+    background: var(--surface-hover);
   }
 
   .workspace,
@@ -296,9 +288,9 @@
   .game-screen__nav {
     position: relative;
     z-index: 3;
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
     gap: 8px 14px;
     min-width: 0;
     padding: 8px 10px;
@@ -309,24 +301,22 @@
     font-size: 0.86rem;
   }
 
-  .game-screen__crumb,
   .game-screen__nav-actions {
     display: flex;
     align-items: center;
+    justify-self: end;
     gap: 7px;
     min-width: 0;
     flex-wrap: wrap;
   }
 
   .game-screen__title {
+    min-width: 0;
     overflow: hidden;
     color: var(--ink);
+    text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .game-screen__crumb-separator {
-    opacity: 0.55;
   }
 
   .back-button,
