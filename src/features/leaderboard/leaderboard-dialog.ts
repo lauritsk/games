@@ -44,7 +44,7 @@ export function createLeaderboardDialog(): LeaderboardDialog {
       text: `${game.name} leaderboard`,
     });
     const summary = el("div", { className: "leaderboard-dialog__summary" });
-    const filters = el("div", { className: "leaderboard-dialog__filters" });
+    const filters = el("div", { className: "segmented-control leaderboard-dialog__filters" });
     filters.setAttribute("role", "tablist");
     filters.setAttribute("aria-label", "Leaderboard difficulty");
     const body = el("div", { className: "leaderboard-dialog__scroll" });
@@ -88,7 +88,10 @@ export function createLeaderboardDialog(): LeaderboardDialog {
     function renderFilters(): void {
       clearNode(filters);
       for (const difficulty of difficulties) {
-        const filter = button(difficultyIcon(difficulty), "leaderboard-dialog__filter");
+        const filter = button(
+          difficultyIcon(difficulty),
+          "segmented-control__item leaderboard-dialog__filter",
+        );
         filter.setAttribute("role", "tab");
         filter.setAttribute("aria-label", difficulty);
         filter.title = difficulty;
@@ -127,7 +130,7 @@ function createSubmitForm(
 ): HTMLElement {
   const form = el("form", { className: "leaderboard-submit" });
   const label = el("label", { className: "leaderboard-submit__label" });
-  const input = el("input", { className: "leaderboard-submit__input" });
+  const input = el("input", { className: "form-control leaderboard-submit__input" });
   input.name = "username";
   input.setAttribute("autocomplete", "nickname");
   input.setAttribute("aria-label", "Display name");
@@ -185,7 +188,7 @@ function renderEntries(entries: LeaderboardEntry[], submitted?: LeaderboardEntry
   if (entries.length === 0 && !submitted) {
     return el("p", { className: "muted", text: "No public entries yet." });
   }
-  const list = el("ol", { className: "leaderboard-list" });
+  const list = el("ol", { className: "record-list leaderboard-list" });
   for (const entry of entries) {
     list.append(renderEntry(entry));
   }
@@ -198,19 +201,19 @@ function renderEntries(entries: LeaderboardEntry[], submitted?: LeaderboardEntry
 }
 
 function renderEntry(entry: LeaderboardEntry): HTMLLIElement {
-  const item = el("li", { className: "leaderboard-list__item" });
+  const item = el("li", { className: "record-list__item leaderboard-list__item" });
   const rank = el("span", { className: "leaderboard-list__rank", text: `#${entry.rank ?? "?"}` });
-  const main = el("span", { className: "leaderboard-list__main" });
+  const main = el("span", { className: "record-list__main leaderboard-list__main" });
   main.append(
     el("strong", { text: entry.username }),
     el("span", { text: leaderboardMetricText(entry) }),
   );
   const detail = el("span", {
-    className: "leaderboard-list__detail",
+    className: "record-list__detail leaderboard-list__detail",
     text: entry.difficulty ?? "",
   });
   const time = el("time", {
-    className: "leaderboard-list__time",
+    className: "record-list__time leaderboard-list__time",
     text: formatDate(entry.createdAt),
   });
   item.append(rank, main, detail, time);

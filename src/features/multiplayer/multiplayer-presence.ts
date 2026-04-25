@@ -77,7 +77,7 @@ export function renderMultiplayerPresence(
   const summary = el("div", { className: "online-presence__summary" });
   summary.append(
     el("span", {
-      className: "online-presence__room-code",
+      className: "room-code online-presence__room-code",
       ariaLabel: `Room code ${session.code}`,
       text: session.code,
     }),
@@ -95,7 +95,10 @@ export function renderMultiplayerPresence(
     item.dataset.joined = String(seatState.joined);
     item.dataset.you = String(seat === localSeat);
     item.append(
-      el("span", { className: "online-presence__swatch", ariaLabel: descriptor.colorName }),
+      el("span", {
+        className: "player-swatch online-presence__swatch",
+        ariaLabel: descriptor.colorName,
+      }),
       el("span", { className: "online-presence__seat-main", text: descriptor.label }),
       el("span", {
         className: "online-presence__seat-meta",

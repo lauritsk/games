@@ -116,13 +116,22 @@ function resultSummary(result: GameResult): HTMLElement {
 
 function resultList(results: GameResult[]): HTMLElement {
   if (results.length === 0) return el("p", { className: "muted", text: "No results yet." });
-  const list = el("ol", { className: "history-list" });
+  const list = el("ol", { className: "record-list history-list" });
   results.slice(0, 10).forEach((result) => {
-    const item = el("li", { className: "history-list__item" });
+    const item = el("li", { className: "record-list__item history-list__item" });
     item.append(
-      el("span", { className: "history-list__main", text: formatOutcome(result.outcome) }),
-      el("span", { className: "history-list__detail", text: resultDetails(result).join(" · ") }),
-      el("time", { className: "history-list__time", text: formatDate(result.finishedAt) }),
+      el("span", {
+        className: "record-list__main history-list__main",
+        text: formatOutcome(result.outcome),
+      }),
+      el("span", {
+        className: "record-list__detail history-list__detail",
+        text: resultDetails(result).join(" · "),
+      }),
+      el("time", {
+        className: "record-list__time history-list__time",
+        text: formatDate(result.finishedAt),
+      }),
     );
     list.append(item);
   });

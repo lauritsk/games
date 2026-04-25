@@ -79,7 +79,7 @@ export function createMultiplayerDialog(): MultiplayerDialog {
       const create = pillButton("Create room");
       create.classList.add("multiplayer-dialog__option-action");
       const start = el("div", { className: "multiplayer-dialog__choices" });
-      const createOption = el("section", { className: "multiplayer-dialog__option" });
+      const createOption = el("section", { className: "section-card multiplayer-dialog__option" });
       createOption.append(
         el("h3", { className: "multiplayer-dialog__option-title", text: "Create room" }),
         el("p", {
@@ -88,9 +88,9 @@ export function createMultiplayerDialog(): MultiplayerDialog {
         }),
         create,
       );
-      const joinOption = el("section", { className: "multiplayer-dialog__option" });
+      const joinOption = el("section", { className: "section-card multiplayer-dialog__option" });
       const form = el("form", { className: "multiplayer-dialog__join" });
-      const input = el("input", { className: "leaderboard-submit__input" });
+      const input = el("input", { className: "form-control" });
       input.placeholder = "Enter code";
       input.maxLength = 12;
       input.setAttribute("aria-label", "Room code");
@@ -146,12 +146,15 @@ export function createMultiplayerDialog(): MultiplayerDialog {
     function renderCreated(session: MultiplayerSession): void {
       summary.textContent = "Share this code. The match starts when enough players join.";
       clearNode(body);
-      const code = el("div", { className: "multiplayer-dialog__code", text: session.code });
+      const code = el("div", {
+        className: "room-code multiplayer-dialog__code",
+        text: session.code,
+      });
       const descriptor = multiplayerPlayerDescriptor(game.id, session.seat);
       const assignment = el("div", { className: "multiplayer-dialog__assignment" });
       assignment.style.setProperty("--player-color", descriptor.color);
       assignment.append(
-        el("span", { className: "online-presence__swatch", ariaLabel: descriptor.colorName }),
+        el("span", { className: "player-swatch", ariaLabel: descriptor.colorName }),
         el("span", {
           text: `You are ${descriptor.label} · ${descriptor.colorName}`,
         }),
@@ -163,7 +166,7 @@ export function createMultiplayerDialog(): MultiplayerDialog {
       const copy = pillButton("Copy code");
       const codeHeader = el("div", { className: "multiplayer-dialog__code-header" });
       codeHeader.append(el("span", { text: "Room code" }), copy);
-      const codeCard = el("div", { className: "multiplayer-dialog__code-card" });
+      const codeCard = el("div", { className: "section-card multiplayer-dialog__code-card" });
       codeCard.append(codeHeader, code);
       copy.addEventListener("click", async () => {
         await navigator.clipboard?.writeText(session.code).catch(() => undefined);

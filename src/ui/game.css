@@ -322,31 +322,12 @@
     text-align: center;
   }
 
-  .online-presence__room-code {
-    max-width: 100%;
-    overflow-wrap: anywhere;
-    color: var(--accent);
-    font-size: clamp(1.45rem, 6.8vmin, 2.35rem);
-    font-weight: var(--font-weight-black);
-    letter-spacing: 0.14em;
-    line-height: 1;
-  }
-
   .online-presence__seat {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 8px 10px;
-  }
-
-  .online-presence__swatch {
-    display: inline-block;
-    inline-size: 18px;
-    block-size: 18px;
-    border: 2px solid color-mix(in srgb, var(--ink), transparent 24%);
-    border-radius: 50%;
-    background: var(--player-color);
-    box-shadow: 0 0 14px color-mix(in srgb, var(--player-color), transparent 40%);
+    padding-block: 6px;
   }
 
   .online-presence__seats {
@@ -355,11 +336,6 @@
     gap: 0 12px;
     padding-block-start: 2px;
     border-block-start: 1px solid var(--line);
-  }
-
-  .online-presence__seat {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    padding-block: 6px;
   }
 
   .online-presence__seat[data-joined="false"] {
@@ -556,7 +532,6 @@
 
   .snake-cell[data-snake="true"] {
     background: var(--accent);
-    box-shadow: none;
   }
   .snake-cell[data-head="true"] {
     background: var(--ink);
