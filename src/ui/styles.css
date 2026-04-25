@@ -430,6 +430,30 @@
     outline-offset: 4px;
   }
 
+  .popup-panel {
+    display: grid;
+    gap: var(--popup-gap, var(--gap));
+    padding: var(--popup-pad, var(--space-3xl));
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .popup-title {
+    margin: 0;
+    font-size: var(--font-size-dialog-title);
+    font-weight: var(--font-weight-heavy);
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+  }
+
+  .popup-copy {
+    color: var(--muted);
+    font-size: var(--font-size-control);
+    font-weight: var(--font-weight-strong);
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+  }
+
   .modal {
     position: fixed;
     inset: 0;
@@ -452,15 +476,10 @@
   }
 
   .modal__panel {
-    display: grid;
-    gap: var(--gap);
     width: min(var(--modal-panel-width, 520px), calc(100vw - 32px));
     max-height: min(680px, calc(100svh - 32px));
     min-height: 0;
     overflow: hidden;
-    padding: var(--space-3xl);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
   }
 
   .modal--sm {
@@ -498,7 +517,6 @@
 
   :is(.history-dialog__title, .leaderboard-dialog__title, .multiplayer-dialog__title) {
     margin: 0;
-    font-size: var(--font-size-dialog-title);
   }
 
   .history-dialog__details {

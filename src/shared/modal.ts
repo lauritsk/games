@@ -37,7 +37,7 @@ export function openModal(options: ModalOptions): ModalController {
 
   const panel = el("div", {
     className: classNames(
-      "modal__panel surface",
+      "modal__panel popup-panel surface",
       options.theme ? `theme-${options.theme}` : undefined,
       options.panelClassName,
     ),

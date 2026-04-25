@@ -278,10 +278,10 @@ export function createBoardOverlay(
   target: HTMLElement,
   options: BoardOverlayOptions,
 ): BoardOverlay {
-  const panel = el("span", { className: "board-overlay__panel surface" });
-  const title = el("span", { className: "board-overlay__title", text: options.title });
+  const panel = el("span", { className: "board-overlay__panel popup-panel surface" });
+  const title = el("span", { className: "board-overlay__title popup-title", text: options.title });
   const helper = el("span", {
-    className: "board-overlay__helper",
+    className: "board-overlay__helper popup-copy",
     text: options.helper ?? "",
   });
   panel.append(title, helper);

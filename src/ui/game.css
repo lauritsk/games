@@ -244,27 +244,8 @@
   }
 
   .board-overlay__panel {
-    display: grid;
-    gap: var(--space-lg);
     width: min(360px, calc(100% - 28px));
-    padding: clamp(18px, 5vmin, 30px);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-  }
-
-  .board-overlay__title {
-    font-size: clamp(2.2rem, 11vmin, 4.8rem);
-    font-weight: var(--font-weight-black);
-    letter-spacing: -0.07em;
-    line-height: 0.9;
-  }
-
-  .board-overlay__helper {
-    color: var(--muted);
-    font-size: clamp(0.9rem, 2.5vmin, 1.15rem);
-    font-weight: var(--font-weight-strong);
-    letter-spacing: -0.02em;
-    line-height: 1.2;
+    text-align: center;
   }
 
   :is(.board-overlay, .online-presence-host)[hidden] {

@@ -35,7 +35,7 @@ export function createGameHistoryDialog(options: GameHistoryDialogOptions = {}):
     let modal: ModalController | null = null;
     const results = listGameResults(game.id);
     const title = el("h2", {
-      className: "history-dialog__title",
+      className: "history-dialog__title popup-title",
       text: highlight ? "Result saved" : `${game.name} history`,
     });
     const details = el("div", { className: "history-dialog__details" });

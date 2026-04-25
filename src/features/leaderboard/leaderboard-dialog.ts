@@ -40,7 +40,7 @@ export function createLeaderboardDialog(): LeaderboardDialog {
     close();
     let modal: ModalController | null = null;
     const title = el("h2", {
-      className: "leaderboard-dialog__title",
+      className: "leaderboard-dialog__title popup-title",
       text: `${game.name} leaderboard`,
     });
     const summary = el("div", { className: "leaderboard-dialog__summary" });

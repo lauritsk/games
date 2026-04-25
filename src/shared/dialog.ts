@@ -16,7 +16,7 @@ export function confirmChoice(
   if (isModalOpen()) return () => undefined;
 
   let selected = 1;
-  const text = el("p", { text: message });
+  const text = el("p", { className: "popup-copy", text: message });
   const actions = el("div", { className: "confirm__actions modal__actions cluster" });
   const yes = pillButton("Yes");
   const no = pillButton("No");
