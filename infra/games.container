@@ -5,7 +5,7 @@ Description=Games container
 Image=docker.io/lauritsk/games:latest
 AutoUpdate=registry
 ContainerName=games
-PublishPort=3000:3000
+PublishPort=127.0.0.1:3000:3000/tcp
 
 [Service]
 Restart=always
