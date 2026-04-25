@@ -22,6 +22,15 @@ export function checkRateLimit(key: string, limit: RateLimit, now = Date.now()):
   return true;
 }
 
+export function checkRequestRateLimit(
+  request: Request,
+  scope: string,
+  limit: RateLimit,
+  deviceId?: string | null,
+): boolean {
+  return checkRateLimit(rateLimitKey(request, scope, deviceId), limit);
+}
+
 export function rateLimitKey(request: Request, scope: string, deviceId?: string | null): string {
   return `${scope}:${clientIp(request)}:${deviceId ?? "none"}`;
 }

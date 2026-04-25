@@ -1,5 +1,9 @@
 # TODO
 
+## Maintenance
+
+- [x] Refactor maintainability hot spots.
+
 ## Online multiplayer
 
 - [x] Add Space Invaders online-only 2-player co-op with two shooters and scaled harder difficulty for 2 players.

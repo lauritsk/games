@@ -45,19 +45,11 @@ export async function createMultiplayerRoom(
 }
 
 export async function joinMultiplayerRoom(code: string): Promise<MultiplayerJoinResponse> {
-  return requestJson<MultiplayerJoinResponse>("/api/multiplayer/rooms/join", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ code: normalizeMultiplayerCode(code) }),
-  });
+  return requestRoomCode<MultiplayerJoinResponse>("/api/multiplayer/rooms/join", code);
 }
 
 export async function spectateMultiplayerRoom(code: string): Promise<MultiplayerSpectateResponse> {
-  return requestJson<MultiplayerSpectateResponse>("/api/multiplayer/rooms/spectate", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ code: normalizeMultiplayerCode(code) }),
-  });
+  return requestRoomCode<MultiplayerSpectateResponse>("/api/multiplayer/rooms/spectate", code);
 }
 
 export function connectMultiplayerSession(
@@ -157,6 +149,17 @@ function socketUrl(session: MultiplayerSession): string {
   url.searchParams.set("playerId", session.playerId);
   url.searchParams.set("token", session.playerToken);
   return url.toString();
+}
+
+function requestRoomCode<T extends { ok: boolean; error?: string }>(
+  path: string,
+  code: string,
+): Promise<T> {
+  return requestJson<T>(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code: normalizeMultiplayerCode(code) }),
+  });
 }
 
 async function requestJson<T extends { ok: boolean; error?: string }>(

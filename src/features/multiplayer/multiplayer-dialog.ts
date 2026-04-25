@@ -12,6 +12,10 @@ import {
 import type { ModalController } from "@shared/modal";
 import { playSound } from "@ui/sound";
 
+type MultiplayerSessionResponse =
+  | { ok: true; session: MultiplayerSession }
+  | { ok: false; error: string };
+
 export type MultiplayerDialog = {
   show(
     game: GameDefinition,
@@ -97,44 +101,45 @@ export function createMultiplayerDialog(): MultiplayerDialog {
           statusLine.textContent = response.error;
           return;
         }
-        created = true;
-        playSound("gameGood");
-        onSession(response.session);
-        closeDialog();
+        acceptSession(response.session);
       });
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        join.disabled = true;
-        spectate.disabled = true;
-        statusLine.textContent = "Joining room…";
-        const response = await joinMultiplayerRoom(input.value);
-        if (!response.ok) {
-          join.disabled = false;
-          spectate.disabled = false;
-          statusLine.textContent = response.error;
-          return;
-        }
-        created = true;
-        playSound("gameGood");
-        onSession(response.session);
-        closeDialog();
+        await enterExistingRoom(() => joinMultiplayerRoom(input.value), "Joining room…");
       });
       spectate.addEventListener("click", async () => {
-        join.disabled = true;
-        spectate.disabled = true;
-        statusLine.textContent = "Opening spectator view…";
-        const response = await spectateMultiplayerRoom(input.value);
+        await enterExistingRoom(
+          () => spectateMultiplayerRoom(input.value),
+          "Opening spectator view…",
+        );
+      });
+
+      async function enterExistingRoom(
+        requestSession: () => Promise<MultiplayerSessionResponse>,
+        pendingText: string,
+      ): Promise<void> {
+        setExistingRoomBusy(true);
+        statusLine.textContent = pendingText;
+        const response = await requestSession();
         if (!response.ok) {
-          join.disabled = false;
-          spectate.disabled = false;
+          setExistingRoomBusy(false);
           statusLine.textContent = response.error;
           return;
         }
+        acceptSession(response.session);
+      }
+
+      function setExistingRoomBusy(disabled: boolean): void {
+        join.disabled = disabled;
+        spectate.disabled = disabled;
+      }
+
+      function acceptSession(session: MultiplayerSession): void {
         created = true;
         playSound("gameGood");
-        onSession(response.session);
+        onSession(session);
         closeDialog();
-      });
+      }
     }
 
     function closeDialog(): void {

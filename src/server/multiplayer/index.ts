@@ -11,7 +11,8 @@ import {
   type MultiplayerSessionRole,
 } from "@features/multiplayer/multiplayer-protocol";
 import { isRecord } from "@shared/validation";
-import { checkRateLimit, rateLimitKey } from "@server/rate-limit";
+import { json, readLimitedJson, tooManyRequestsJson } from "@server/http";
+import { checkRateLimit, checkRequestRateLimit } from "@server/rate-limit";
 import {
   multiplayerAdapterForGame,
   type MultiplayerAdapter,
@@ -120,13 +121,8 @@ export class MultiplayerHub {
   }
 
   private async handleCreateRoomRequest(request: Request): Promise<Response> {
-    if (
-      !checkRateLimit(rateLimitKey(request, "multiplayer-create"), {
-        windowMs: 60_000,
-        max: 12,
-      })
-    ) {
-      return json({ ok: false, error: "Too many requests" }, 429);
+    if (!checkRequestRateLimit(request, "multiplayer-create", { windowMs: 60_000, max: 12 })) {
+      return tooManyRequestsJson();
     }
     const body = await readSmallJson(request);
     const gameId = isRecord(body) && typeof body.gameId === "string" ? body.gameId : null;
@@ -140,12 +136,12 @@ export class MultiplayerHub {
     const code = isRecord(body) && typeof body.code === "string" ? body.code : "";
     const normalized = normalizeMultiplayerCode(code);
     if (
-      !checkRateLimit(rateLimitKey(request, `multiplayer-join:${normalized}`), {
+      !checkRequestRateLimit(request, `multiplayer-join:${normalized}`, {
         windowMs: 60_000,
         max: 20,
       })
     ) {
-      return json({ ok: false, error: "Too many requests" }, 429);
+      return tooManyRequestsJson();
     }
     const result = await this.joinRoom(normalized);
     return json(result, result.ok ? 200 : 400);
@@ -156,12 +152,12 @@ export class MultiplayerHub {
     const code = isRecord(body) && typeof body.code === "string" ? body.code : "";
     const normalized = normalizeMultiplayerCode(code);
     if (
-      !checkRateLimit(rateLimitKey(request, `multiplayer-spectate:${normalized}`), {
+      !checkRequestRateLimit(request, `multiplayer-spectate:${normalized}`, {
         windowMs: 60_000,
         max: 30,
       })
     ) {
-      return json({ ok: false, error: "Too many requests" }, 429);
+      return tooManyRequestsJson();
     }
     const result = await this.spectateRoom(normalized);
     return json(result, result.ok ? 200 : 400);
@@ -258,10 +254,8 @@ export class MultiplayerHub {
     if (url.pathname !== "/api/multiplayer/socket") {
       return { ok: false, response: json({ ok: false, error: "Not found" }, 404) };
     }
-    if (
-      !checkRateLimit(rateLimitKey(request, "multiplayer-ws-auth"), { windowMs: 60_000, max: 60 })
-    ) {
-      return { ok: false, response: json({ ok: false, error: "Too many requests" }, 429) };
+    if (!checkRequestRateLimit(request, "multiplayer-ws-auth", { windowMs: 60_000, max: 60 })) {
+      return { ok: false, response: tooManyRequestsJson() };
     }
     const code = normalizeMultiplayerCode(url.searchParams.get("code") ?? "");
     const playerId = url.searchParams.get("playerId") ?? "";
@@ -405,12 +399,7 @@ export class MultiplayerHub {
       gameId: room.gameId,
       status: room.status,
       revision: room.revision,
-      seats: {
-        p1: seatSnapshot(room.players.p1, room.rematchReady.p1),
-        p2: seatSnapshot(room.players.p2, room.rematchReady.p2),
-        p3: seatSnapshot(room.players.p3, room.rematchReady.p3),
-        p4: seatSnapshot(room.players.p4, room.rematchReady.p4),
-      },
+      seats: roomSeatSnapshots(room),
       state: room.adapter.publicSnapshot(room.state),
       settings: room.settings,
       spectatorCount: connectedSpectatorCount(room),
@@ -727,6 +716,15 @@ function connectedSpectatorCount(room: Room): number {
   return [...room.spectators.values()].filter((spectator) => spectator.connectedCount > 0).length;
 }
 
+function roomSeatSnapshots(room: Room): MultiplayerRoomSnapshot["seats"] {
+  return {
+    p1: seatSnapshot(room.players.p1, room.rematchReady.p1),
+    p2: seatSnapshot(room.players.p2, room.rematchReady.p2),
+    p3: seatSnapshot(room.players.p3, room.rematchReady.p3),
+    p4: seatSnapshot(room.players.p4, room.rematchReady.p4),
+  };
+}
+
 function seatSnapshot(player: PlayerState | undefined, ready = false) {
   return { joined: Boolean(player), connected: (player?.connectedCount ?? 0) > 0, ready };
 }
@@ -760,22 +758,5 @@ async function hashToken(token: string): Promise<string> {
 }
 
 async function readSmallJson(request: Request): Promise<unknown> {
-  const length = Number(request.headers.get("content-length") ?? "0");
-  if (length > maxRequestBytes) return null;
-  try {
-    return (await request.json()) as unknown;
-  } catch {
-    return null;
-  }
-}
-
-function json(value: unknown, status = 200, headers?: Record<string, string>): Response {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: {
-      "content-type": "application/json;charset=utf-8",
-      "cache-control": "no-store",
-      ...headers,
-    },
-  });
+  return readLimitedJson(request, maxRequestBytes);
 }

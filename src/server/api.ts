@@ -3,7 +3,8 @@ import { leaderboardConfigForGame } from "@features/leaderboard/leaderboard-conf
 import { emptySyncSnapshot, isSyncId, parseSyncPush } from "@features/sync/sync-schema";
 import type { SyncSnapshot } from "@features/sync/sync-types";
 import { parseLeaderboardQuery, parseLeaderboardSubmission } from "@server/leaderboard/schema";
-import { checkRateLimit, rateLimitKey } from "@server/rate-limit";
+import { json, readJson, requestBodyTooLarge, tooManyRequestsJson } from "@server/http";
+import { checkRequestRateLimit } from "@server/rate-limit";
 
 const maxRequestBytes = 1_000_000;
 
@@ -24,8 +25,9 @@ export function createSyncApiHandler(database = new GameDatabase()): SyncApiHand
         return json({ ok: true, snapshot: database.snapshot(deviceId) });
       }
       if (url.pathname === "/api/sync" && request.method === "POST") {
-        const length = Number(request.headers.get("content-length") ?? "0");
-        if (length > maxRequestBytes) return json({ ok: false, error: "Request too large" }, 413);
+        if (requestBodyTooLarge(request, maxRequestBytes)) {
+          return json({ ok: false, error: "Request too large" }, 413);
+        }
         const body = await readJson(request);
         const push = parseSyncPush(body);
         if (!push) return json({ ok: false, error: "Invalid sync payload" }, 400);
@@ -35,10 +37,8 @@ export function createSyncApiHandler(database = new GameDatabase()): SyncApiHand
         return json({ ok: false, error: "Method not allowed" }, 405, { Allow: "GET, POST" });
       }
       if (url.pathname === "/api/leaderboard" && request.method === "GET") {
-        if (
-          !checkRateLimit(rateLimitKey(request, "leaderboard-read"), { windowMs: 60_000, max: 60 })
-        ) {
-          return json({ ok: false, error: "Too many requests" }, 429);
+        if (!checkRequestRateLimit(request, "leaderboard-read", { windowMs: 60_000, max: 60 })) {
+          return tooManyRequestsJson();
         }
         const query = parseLeaderboardQuery(url);
         if (!query.ok) return json({ ok: false, error: query.error }, 400);
@@ -52,18 +52,21 @@ export function createSyncApiHandler(database = new GameDatabase()): SyncApiHand
         return json({ ok: true, entries });
       }
       if (url.pathname === "/api/leaderboard" && request.method === "POST") {
-        const length = Number(request.headers.get("content-length") ?? "0");
-        if (length > maxRequestBytes) return json({ ok: false, error: "Request too large" }, 413);
+        if (requestBodyTooLarge(request, maxRequestBytes)) {
+          return json({ ok: false, error: "Request too large" }, 413);
+        }
         const body = await readJson(request);
         const submission = parseLeaderboardSubmission(body);
         const deviceId = submission.ok ? submission.value.deviceId : null;
         if (
-          !checkRateLimit(rateLimitKey(request, "leaderboard-write", deviceId), {
-            windowMs: 5 * 60_000,
-            max: 10,
-          })
+          !checkRequestRateLimit(
+            request,
+            "leaderboard-write",
+            { windowMs: 5 * 60_000, max: 10 },
+            deviceId,
+          )
         ) {
-          return json({ ok: false, error: "Too many requests" }, 429);
+          return tooManyRequestsJson();
         }
         if (!submission.ok) return json({ ok: false, error: submission.error }, 400);
         const config = leaderboardConfigForGame(submission.value.gameId);
@@ -79,25 +82,6 @@ export function createSyncApiHandler(database = new GameDatabase()): SyncApiHand
       return json({ ok: false, error: "Request failed", snapshot: emptySyncSnapshot() }, 500);
     }
   };
-}
-
-async function readJson(request: Request): Promise<unknown> {
-  try {
-    return (await request.json()) as unknown;
-  } catch {
-    return null;
-  }
-}
-
-function json(value: unknown, status = 200, headers?: Record<string, string>): Response {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: {
-      "content-type": "application/json;charset=utf-8",
-      "cache-control": "no-store",
-      ...headers,
-    },
-  });
 }
 
 export type { SyncSnapshot };
