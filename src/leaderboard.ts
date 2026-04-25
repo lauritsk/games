@@ -28,6 +28,10 @@ export type LeaderboardSubmitResponse =
 
 type ApiError = { ok: false; error: string };
 
+export function hasLeaderboard(gameId: string): boolean {
+  return leaderboardConfigForGame(gameId) !== null;
+}
+
 export function isLeaderboardEligible(result: GameResult): boolean {
   const config = leaderboardConfigForGame(result.gameId);
   if (!config) return false;

@@ -65,6 +65,27 @@ test("game header controls do not overlap the appearance toggle", async ({ page 
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
+test("leaderboard navigation only appears for public leaderboard games", async ({ page }) => {
+  await openGame(page, "Minesweeper");
+  await page.getByRole("button", { name: "Leaderboard" }).click();
+  const dialog = page.getByRole("dialog", { name: "Minesweeper leaderboard" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).not.toContainText("Loading scores…");
+  await expect(dialog).not.toContainText("Invalid leaderboard query");
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+
+  await openGame(page, "Memory");
+  await page.getByRole("button", { name: "Leaderboard" }).click();
+  const memoryDialog = page.getByRole("dialog", { name: "Memory leaderboard" });
+  await expect(memoryDialog).toBeVisible();
+  await expect(memoryDialog).not.toContainText("Invalid leaderboard query");
+  await memoryDialog.getByRole("button", { name: "Close", exact: true }).click();
+
+  await openGame(page, "Tic-Tac-Toe");
+  await expect(page.getByRole("button", { name: "Leaderboard" })).toHaveCount(0);
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
 test("reset confirmation can cancel or accept an active game reset", async ({ page }) => {
   await openGame(page, "Tic-Tac-Toe");
 

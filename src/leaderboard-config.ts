@@ -35,6 +35,22 @@ export const leaderboardGameConfigs = {
     maxMetricValue: 1_000_000,
     allowedOutcomes: ["won", "lost"],
   },
+  minesweeper: {
+    gameId: "minesweeper",
+    metric: "durationMs",
+    direction: "min",
+    label: "time",
+    maxMetricValue: 86_400_000,
+    allowedOutcomes: ["won"],
+  },
+  memory: {
+    gameId: "memory",
+    metric: "durationMs",
+    direction: "min",
+    label: "time",
+    maxMetricValue: 86_400_000,
+    allowedOutcomes: ["completed"],
+  },
   breakout: {
     gameId: "breakout",
     metric: "score",

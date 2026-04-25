@@ -23,7 +23,7 @@ import { type GameResult } from "./game-results";
 import { hasGameSave } from "./game-state";
 import { createGameHistoryDialog } from "./history-dialog";
 import { createLeaderboardDialog } from "./leaderboard-dialog";
-import { isLeaderboardEligible } from "./leaderboard";
+import { hasLeaderboard, isLeaderboardEligible } from "./leaderboard";
 import { initializePwa } from "./pwa";
 import { playSound, unlockSound } from "./sound";
 import { initializeSync } from "./sync";
@@ -232,10 +232,13 @@ function renderGame(game: GameDefinition): void {
   const back = el("a", { className: `back-button ${uiClass.pill}`, text: "← Selection" });
   back.href = "#/";
   const history = pillButton("History");
-  const leaderboard = pillButton("Leaderboard");
   history.addEventListener("click", () => historyDialog.show(game));
-  leaderboard.addEventListener("click", () => leaderboardDialog.show(game));
-  nav.append(back, history, leaderboard);
+  nav.append(back, history);
+  if (hasLeaderboard(game.id)) {
+    const leaderboard = pillButton("Leaderboard");
+    leaderboard.addEventListener("click", () => leaderboardDialog.show(game));
+    nav.append(leaderboard);
+  }
   const gameHost = el("div", { className: "game-host center-screen" });
   screen.append(nav, gameHost);
   workspace.append(screen);

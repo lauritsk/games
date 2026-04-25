@@ -23,6 +23,10 @@ This file is the stable implementation queue. `PLAN.md` is an ephemeral whiteboa
 
 ## Next focus: public leaderboards
 
+- [x] Fix leaderboard submission for Minesweeper and audit other games for same submit-blocking bug.
+- [x] Add Memory leaderboard using completion time.
+- [ ] Design bot win-streak leaderboards for Tic-Tac-Toe and Connect 4 carefully before implementation.
+
 Build casual arcade-style public leaderboards on top of existing local result history and Bun SQLite sync. No accounts, passwords, or ownership model.
 
 MVP decisions:

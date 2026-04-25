@@ -52,6 +52,46 @@ describe("leaderboard submission parsing", () => {
     }
   });
 
+  test("accepts Minesweeper wins as fastest-time payloads", () => {
+    const parsed = parseLeaderboardSubmission(
+      validSubmission({
+        gameId: "minesweeper",
+        outcome: "won",
+        score: undefined,
+        durationMs: 61_000,
+        metadata: { flags: 10, revealed: 71 },
+      }),
+    );
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.metric).toBe("durationMs");
+      expect(parsed.value.metricValue).toBe(61_000);
+      expect(parsed.value.durationMs).toBe(61_000);
+      expect(parsed.value.metadata).toEqual({ flags: 10, revealed: 71 });
+    }
+  });
+
+  test("accepts Memory completions as fastest-time payloads", () => {
+    const parsed = parseLeaderboardSubmission(
+      validSubmission({
+        gameId: "memory",
+        outcome: "completed",
+        score: undefined,
+        moves: 18,
+        durationMs: 42_000,
+        level: undefined,
+        metadata: {},
+      }),
+    );
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.metric).toBe("durationMs");
+      expect(parsed.value.metricValue).toBe(42_000);
+      expect(parsed.value.durationMs).toBe(42_000);
+      expect(parsed.value.moves).toBe(18);
+    }
+  });
+
   test("rejects bad usernames and impossible values", () => {
     expect(parseLeaderboardSubmission(validSubmission({ username: "root" }))).toEqual({
       ok: false,
@@ -59,6 +99,16 @@ describe("leaderboard submission parsing", () => {
     });
     expect(parseLeaderboardSubmission(validSubmission({ score: 1.5 })).ok).toBe(false);
     expect(parseLeaderboardSubmission(validSubmission({ score: 999_999_999 })).ok).toBe(false);
+    expect(
+      parseLeaderboardSubmission(
+        validSubmission({ gameId: "minesweeper", outcome: "lost", durationMs: 1_000 }),
+      ).ok,
+    ).toBe(false);
+    expect(
+      parseLeaderboardSubmission(
+        validSubmission({ gameId: "memory", outcome: "won", durationMs: 1_000 }),
+      ).ok,
+    ).toBe(false);
   });
 });
 
@@ -150,6 +200,59 @@ describe("leaderboard database", () => {
       limit: 10,
     });
     expect(list.map((entry) => entry.score)).toEqual([200, 100]);
+    expect(list.map((entry) => entry.rank)).toEqual([1, 2]);
+    db.close();
+  });
+
+  test("ranks Memory fastest times with lower values first", () => {
+    const db = new GameDatabase(":memory:");
+    db.submitLeaderboardScore(
+      {
+        deviceId: "device-slow",
+        runId: "run-slow",
+        gameId: "memory",
+        username: "SLO",
+        normalizedUsername: "slo",
+        difficulty: "Medium",
+        outcome: "completed",
+        metric: "durationMs",
+        metricValue: 90_000,
+        moves: 24,
+        durationMs: 90_000,
+        metadata: {},
+        createdAt: "2026-04-25T00:00:00.000Z",
+      },
+      "min",
+    );
+    const fast = db.submitLeaderboardScore(
+      {
+        deviceId: "device-fast",
+        runId: "run-fast",
+        gameId: "memory",
+        username: "FST",
+        normalizedUsername: "fst",
+        difficulty: "Medium",
+        outcome: "completed",
+        metric: "durationMs",
+        metricValue: 45_000,
+        moves: 18,
+        durationMs: 45_000,
+        metadata: {},
+        createdAt: "2026-04-25T00:01:00.000Z",
+      },
+      "min",
+    );
+
+    expect(fast.rank).toBe(1);
+    const list = db.listLeaderboardScores({
+      gameId: "memory",
+      metric: "durationMs",
+      direction: "min",
+      difficulty: "Medium",
+      limit: 10,
+    });
+    expect(list.map((entry) => entry.durationMs)).toEqual([45_000, 90_000]);
+    expect(list.map((entry) => entry.moves)).toEqual([18, 24]);
     expect(list.map((entry) => entry.rank)).toEqual([1, 2]);
     db.close();
   });
