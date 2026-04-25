@@ -24,6 +24,8 @@
   textarea,
   select {
     font: inherit;
+    appearance: none;
+    -webkit-appearance: none;
   }
   button,
   a {
@@ -64,6 +66,8 @@
     --muted: #b9ab99;
     --surface: rgba(255, 255, 255, 0.08);
     --surface-hover: rgba(255, 255, 255, 0.14);
+    --surface-flat: rgba(19, 18, 22, 0.94);
+    --surface-hover-flat: rgba(31, 30, 36, 0.96);
     --line: rgba(255, 255, 255, 0.14);
     --shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
     --screen-backdrop: rgba(0, 0, 0, 0.42);
@@ -81,6 +85,8 @@
     --muted: #6f6258;
     --surface: rgba(255, 255, 255, 0.72);
     --surface-hover: rgba(255, 255, 255, 0.9);
+    --surface-flat: rgba(255, 255, 255, 0.94);
+    --surface-hover-flat: rgba(255, 255, 255, 0.98);
     --line: rgba(42, 27, 18, 0.14);
     --shadow: 0 18px 45px rgba(62, 38, 20, 0.14);
     --screen-backdrop: rgba(38, 27, 18, 0.28);
@@ -173,6 +179,7 @@
   .surface {
     border: 1px solid var(--line);
     background: var(--surface);
+    -webkit-backdrop-filter: blur(14px);
     backdrop-filter: blur(14px);
   }
   .interactive {
@@ -189,6 +196,14 @@
   }
   .interactive:disabled:hover {
     transform: none;
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .surface {
+      background: var(--surface-flat);
+    }
+    .interactive:hover {
+      background: var(--surface-hover-flat);
+    }
   }
   .pill {
     border-radius: var(--round);

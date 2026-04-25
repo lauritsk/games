@@ -1,5 +1,7 @@
 # TODO
 
+- [x] Align mobile/desktop result popup visual treatment and audit responsive UI inconsistencies.
+
 - [x] Document new game addition checklist.
 
 - [x] Optimize games for touchscreen controls.
