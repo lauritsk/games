@@ -26,6 +26,7 @@ import {
   markGameStarted,
   onDocumentKeyDown,
   parseStartedAt,
+  pauseOnFocusLoss,
   resetGameProgress,
   type Difficulty,
   type Direction,
@@ -194,6 +195,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   const requestReset = createResetControl(actions, shell, resetGame);
 
   onDocumentKeyDown(onKeyDown, scope);
+  pauseOnFocusLoss(scope, { isActive: () => mode === "playing", pause: togglePause });
   board.addEventListener(
     "pointerdown",
     (event) => {

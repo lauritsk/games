@@ -1,7 +1,7 @@
 # TODO
 
 ## Ideas
-- auto pause on focus/tab change
+- [x] auto pause on focus/tab change
 - optimise for mobile
 - leaderboards
 - unified consistent design for all games and interfaces

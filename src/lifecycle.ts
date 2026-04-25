@@ -9,6 +9,11 @@ export type DelayedAction = {
   clear(): void;
 };
 
+export type FocusLossPauseOptions = {
+  isActive(): boolean;
+  pause(): void;
+};
+
 export function createMountScope(): MountScope {
   const controller = new AbortController();
   return {
@@ -22,6 +27,20 @@ export function onDocumentKeyDown(
   scope: MountScope,
 ): void {
   document.addEventListener("keydown", handler, { signal: scope.signal });
+}
+
+export function pauseOnFocusLoss(scope: MountScope, options: FocusLossPauseOptions): void {
+  const pauseIfActive = (): void => {
+    if (options.isActive()) options.pause();
+  };
+  window.addEventListener("blur", pauseIfActive, { signal: scope.signal });
+  document.addEventListener(
+    "visibilitychange",
+    () => {
+      if (document.hidden) pauseIfActive();
+    },
+    { signal: scope.signal },
+  );
 }
 
 export function createDelayedAction(): DelayedAction {

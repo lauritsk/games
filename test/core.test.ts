@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   createDelayedAction,
+  createMountScope,
   durationSince,
   isFiniteNumber,
   isIntegerInRange,
@@ -8,6 +9,7 @@ import {
   moveGridPoint,
   nextDifficulty,
   parseStartedAt,
+  pauseOnFocusLoss,
   previousDifficulty,
   shuffleInPlace,
 } from "../src/core";
@@ -70,6 +72,60 @@ test("shuffleInPlace preserves items", () => {
   expect(shuffleInPlace([...items]).sort()).toEqual(items);
 });
 
+test("pauses active games on focus loss and tab hide", () => {
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const fakeWindow = new EventTarget();
+  const fakeDocument = new EventTarget();
+  let hidden = false;
+  Object.defineProperty(fakeDocument, "hidden", { get: () => hidden });
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: fakeWindow,
+  });
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: fakeDocument,
+  });
+
+  try {
+    const scope = createMountScope();
+    let active = false;
+    let pauses = 0;
+    pauseOnFocusLoss(scope, {
+      isActive: () => active,
+      pause: () => {
+        active = false;
+        pauses += 1;
+      },
+    });
+
+    fakeWindow.dispatchEvent(new Event("blur"));
+    expect(pauses).toBe(0);
+
+    active = true;
+    fakeWindow.dispatchEvent(new Event("blur"));
+    expect(pauses).toBe(1);
+
+    active = true;
+    hidden = false;
+    fakeDocument.dispatchEvent(new Event("visibilitychange"));
+    expect(pauses).toBe(1);
+
+    hidden = true;
+    fakeDocument.dispatchEvent(new Event("visibilitychange"));
+    expect(pauses).toBe(2);
+
+    active = true;
+    scope.cleanup();
+    fakeWindow.dispatchEvent(new Event("blur"));
+    expect(pauses).toBe(2);
+  } finally {
+    restoreGlobal("window", previousWindow);
+    restoreGlobal("document", previousDocument);
+  }
+});
+
 test("delayed actions can be rescheduled and cleared", async () => {
   let value = 0;
   const action = createDelayedAction();
@@ -95,6 +151,14 @@ test("delayed actions can be rescheduled and cleared", async () => {
   await sleep(40);
   expect(value).toBe(2);
 });
+
+function restoreGlobal(
+  name: "window" | "document",
+  descriptor: PropertyDescriptor | undefined,
+): void {
+  if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+  else Reflect.deleteProperty(globalThis, name);
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

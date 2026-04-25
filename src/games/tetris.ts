@@ -1,4 +1,4 @@
-import { createArcadeModeController, createPauseButton } from "../arcade";
+import { createArcadeModeController, createPauseButton, createPauseOverlay } from "../arcade";
 import {
   createGameShell,
   createMountScope,
@@ -14,6 +14,7 @@ import {
   markGameStarted,
   onDocumentKeyDown,
   parseStartedAt,
+  pauseOnFocusLoss,
   resetGameProgress,
   setBoardGrid,
   syncChildren,
@@ -96,7 +97,7 @@ export function mountTetris(target: HTMLElement): () => void {
     startedAt = saved.payload.startedAt;
   }
 
-  const { shell, status, actions, board, remove } = createGameShell(target, {
+  const { shell, status, actions, viewport, board, remove } = createGameShell(target, {
     gameClass: "tetris-game",
     boardClass: "board--tetris",
     boardLabel: "Tetris board",
@@ -140,8 +141,10 @@ export function mountTetris(target: HTMLElement): () => void {
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
   const pauseButton = createPauseButton(actions, togglePause);
+  const overlay = createPauseOverlay(viewport, togglePause);
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
+  pauseOnFocusLoss(scope, { isActive: () => mode === "playing", pause: togglePause });
 
   function resetGame(): void {
     stopTimer();
@@ -241,6 +244,7 @@ export function mountTetris(target: HTMLElement): () => void {
     setBoardGrid(board, tetrisColumns, tetrisRows);
     difficultyButton.textContent = difficulty;
     pauseButton.textContent = mode === "paused" ? "Resume" : "Pause";
+    overlay.setVisible(mode === "paused");
     status.textContent = statusText();
 
     const active = new Map(

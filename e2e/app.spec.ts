@@ -138,6 +138,20 @@ test("difficulty changes during active games reset to the selected difficulty", 
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
+test("arcade games pause when the page loses focus", async ({ page }) => {
+  await openGame(page, "Tetris");
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByLabel("Game status")).toContainText(/L1/);
+
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await expect(page.getByLabel("Game status")).toContainText("Paused");
+  await expect(page.getByRole("button", { name: /Paused.*press P to resume/i })).toBeVisible();
+
+  await page.getByRole("button", { name: /Paused.*press P to resume/i }).click();
+  await expect(page.getByLabel("Game status")).toContainText(/L1/);
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
 test("snake interval stops after route cleanup", async ({ page }) => {
   await openGame(page, "Snake");
   await page.keyboard.press("Space");

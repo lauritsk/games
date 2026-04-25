@@ -24,6 +24,7 @@ import {
   markGameStarted,
   onDocumentKeyDown,
   parseStartedAt,
+  pauseOnFocusLoss,
   resetGameProgress,
   type Difficulty,
   type Direction,
@@ -154,6 +155,7 @@ export function mountBreakout(target: HTMLElement): () => void {
   const requestReset = createResetControl(actions, shell, resetGame);
 
   onDocumentKeyDown(onKeyDown, scope);
+  pauseOnFocusLoss(scope, { isActive: () => mode === "playing", pause: togglePause });
   board.addEventListener("pointermove", onPointerMove, { signal: scope.signal });
   board.addEventListener(
     "pointerdown",

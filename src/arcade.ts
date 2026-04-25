@@ -274,15 +274,24 @@ export type PauseOverlay = {
 };
 
 export function createPauseOverlay(board: HTMLElement, onResume: () => void): PauseOverlay {
-  const element = button("Paused", "arcade-overlay");
+  const panel = el("span", { className: "arcade-overlay__panel surface" });
+  const title = el("span", { className: "arcade-overlay__title", text: "Paused" });
+  const helper = el("span", {
+    className: "arcade-overlay__helper",
+    text: "Click here or press P to resume",
+  });
+  panel.append(title, helper);
+
+  const element = button("", "arcade-overlay");
   element.hidden = true;
+  element.append(panel);
   element.addEventListener("click", onResume);
   board.append(element);
   return {
     element,
     setVisible(visible, text = "Paused"): void {
       element.hidden = !visible;
-      element.textContent = text;
+      title.textContent = text;
     },
   };
 }

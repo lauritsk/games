@@ -1,3 +1,4 @@
+import { createPauseOverlay } from "../arcade";
 import {
   createGameShell,
   createMountScope,
@@ -12,6 +13,7 @@ import {
   markGameStarted,
   onDocumentKeyDown,
   parseStartedAt,
+  pauseOnFocusLoss,
   resetGameProgress,
   required,
   setBoardGrid,
@@ -126,6 +128,7 @@ export function mountSnake(target: HTMLElement): () => void {
     shell,
     status,
     actions,
+    viewport,
     board: grid,
     remove,
   } = createGameShell(target, {
@@ -147,6 +150,7 @@ export function mountSnake(target: HTMLElement): () => void {
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
+  const overlay = createPauseOverlay(viewport, togglePause);
   const wallModeButton = createModeControl(actions, {
     get: () => wallMode,
     set: (next) => {
@@ -159,6 +163,7 @@ export function mountSnake(target: HTMLElement): () => void {
   });
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
+  pauseOnFocusLoss(scope, { isActive: () => state === "playing", pause: togglePause });
   const autosave = createAutosave({ gameId, scope, save: saveCurrentGame });
 
   function resetGame(): void {
@@ -180,6 +185,7 @@ export function mountSnake(target: HTMLElement): () => void {
   function render(previousSnake?: SnakePoint[]): void {
     const boardRebuilt = prepareBoard();
     status.textContent = statusText();
+    overlay.setVisible(state === "paused");
     difficultyButton.textContent = difficulty;
     wallModeButton.textContent = wallModeLabel(wallMode);
 
