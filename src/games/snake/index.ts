@@ -48,6 +48,7 @@ import {
   type MultiplayerConnectionStatus,
 } from "@features/multiplayer/multiplayer";
 import { createMultiplayerDialog } from "@features/multiplayer/multiplayer-dialog";
+import { renderMultiplayerPresence } from "@features/multiplayer/multiplayer-presence";
 import {
   emptyMultiplayerSeatSnapshots,
   multiplayerReadySeatCount,
@@ -198,6 +199,8 @@ export function mountSnake(target: HTMLElement): () => void {
     layout: gameLayouts.squareFit,
   });
   shell.tabIndex = 0;
+  const onlinePresence = el("div", { className: "online-presence-host" });
+  viewport.append(onlinePresence);
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
@@ -280,6 +283,14 @@ export function mountSnake(target: HTMLElement): () => void {
     const size = currentBoardSize();
     const boardRebuilt = prepareBoard(size);
     status.textContent = statusText();
+    renderMultiplayerPresence(onlinePresence, {
+      gameId,
+      session: onlineSession,
+      seat: onlineSeat,
+      status: onlineRoomStatus,
+      seats: onlineSeats,
+      countdown: onlineCountdownText(),
+    });
     overlay.setVisible(!onlineSession && state === "paused");
     difficultyButton.textContent = onlineSession ? "Online" : difficulty;
     difficultyButton.disabled = Boolean(onlineSession);

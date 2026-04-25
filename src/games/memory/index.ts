@@ -47,6 +47,7 @@ import {
   type MultiplayerConnectionStatus,
 } from "@features/multiplayer/multiplayer";
 import { createMultiplayerDialog } from "@features/multiplayer/multiplayer-dialog";
+import { renderMultiplayerPresence } from "@features/multiplayer/multiplayer-presence";
 import {
   emptyMultiplayerSeatSnapshots,
   multiplayerReadySeatCount,
@@ -153,6 +154,7 @@ export function mountMemory(target: HTMLElement): () => void {
     shell,
     status,
     actions,
+    viewport,
     board: grid,
     remove,
   } = createGameShell(target, {
@@ -162,6 +164,8 @@ export function mountMemory(target: HTMLElement): () => void {
     layout: gameLayouts.squareFit,
   });
   shell.tabIndex = 0;
+  const onlinePresence = el("div", { className: "online-presence-host" });
+  viewport.append(onlinePresence);
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
@@ -236,6 +240,14 @@ export function mountMemory(target: HTMLElement): () => void {
     setBoardGrid(grid, config.columns, config.rows);
     shell.dataset.turn = String(currentPlayer);
     status.textContent = statusText();
+    renderMultiplayerPresence(onlinePresence, {
+      gameId: memory.id,
+      session: onlineSession,
+      seat: onlineSeat,
+      status: onlineRoomStatus,
+      seats: onlineSeats,
+      countdown: onlineCountdownText(),
+    });
     modeButton.textContent = onlineSession ? "Online" : memoryModeLabel(mode);
     modeButton.disabled = Boolean(onlineSession);
     difficultyButton.textContent = onlineSession ? "Online" : difficulty;
@@ -458,6 +470,7 @@ export function mountMemory(target: HTMLElement): () => void {
     onlineRoomStatus = "lobby";
     onlineCountdownEndsAt = undefined;
     onlineSeats = emptyMultiplayerSeatSnapshots();
+    onlineSeats[session.seat] = { joined: true, connected: false };
     onlineResultRecorded = false;
     onlineError = "";
     runId = createRunId();

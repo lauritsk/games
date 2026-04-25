@@ -649,6 +649,20 @@
     font-weight: 950;
     letter-spacing: 0.14em;
   }
+
+  .multiplayer-dialog__assignment {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    width: max-content;
+    max-width: 100%;
+    border: 1px solid color-mix(in srgb, var(--player-color), transparent 48%);
+    border-radius: var(--round);
+    padding: 9px 11px;
+    background: color-mix(in srgb, var(--player-color), transparent 88%);
+    font-weight: 900;
+    line-height: 1.1;
+  }
 }
 
 @layer game {
@@ -869,6 +883,139 @@
     display: none;
   }
 
+  .online-presence-host[hidden] {
+    display: none;
+  }
+
+  .online-presence-host {
+    position: absolute;
+    z-index: 5;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: clamp(10px, 3vmin, 22px);
+    border-radius: inherit;
+    background: var(--overlay-backdrop);
+    pointer-events: auto;
+  }
+
+  .online-presence {
+    display: grid;
+    gap: clamp(10px, 2vmin, 16px);
+    width: min(560px, 100%);
+    max-height: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: clamp(14px, 3vmin, 22px);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .online-presence__headline {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(10px, 2.8vmin, 18px);
+  }
+
+  .online-presence__countdown {
+    display: grid;
+    place-items: center;
+    inline-size: clamp(72px, 18vmin, 120px);
+    block-size: clamp(72px, 18vmin, 120px);
+    border: 2px solid color-mix(in srgb, var(--accent), transparent 25%);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent), transparent 76%);
+    color: var(--ink);
+    font-size: clamp(3rem, 13vmin, 6rem);
+    font-variant-numeric: tabular-nums;
+    font-weight: 950;
+    letter-spacing: -0.08em;
+    line-height: 1;
+    animation: countdown-pop 360ms cubic-bezier(0.2, 1.4, 0.3, 1);
+  }
+
+  .online-presence__summary {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  .online-presence__kicker {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .online-presence__you,
+  .online-presence__seat {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px 10px;
+  }
+
+  .online-presence__you {
+    font-size: clamp(1rem, 2.8vmin, 1.25rem);
+    font-weight: 950;
+    line-height: 1.1;
+  }
+
+  .online-presence__swatch {
+    display: inline-block;
+    inline-size: 18px;
+    block-size: 18px;
+    border: 2px solid color-mix(in srgb, var(--ink), transparent 24%);
+    border-radius: 50%;
+    background: var(--player-color);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--player-color), transparent 40%);
+  }
+
+  .online-presence__seats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+  }
+
+  .online-presence__seat {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 10px;
+    border: 1px solid color-mix(in srgb, var(--player-color), transparent 42%);
+    border-radius: calc(var(--radius) - 8px);
+    background: color-mix(in srgb, var(--player-color), transparent 88%);
+  }
+
+  .online-presence__seat[data-joined="false"] {
+    border-color: var(--line);
+    background: color-mix(in srgb, var(--surface), transparent 16%);
+    opacity: 0.62;
+  }
+
+  .online-presence__seat[data-you="true"] {
+    outline: 3px solid color-mix(in srgb, var(--player-color), transparent 35%);
+    outline-offset: 2px;
+  }
+
+  .online-presence__seat-main {
+    overflow: hidden;
+    font-weight: 950;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .online-presence__seat-meta {
+    grid-column: 2;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 850;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .touch-controls {
     display: none;
     justify-content: center;
@@ -1024,6 +1171,12 @@
     line-height: 1;
   }
 
+  .ttt-cell[data-mark="X"] {
+    color: #a7f06d;
+  }
+  .ttt-cell[data-mark="O"] {
+    color: #67d8ff;
+  }
   .ttt-cell[data-win="true"] {
     background: var(--accent);
     color: var(--bg);
@@ -1333,6 +1486,20 @@
     to {
       transform: scale(1.08);
       opacity: 1;
+    }
+  }
+
+  @keyframes countdown-pop {
+    0% {
+      opacity: 0.55;
+      transform: scale(0.72);
+    }
+    70% {
+      opacity: 1;
+      transform: scale(1.08);
+    }
+    100% {
+      transform: scale(1);
     }
   }
 

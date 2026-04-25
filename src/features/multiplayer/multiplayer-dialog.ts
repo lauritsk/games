@@ -8,6 +8,7 @@ import {
   normalizeMultiplayerCode,
   type MultiplayerSession,
 } from "@features/multiplayer/multiplayer-protocol";
+import { multiplayerPlayerDescriptor } from "@features/multiplayer/multiplayer-presence";
 import type { ModalController } from "@shared/modal";
 import { playSound } from "@ui/sound";
 
@@ -112,6 +113,15 @@ export function createMultiplayerDialog(): MultiplayerDialog {
     function renderCreated(session: MultiplayerSession): void {
       clearNode(body);
       const code = el("div", { className: "multiplayer-dialog__code", text: session.code });
+      const descriptor = multiplayerPlayerDescriptor(game.id, session.seat);
+      const assignment = el("div", { className: "multiplayer-dialog__assignment" });
+      assignment.style.setProperty("--player-color", descriptor.color);
+      assignment.append(
+        el("span", { className: "online-presence__swatch", ariaLabel: descriptor.colorName }),
+        el("span", {
+          text: `You are ${descriptor.label} · ${descriptor.role} · ${descriptor.position}`,
+        }),
+      );
       const help = el("p", {
         className: "muted",
         text: "Share this code. Keep this page open while you wait.",
@@ -121,7 +131,7 @@ export function createMultiplayerDialog(): MultiplayerDialog {
         await navigator.clipboard?.writeText(session.code).catch(() => undefined);
         copy.textContent = "Copied";
       });
-      body.append(code, help, copy);
+      body.append(code, assignment, help, copy);
     }
 
     function closeDialog(): void {

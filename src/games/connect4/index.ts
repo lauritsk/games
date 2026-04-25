@@ -41,6 +41,7 @@ import {
   type MultiplayerConnectionStatus,
 } from "@features/multiplayer/multiplayer";
 import { createMultiplayerDialog } from "@features/multiplayer/multiplayer-dialog";
+import { renderMultiplayerPresence } from "@features/multiplayer/multiplayer-presence";
 import {
   emptyMultiplayerSeatSnapshots,
   multiplayerReadySeatCount,
@@ -142,6 +143,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     shell,
     status,
     actions,
+    viewport,
     board: grid,
     remove,
   } = createGameShell(target, {
@@ -152,6 +154,8 @@ export function mountConnect4(target: HTMLElement): () => void {
   });
   shell.tabIndex = 0;
   setBoardGrid(grid, connect4Columns, connect4Rows);
+  const onlinePresence = el("div", { className: "online-presence-host" });
+  viewport.append(onlinePresence);
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
   const botMove = createDelayedAction();
@@ -231,6 +235,14 @@ export function mountConnect4(target: HTMLElement): () => void {
   function render(): void {
     shell.dataset.turn = String(current);
     status.textContent = statusText();
+    renderMultiplayerPresence(onlinePresence, {
+      gameId: connect4.id,
+      session: onlineSession,
+      seat: onlineSeat,
+      status: onlineRoomStatus,
+      seats: onlineSeats,
+      countdown: onlineCountdownText(),
+    });
     modeButton.textContent = onlineSession ? "Online" : botPlayModeLabel(mode);
     modeButton.disabled = Boolean(onlineSession);
     difficultyButton.textContent = onlineSession ? "Online" : difficulty;
@@ -425,6 +437,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     onlineRoomStatus = "lobby";
     onlineCountdownEndsAt = undefined;
     onlineSeats = emptyMultiplayerSeatSnapshots();
+    onlineSeats[session.seat] = { joined: true, connected: false };
     onlineResultRecorded = false;
     onlineError = "";
     runId = createRunId();
