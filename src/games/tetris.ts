@@ -1,4 +1,4 @@
-import { arcadePauseTransition, startArcadeMode } from "../arcade";
+import { createArcadeModeController, createPauseButton } from "../arcade";
 import {
   createGameShell,
   createMountScope,
@@ -67,6 +67,28 @@ export function mountTetris(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
+  const modeController = createArcadeModeController<Mode>({
+    getMode: () => mode,
+    setMode: (next) => {
+      mode = next;
+    },
+    blockedStart: ["over"],
+    blockedPause: ["over"],
+    ready: "ready",
+    playing: "playing",
+    paused: "paused",
+    onBlockedStart: () => invalidMove.trigger(),
+    onFirstStart: () => {
+      markGameStarted(shell);
+      playSound("gameMajor");
+    },
+    onPlaying: restartTimer,
+    onPause: () => {
+      stopTimer();
+      playSound("uiToggle");
+    },
+    afterChange: render,
+  });
   const difficultyControl = {
     get: () => difficulty,
     set: (next: Difficulty) => {
@@ -75,13 +97,7 @@ export function mountTetris(target: HTMLElement): () => void {
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
-  const pauseButton = el("button", {
-    className: "button pill surface interactive",
-    text: "Pause",
-    type: "button",
-  });
-  pauseButton.addEventListener("click", togglePause);
-  actions.append(pauseButton);
+  const pauseButton = createPauseButton(actions, togglePause);
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
 
@@ -94,34 +110,11 @@ export function mountTetris(target: HTMLElement): () => void {
   }
 
   function start(): void {
-    const nextMode = startArcadeMode(mode, {
-      blocked: ["over"],
-      ready: "ready",
-      playing: "playing",
-      paused: "paused",
-      onBlocked: () => invalidMove.trigger(),
-      onFirstStart: () => {
-        markGameStarted(shell);
-        playSound("gameMajor");
-      },
-    });
-    if (!nextMode) return;
-    mode = nextMode;
-    restartTimer();
-    render();
+    modeController.start();
   }
 
   function togglePause(): void {
-    const transition = arcadePauseTransition(mode, ["over"], "playing");
-    if (!transition) return;
-    if (transition === "pause") {
-      mode = "paused";
-      stopTimer();
-      playSound("uiToggle");
-    } else {
-      start();
-    }
-    render();
+    modeController.togglePause();
   }
 
   function onKeyDown(event: KeyboardEvent): void {

@@ -1,10 +1,10 @@
 import {
-  arcadePauseTransition,
   createArcadeHud,
+  createArcadeModeController,
   createHeldKeyInput,
+  createPauseButton,
   createPauseOverlay,
   positionPercent,
-  startArcadeMode,
   startFixedStepLoop,
   syncPositionedChildren,
   type FixedStepLoop,
@@ -78,6 +78,28 @@ export function mountBreakout(target: HTMLElement): () => void {
   const bricks = el("div", { className: "breakout-bricks" });
   board.append(bricks, paddle, ball);
   const hud = createArcadeHud(board);
+  const modeController = createArcadeModeController<Mode>({
+    getMode: () => mode,
+    setMode: (next) => {
+      mode = next;
+    },
+    blockedStart: ["won", "lost"],
+    blockedPause: ["won", "lost"],
+    ready: "ready",
+    playing: "playing",
+    paused: "paused",
+    onBlockedStart: () => invalidMove.trigger(),
+    onFirstStart: () => {
+      markGameStarted(shell);
+      playSound("gameMajor");
+    },
+    onPlaying: restartTimer,
+    onPause: () => {
+      stopTimer();
+      playSound("uiToggle");
+    },
+    afterChange: render,
+  });
   const overlay = createPauseOverlay(board, togglePause);
 
   const difficultyControl = {
@@ -88,13 +110,7 @@ export function mountBreakout(target: HTMLElement): () => void {
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
-  const pauseButton = el("button", {
-    className: "button pill surface interactive",
-    text: "Pause",
-    type: "button",
-  });
-  pauseButton.addEventListener("click", togglePause);
-  actions.append(pauseButton);
+  const pauseButton = createPauseButton(actions, togglePause);
   const requestReset = createResetControl(actions, shell, resetGame);
 
   onDocumentKeyDown(onKeyDown, scope);
@@ -120,32 +136,11 @@ export function mountBreakout(target: HTMLElement): () => void {
   }
 
   function start(): void {
-    const nextMode = startArcadeMode(mode, {
-      blocked: ["won", "lost"],
-      ready: "ready",
-      playing: "playing",
-      paused: "paused",
-      onBlocked: () => invalidMove.trigger(),
-      onFirstStart: () => {
-        markGameStarted(shell);
-        playSound("gameMajor");
-      },
-    });
-    if (!nextMode) return;
-    mode = nextMode;
-    restartTimer();
-    render();
+    modeController.start();
   }
 
   function togglePause(): void {
-    const transition = arcadePauseTransition(mode, ["won", "lost"], "playing");
-    if (!transition) return;
-    if (transition === "pause") {
-      mode = "paused";
-      stopTimer();
-      playSound("uiToggle");
-    } else start();
-    render();
+    modeController.togglePause();
   }
 
   function onKeyDown(event: KeyboardEvent): void {

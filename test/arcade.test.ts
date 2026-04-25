@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   circleIntersectsRect,
   clamp,
+  createArcadeModeController,
   pointInRect,
   rectsOverlap,
   vectorAdd,
@@ -29,5 +30,46 @@ describe("arcade helpers", () => {
     expect(wrap(12, 0, 10)).toBe(2);
     expect(vectorAdd({ x: 1, y: 2 }, { x: 3, y: 4 })).toEqual({ x: 4, y: 6 });
     expect(vectorScale({ x: 3, y: -2 }, 2)).toEqual({ x: 6, y: -4 });
+  });
+
+  test("controls shared arcade start and pause modes", () => {
+    type Mode = "ready" | "playing" | "paused" | "lost";
+    let mode: Mode = "ready";
+    const calls: string[] = [];
+    const controller = createArcadeModeController<Mode>({
+      getMode: () => mode,
+      setMode: (next) => {
+        mode = next;
+      },
+      blockedStart: ["lost"],
+      blockedPause: ["lost"],
+      ready: "ready",
+      playing: "playing",
+      paused: "paused",
+      onBlockedStart: () => calls.push("blocked"),
+      onFirstStart: () => calls.push("first"),
+      onPlaying: () => calls.push("play"),
+      onPause: () => calls.push("pause"),
+      afterChange: () => calls.push(`render:${mode}`),
+    });
+
+    controller.start();
+    expect(mode).toBe("playing");
+    expect(calls).toEqual(["first", "play", "render:playing"]);
+
+    controller.togglePause();
+    expect(mode).toBe("paused");
+    expect(calls.at(-2)).toBe("pause");
+    expect(calls.at(-1)).toBe("render:paused");
+
+    controller.togglePause();
+    expect(mode).toBe("playing");
+    expect(calls.at(-2)).toBe("play");
+    expect(calls.at(-1)).toBe("render:playing");
+
+    mode = "lost";
+    controller.start();
+    expect(mode).toBe("lost");
+    expect(calls.at(-1)).toBe("blocked");
   });
 });

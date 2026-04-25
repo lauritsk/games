@@ -139,6 +139,63 @@ export function arcadePauseTransition<TMode extends string>(
   return mode === playing ? "pause" : "resume";
 }
 
+export type ArcadeModeController = {
+  start(): void;
+  togglePause(): void;
+};
+
+export type ArcadeModeControllerOptions<TMode extends string> = {
+  getMode(): TMode;
+  setMode(mode: TMode): void;
+  blockedStart: readonly TMode[];
+  blockedPause: readonly TMode[];
+  ready: TMode;
+  playing: TMode;
+  paused: TMode;
+  onBlockedStart(): void;
+  onFirstStart(): void;
+  onPlaying(): void;
+  onPause(): void;
+  afterChange(): void;
+};
+
+export function createArcadeModeController<TMode extends string>(
+  options: ArcadeModeControllerOptions<TMode>,
+): ArcadeModeController {
+  function start(): void {
+    const nextMode = startArcadeMode(options.getMode(), {
+      blocked: options.blockedStart,
+      ready: options.ready,
+      playing: options.playing,
+      paused: options.paused,
+      onBlocked: options.onBlockedStart,
+      onFirstStart: options.onFirstStart,
+    });
+    if (!nextMode) return;
+    options.setMode(nextMode);
+    if (nextMode === options.playing) options.onPlaying();
+    options.afterChange();
+  }
+
+  function togglePause(): void {
+    const transition = arcadePauseTransition(
+      options.getMode(),
+      options.blockedPause,
+      options.playing,
+    );
+    if (!transition) return;
+    if (transition === "pause") {
+      options.setMode(options.paused);
+      options.onPause();
+      options.afterChange();
+      return;
+    }
+    start();
+  }
+
+  return { start, togglePause };
+}
+
 export type HeldKeyInput = {
   isHeld(direction: "left" | "right" | "up" | "down"): boolean;
   horizontal(): -1 | 0 | 1;
@@ -228,6 +285,13 @@ export function createPauseOverlay(board: HTMLElement, onResume: () => void): Pa
       element.textContent = text;
     },
   };
+}
+
+export function createPauseButton(actions: HTMLElement, onToggle: () => void): HTMLButtonElement {
+  const pauseButton = button("Pause", "button pill surface interactive");
+  pauseButton.addEventListener("click", onToggle);
+  actions.append(pauseButton);
+  return pauseButton;
 }
 
 export function createTouchControls(
