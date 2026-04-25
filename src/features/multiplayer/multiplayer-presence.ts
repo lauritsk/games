@@ -97,7 +97,7 @@ export function renderMultiplayerPresence(
     item.dataset.you = String(seat === localSeat);
     item.append(
       el("span", { className: "online-presence__swatch", ariaLabel: descriptor.colorName }),
-      el("span", { className: "online-presence__seat-main", text: seatTitle(descriptor) }),
+      el("span", { className: "online-presence__seat-main", text: descriptor.label }),
       el("span", {
         className: "online-presence__seat-meta",
         text: seatMeta(seatState.joined, seat, localSeat),
@@ -145,14 +145,10 @@ function playerLine(descriptor: MultiplayerPlayerDescriptor, prefix: string): HT
     el("span", { className: "online-presence__swatch", ariaLabel: descriptor.colorName }),
     el("span", {
       className: "online-presence__you-text",
-      text: `${prefix} ${seatTitle(descriptor)}`,
+      text: `${prefix} ${descriptor.label}`,
     }),
   );
   return line;
-}
-
-function seatTitle(descriptor: MultiplayerPlayerDescriptor): string {
-  return `${descriptor.label} · ${descriptor.colorName}`;
 }
 
 function seatMeta(joined: boolean, seat: MultiplayerSeat, localSeat: MultiplayerSeat): string {

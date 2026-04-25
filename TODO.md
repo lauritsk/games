@@ -1,5 +1,7 @@
 # TODO
 
+- [x] Shorten online waiting player labels.
+- [x] Improve multiplayer room popups and bottom status visual hierarchy.
 - [x] Unify game paused popup with shared popup tokens/components.
 - [x] Fix multiplayer start countdown cadence.
 - [x] Fix online multiplayer settings controls for difficulty and game-specific options.

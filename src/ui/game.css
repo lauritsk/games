@@ -261,7 +261,7 @@
 
   .online-presence-host[data-status="lobby"] {
     place-items: end center;
-    background: linear-gradient(180deg, transparent 0 42%, var(--overlay-backdrop));
+    background: linear-gradient(180deg, transparent 0 48%, var(--overlay-backdrop));
   }
 
   .online-presence {
@@ -275,6 +275,13 @@
     border: var(--border-line);
     border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--surface-flat), transparent 8%);
+    box-shadow: var(--shadow);
+  }
+
+  .online-presence-host[data-status="lobby"] .online-presence {
+    width: min(420px, calc(100% - 8px));
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--surface-flat), transparent 4%);
   }
 
   .online-presence__headline {
@@ -319,6 +326,10 @@
     font-weight: var(--font-weight-heavy);
     letter-spacing: 0.12em;
     text-transform: uppercase;
+  }
+
+  .online-presence-host[data-status="lobby"] .online-presence__kicker {
+    color: var(--accent);
   }
 
   :is(.online-presence__you, .online-presence__seat) {

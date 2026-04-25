@@ -663,6 +663,7 @@
     background: color-mix(in srgb, var(--surface), transparent 15%);
     color: var(--ink);
     font: inherit;
+    line-height: 1;
   }
 
   .leaderboard-list__item {
@@ -709,32 +710,106 @@
     gap: var(--space-lg);
   }
 
-  :is(.multiplayer-dialog__start, .multiplayer-dialog__room, .multiplayer-dialog__join) {
-    display: flex;
+  .multiplayer-dialog__choices {
+    display: grid;
+    gap: var(--space-lg);
+  }
+
+  .multiplayer-dialog__option {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: var(--space-md);
-    flex-wrap: wrap;
+    gap: var(--space-xs) var(--space-lg);
+    padding: var(--space-xl);
+    border: var(--border-line);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--surface), transparent 38%);
+  }
+
+  .multiplayer-dialog__option-title {
+    margin: 0;
+    color: var(--ink);
+    font-size: 1rem;
+    font-weight: var(--font-weight-heavy);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  .multiplayer-dialog__option-copy {
+    grid-column: 1;
+    margin: 0;
+    font-size: var(--font-size-xs);
+    line-height: 1.35;
+  }
+
+  .multiplayer-dialog__option-action {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
   }
 
   .multiplayer-dialog__join {
-    flex: 1 1 230px;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-md);
+    align-items: center;
+  }
+
+  .multiplayer-dialog__join input,
+  .multiplayer-dialog__join button,
+  .multiplayer-dialog__option-action,
+  .multiplayer-dialog__code-header button {
+    min-height: var(--touch-target);
   }
 
   .multiplayer-dialog__join input {
-    flex: 1 1 140px;
+    inline-size: 100%;
+  }
+
+  .multiplayer-dialog__join input::placeholder {
+    color: var(--muted);
+    font-weight: var(--font-weight-strong);
+    opacity: 0.72;
+  }
+
+  .multiplayer-dialog__status:empty {
+    display: none;
   }
 
   .multiplayer-dialog__room {
-    padding-block: var(--space-2xs);
+    display: grid;
+    gap: var(--space-lg);
+  }
+
+  .multiplayer-dialog__code-card {
+    display: grid;
+    gap: var(--space-lg);
+    padding: var(--space-xl);
+    border: var(--border-line);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--accent), transparent 88%);
+  }
+
+  .multiplayer-dialog__code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    color: var(--muted);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-heavy);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
 
   .multiplayer-dialog__code {
-    width: max-content;
     max-width: 100%;
+    overflow-wrap: anywhere;
     color: var(--accent);
-    font-size: clamp(1.45rem, 7vw, 2.35rem);
+    font-size: clamp(1.65rem, 9vw, 2.6rem);
     font-weight: var(--font-weight-black);
-    letter-spacing: 0.12em;
+    letter-spacing: 0.13em;
     line-height: 1;
   }
 
@@ -744,9 +819,15 @@
     gap: var(--space-md);
     width: max-content;
     max-width: 100%;
-    color: var(--muted);
-    font-weight: var(--font-weight-strong);
+    color: var(--ink);
+    font-weight: var(--font-weight-heavy);
     line-height: 1.1;
+  }
+
+  .multiplayer-dialog__room-copy {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    line-height: 1.35;
   }
 }
 
@@ -761,6 +842,14 @@
     .game[data-board-mode="scroll"] .board-viewport {
       place-items: start;
     }
+    .multiplayer-dialog__option {
+      grid-template-columns: 1fr;
+    }
+    .multiplayer-dialog__option-action {
+      grid-column: 1;
+      grid-row: auto;
+      justify-self: start;
+    }
     .touch-controls {
       display: flex;
     }
@@ -771,6 +860,12 @@
       place-items: start center;
       align-content: start;
       padding-block: var(--gap);
+    }
+  }
+
+  @media (max-width: 370px) {
+    .multiplayer-dialog__join {
+      grid-template-columns: 1fr;
     }
   }
 

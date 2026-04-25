@@ -66,6 +66,7 @@ export function createMultiplayerDialog(): MultiplayerDialog {
     void renderStart();
 
     async function renderStart(): Promise<void> {
+      summary.textContent = "Create a private online room or join one with a code.";
       clearNode(body);
       body.append(el("p", { className: "muted", text: "Checking server…" }));
       const status = await fetchMultiplayerStatus();
@@ -76,18 +77,37 @@ export function createMultiplayerDialog(): MultiplayerDialog {
       }
 
       const create = pillButton("Create room");
-      const start = el("div", { className: "multiplayer-dialog__start" });
+      create.classList.add("multiplayer-dialog__option-action");
+      const start = el("div", { className: "multiplayer-dialog__choices" });
+      const createOption = el("section", { className: "multiplayer-dialog__option" });
+      createOption.append(
+        el("h3", { className: "multiplayer-dialog__option-title", text: "Create room" }),
+        el("p", {
+          className: "multiplayer-dialog__option-copy muted",
+          text: "Start a private room and share its code.",
+        }),
+        create,
+      );
+      const joinOption = el("section", { className: "multiplayer-dialog__option" });
       const form = el("form", { className: "multiplayer-dialog__join" });
       const input = el("input", { className: "leaderboard-submit__input" });
-      input.placeholder = "Room code";
+      input.placeholder = "Enter code";
       input.maxLength = 12;
       input.setAttribute("aria-label", "Room code");
       const join = pillButton("Join room");
       join.type = "submit";
-      const statusLine = el("p", { className: "muted" });
-      statusLine.setAttribute("aria-live", "polite");
       form.append(input, join);
-      start.append(create, form);
+      joinOption.append(
+        el("h3", { className: "multiplayer-dialog__option-title", text: "Join room" }),
+        el("p", {
+          className: "multiplayer-dialog__option-copy muted",
+          text: "Use the room code from another player.",
+        }),
+        form,
+      );
+      const statusLine = el("p", { className: "multiplayer-dialog__status muted" });
+      statusLine.setAttribute("aria-live", "polite");
+      start.append(createOption, joinOption);
       body.append(start, statusLine);
 
       input.addEventListener("input", () => {
@@ -124,6 +144,7 @@ export function createMultiplayerDialog(): MultiplayerDialog {
     }
 
     function renderCreated(session: MultiplayerSession): void {
+      summary.textContent = "Share this code. The match starts when enough players join.";
       clearNode(body);
       const code = el("div", { className: "multiplayer-dialog__code", text: session.code });
       const descriptor = multiplayerPlayerDescriptor(game.id, session.seat);
@@ -136,17 +157,21 @@ export function createMultiplayerDialog(): MultiplayerDialog {
         }),
       );
       const help = el("p", {
-        className: "muted",
+        className: "multiplayer-dialog__room-copy muted",
         text: "Share this code. Keep this page open while you wait.",
       });
       const copy = pillButton("Copy code");
+      const codeHeader = el("div", { className: "multiplayer-dialog__code-header" });
+      codeHeader.append(el("span", { text: "Room code" }), copy);
+      const codeCard = el("div", { className: "multiplayer-dialog__code-card" });
+      codeCard.append(codeHeader, code);
       copy.addEventListener("click", async () => {
         await navigator.clipboard?.writeText(session.code).catch(() => undefined);
         copy.textContent = "Copied";
       });
       const room = el("div", { className: "multiplayer-dialog__room" });
-      room.append(code, assignment, copy);
-      body.append(room, help);
+      room.append(codeCard, assignment, help);
+      body.append(room);
     }
 
     function closeDialog(): void {
