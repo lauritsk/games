@@ -643,24 +643,6 @@
     touch-action: none;
   }
 
-  .arcade-hud {
-    position: absolute;
-    z-index: 2;
-    inset: 10px auto auto 10px;
-    display: flex;
-    gap: 8px;
-    max-width: calc(100% - 20px);
-    padding: 7px 9px;
-    border-radius: var(--round);
-    font-size: 0.72rem;
-    font-weight: 900;
-    pointer-events: none;
-  }
-
-  .arcade-hud__item {
-    white-space: nowrap;
-  }
-
   .board-overlay {
     position: absolute;
     z-index: 4;

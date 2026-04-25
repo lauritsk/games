@@ -245,31 +245,6 @@ export function keyDirection(event: KeyboardEvent): Direction | null {
   return directionFromKey(event);
 }
 
-export type ArcadeHud = {
-  element: HTMLElement;
-  setStats(stats: Record<string, string | number>): void;
-};
-
-export function createArcadeHud(
-  target: HTMLElement,
-  stats: Record<string, string | number> = {},
-): ArcadeHud {
-  const element = el("div", { className: "arcade-hud surface" });
-  target.prepend(element);
-  const hud = { element, setStats };
-  setStats(stats);
-  return hud;
-
-  function setStats(next: Record<string, string | number>): void {
-    element.replaceChildren(
-      ...Object.entries(next).map(([label, value]) => {
-        const item = el("span", { className: "arcade-hud__item", text: `${label}: ${value}` });
-        return item;
-      }),
-    );
-  }
-}
-
 export type BoardOverlay = {
   element: HTMLButtonElement;
   setVisible(visible: boolean, title?: string, helper?: string): void;

@@ -1,6 +1,5 @@
 import {
   clamp,
-  createArcadeHud,
   createArcadeModeController,
   createHeldKeyInput,
   createPauseButton,
@@ -151,7 +150,6 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   const barriers = el("div", { className: "invader-barriers" });
   const shots = el("div", { className: "invader-shots" });
   board.append(aliens, barriers, shots, player);
-  const hud = createArcadeHud(board);
   const modeController = createArcadeModeController<Mode>({
     getMode: () => mode,
     setMode: (next) => {
@@ -322,7 +320,6 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     difficultyButton.textContent = difficulty;
     pauseButton.textContent = mode === "paused" ? "Resume" : "Pause";
     status.textContent = statusText();
-    hud.setStats({ Score: state.score, Lives: state.lives, Wave: state.wave });
     overlay.setVisible(mode === "paused");
     position(player, state.player.x, state.player.y, state.player.width, state.player.height);
     syncAliens(state);

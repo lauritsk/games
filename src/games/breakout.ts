@@ -1,5 +1,4 @@
 import {
-  createArcadeHud,
   createArcadeModeController,
   createHeldKeyInput,
   createPauseButton,
@@ -116,7 +115,6 @@ export function mountBreakout(target: HTMLElement): () => void {
   const paddle = el("div", { className: "breakout-paddle" });
   const bricks = el("div", { className: "breakout-bricks" });
   board.append(bricks, paddle, ball);
-  const hud = createArcadeHud(board);
   const modeController = createArcadeModeController<Mode>({
     getMode: () => mode,
     setMode: (next) => {
@@ -257,7 +255,6 @@ export function mountBreakout(target: HTMLElement): () => void {
     difficultyButton.textContent = difficulty;
     pauseButton.textContent = mode === "paused" ? "Resume" : "Pause";
     status.textContent = statusText();
-    hud.setStats({ Score: state.score, Lives: state.lives, Level: state.level });
     overlay.setVisible(mode === "paused");
     positionBall();
     position(paddle, state.paddle.x, state.paddle.y, state.paddle.width, state.paddle.height);
@@ -303,7 +300,7 @@ export function mountBreakout(target: HTMLElement): () => void {
     if (mode === "paused") return "Paused";
     if (mode === "won") return `Clear · ${state.score}`;
     if (mode === "lost") return `Out · ${state.score}`;
-    return `${state.score} · ${"♥".repeat(state.lives)}`;
+    return `${state.score} · L${state.level} · ${"♥".repeat(state.lives)}`;
   }
 
   function showLifeLost(): void {
