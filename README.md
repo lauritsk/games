@@ -52,6 +52,7 @@ Open <http://localhost:3000>.
 | --- | --- |
 | `mise run dev` | Start the Bun dev server with HMR at <http://localhost:3000>. |
 | `mise run db:migrate` | Create or migrate the Bun SQLite sync database. |
+| `mise run db:generate` | Generate Drizzle SQLite migrations from the typed schema. |
 | `mise run build` | Build the static app into `dist/`. |
 | `mise run build:server` | Build the Bun server bundle into a temporary directory. |
 | `mise run build:single` | Build a standalone single-file browser artifact into `dist-single/`. |

@@ -20,6 +20,10 @@ run = "bun run dev"
 description = "Create or migrate the Bun SQLite sync database"
 run = "bun run src/server/migrate.ts"
 
+[tasks."db:generate"]
+description = "Generate Drizzle SQLite migrations"
+run = "bunx --bun drizzle-kit generate"
+
 [tasks.build]
 description = "Build the web app"
 run = "bun run build"
@@ -30,7 +34,7 @@ run = "bun run build:single"
 
 [tasks."build:server"]
 description = "Build the Bun server bundle into a temporary directory"
-run = "rm -rf /tmp/games-server-build && bun build ./src/server/index.ts --outdir /tmp/games-server-build --target bun --root . --entry-naming='server.[ext]'"
+run = "rm -rf /tmp/games-server-build && bun build ./src/server/index.ts --outdir /tmp/games-server-build --target bun --root . --entry-naming='server.[ext]' && cp -R migrations /tmp/games-server-build/migrations"
 
 [tasks.lint]
 description = "Run hk-managed checks across the repository"

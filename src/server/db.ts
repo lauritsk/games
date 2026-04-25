@@ -2,14 +2,41 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { Database } from "bun:sqlite";
 import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  max,
+  or,
+  sql,
+} from "drizzle-orm";
+import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import {
   createLeaderboardId,
   rowToLeaderboardEntry,
   type LeaderboardEntry,
   type LeaderboardInsert,
   type LeaderboardListOptions,
-  type LeaderboardRow,
 } from "@server/leaderboard";
-import { SYNC_SCHEMA_SQL } from "@server/schema";
+import {
+  databaseSchema,
+  devices,
+  leaderboardScores,
+  preferences,
+  resultClears,
+  results,
+  saves,
+  type ResultPruneRow,
+  type ResultRow,
+} from "@server/db-schema";
 import type {
   SyncPreference,
   SyncPush,
@@ -23,75 +50,34 @@ import type {
 const maxTotalResults = 250;
 const maxResultsPerGame = 50;
 const allResultsClearKey = "*";
+const drizzleMigrationsFolder = "migrations/drizzle";
 
-type PreferenceRow = { game_id: string; data_json: string; updated_at: string };
-type SaveRow = {
-  game_id: string;
-  data_json: string | null;
-  updated_at: string;
-  deleted_at: string | null;
-};
-type ResultClearRow = { game_id: string; cleared_at: string };
-type ResultRow = {
-  id: string;
-  run_id: string;
-  game_id: string;
-  finished_at: string;
-  difficulty: string | null;
-  outcome: SyncResult["outcome"];
-  score: number | null;
-  moves: number | null;
-  duration_ms: number | null;
-  level: number | null;
-  streak: number | null;
-  metadata_json: string;
-};
-type ResultPruneRow = { id: string; game_id: string; finished_at: string };
-type MaxClearRow = { cleared_at: string | null };
-type CountRow = { count: number };
+type GameDrizzle = BunSQLiteDatabase<typeof databaseSchema>;
 type LeaderboardRankOptions = {
   gameId: string;
   metric: LeaderboardListOptions["metric"];
   direction: LeaderboardListOptions["direction"];
-  difficulty?: string;
+  difficulty?: LeaderboardListOptions["difficulty"];
   metricValue: number;
   createdAt: string;
   id: string;
 };
-type SqlValue = number | string;
-
-const leaderboardScoreColumns = [
-  "id",
-  "game_id",
-  "username",
-  "difficulty",
-  "outcome",
-  "metric",
-  "metric_value",
-  "score",
-  "moves",
-  "duration_ms",
-  "level",
-  "streak",
-  "metadata_json",
-  "created_at",
-].join(", ");
 
 export class GameDatabase {
-  private readonly db: Database;
+  private readonly sqlite: Database;
+  private readonly db: GameDrizzle;
 
   constructor(path = defaultDatabasePath()) {
     ensureDatabaseParent(path);
-    this.db = new Database(path, { create: true, strict: true });
-    this.db.exec("PRAGMA journal_mode = WAL;");
-    this.db.exec("PRAGMA foreign_keys = ON;");
-    this.db.exec(SYNC_SCHEMA_SQL);
-    this.ensureColumn("results", "streak", "INTEGER");
-    this.ensureColumn("leaderboard_scores", "streak", "INTEGER");
+    this.sqlite = new Database(path, { create: true, strict: true });
+    this.db = drizzle(this.sqlite, { schema: databaseSchema });
+    this.sqlite.exec("PRAGMA journal_mode = WAL;");
+    this.sqlite.exec("PRAGMA foreign_keys = ON;");
+    migrate(this.db, { migrationsFolder: drizzleMigrationsFolder });
   }
 
   close(): void {
-    this.db.close();
+    this.sqlite.close();
   }
 
   snapshot(deviceId: string): SyncSnapshot {
@@ -107,7 +93,7 @@ export class GameDatabase {
 
   applySync(push: SyncPush): SyncSnapshot {
     this.touchDevice(push.deviceId);
-    const apply = this.db.transaction(() => {
+    const apply = this.sqlite.transaction(() => {
       for (const preference of push.preferences) this.upsertPreference(push.deviceId, preference);
       for (const save of push.saves) this.upsertSave(push.deviceId, save);
       for (const tombstone of push.deletedSaves) this.deleteSave(push.deviceId, tombstone);
@@ -138,17 +124,17 @@ export class GameDatabase {
   }
 
   listLeaderboardScores(options: LeaderboardListOptions): LeaderboardEntry[] {
-    const directionSql = options.direction === "min" ? "ASC" : "DESC";
-    const query = leaderboardListQuery(options);
+    const metricOrder =
+      options.direction === "min"
+        ? asc(leaderboardScores.metric_value)
+        : desc(leaderboardScores.metric_value);
     const rows = this.db
-      .query(
-        `SELECT ${leaderboardScoreColumns}
-         FROM leaderboard_scores
-         WHERE game_id = ?1 AND metric = ?2${query.difficultyClause}
-         ORDER BY metric_value ${directionSql}, created_at ASC, id ASC
-         LIMIT ${query.limitPlaceholder}`,
-      )
-      .all(...query.parameters) as LeaderboardRow[];
+      .select()
+      .from(leaderboardScores)
+      .where(leaderboardListWhere(options))
+      .orderBy(metricOrder, asc(leaderboardScores.created_at), asc(leaderboardScores.id))
+      .limit(options.limit)
+      .all();
     return rows.map((row, index) => {
       const entry = rowToLeaderboardEntry(row);
       entry.rank = index + 1;
@@ -156,141 +142,145 @@ export class GameDatabase {
     });
   }
 
-  private ensureColumn(
-    table: "results" | "leaderboard_scores",
-    column: string,
-    definition: string,
-  ): void {
-    const rows = this.db.query(`PRAGMA table_info(${table})`).all() as { name: string }[];
-    if (rows.some((row) => row.name === column)) return;
-    this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-  }
-
   private touchDevice(deviceId: string): void {
     const now = new Date().toISOString();
     this.db
-      .prepare(
-        `INSERT INTO devices (id, created_at, last_seen_at)
-         VALUES (?1, ?2, ?2)
-         ON CONFLICT(id) DO UPDATE SET last_seen_at = excluded.last_seen_at`,
-      )
-      .run(deviceId, now);
+      .insert(devices)
+      .values({ id: deviceId, created_at: now, last_seen_at: now })
+      .onConflictDoUpdate({ target: devices.id, set: { last_seen_at: now } })
+      .run();
   }
 
   private upsertPreference(deviceId: string, preference: SyncPreference): void {
     this.db
-      .prepare(
-        `INSERT INTO preferences (device_id, game_id, data_json, updated_at)
-         VALUES (?1, ?2, ?3, ?4)
-         ON CONFLICT(device_id, game_id) DO UPDATE SET
-           data_json = excluded.data_json,
-           updated_at = excluded.updated_at
-         WHERE excluded.updated_at > preferences.updated_at`,
-      )
-      .run(deviceId, preference.gameId, jsonString(preference.data), preference.updatedAt);
+      .insert(preferences)
+      .values({
+        device_id: deviceId,
+        game_id: preference.gameId,
+        data_json: jsonString(preference.data),
+        updated_at: preference.updatedAt,
+      })
+      .onConflictDoUpdate({
+        target: [preferences.device_id, preferences.game_id],
+        set: {
+          data_json: jsonString(preference.data),
+          updated_at: preference.updatedAt,
+        },
+        setWhere: sql`excluded.updated_at > ${preferences.updated_at}`,
+      })
+      .run();
   }
 
   private upsertSave(deviceId: string, save: SyncSave): void {
     this.db
-      .prepare(
-        `INSERT INTO saves (device_id, game_id, data_json, updated_at, deleted_at)
-         VALUES (?1, ?2, ?3, ?4, NULL)
-         ON CONFLICT(device_id, game_id) DO UPDATE SET
-           data_json = excluded.data_json,
-           updated_at = excluded.updated_at,
-           deleted_at = NULL
-         WHERE excluded.updated_at > saves.updated_at`,
-      )
-      .run(deviceId, save.gameId, jsonString(save.data), save.updatedAt);
+      .insert(saves)
+      .values({
+        device_id: deviceId,
+        game_id: save.gameId,
+        data_json: jsonString(save.data),
+        updated_at: save.updatedAt,
+        deleted_at: null,
+      })
+      .onConflictDoUpdate({
+        target: [saves.device_id, saves.game_id],
+        set: {
+          data_json: jsonString(save.data),
+          updated_at: save.updatedAt,
+          deleted_at: null,
+        },
+        setWhere: sql`excluded.updated_at > ${saves.updated_at}`,
+      })
+      .run();
   }
 
   private deleteSave(deviceId: string, tombstone: SyncSaveTombstone): void {
     this.db
-      .prepare(
-        `INSERT INTO saves (device_id, game_id, data_json, updated_at, deleted_at)
-         VALUES (?1, ?2, NULL, ?3, ?3)
-         ON CONFLICT(device_id, game_id) DO UPDATE SET
-           data_json = NULL,
-           updated_at = excluded.updated_at,
-           deleted_at = excluded.deleted_at
-         WHERE excluded.updated_at > saves.updated_at`,
-      )
-      .run(deviceId, tombstone.gameId, tombstone.deletedAt);
+      .insert(saves)
+      .values({
+        device_id: deviceId,
+        game_id: tombstone.gameId,
+        data_json: null,
+        updated_at: tombstone.deletedAt,
+        deleted_at: tombstone.deletedAt,
+      })
+      .onConflictDoUpdate({
+        target: [saves.device_id, saves.game_id],
+        set: {
+          data_json: null,
+          updated_at: tombstone.deletedAt,
+          deleted_at: tombstone.deletedAt,
+        },
+        setWhere: sql`excluded.updated_at > ${saves.updated_at}`,
+      })
+      .run();
   }
 
   private upsertResult(deviceId: string, result: SyncResult): void {
     if (this.isResultCleared(deviceId, result)) return;
     this.db
-      .prepare(
-        `INSERT INTO results (
-           device_id, id, run_id, game_id, finished_at, difficulty, outcome,
-           score, moves, duration_ms, level, streak, metadata_json
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
-         ON CONFLICT(device_id, run_id) DO NOTHING`,
-      )
-      .run(
-        deviceId,
-        result.id,
-        result.runId,
-        result.gameId,
-        result.finishedAt,
-        result.difficulty ?? null,
-        result.outcome,
-        result.score ?? null,
-        result.moves ?? null,
-        result.durationMs ?? null,
-        result.level ?? null,
-        result.streak ?? null,
-        jsonString(result.metadata ?? {}),
-      );
+      .insert(results)
+      .values({
+        device_id: deviceId,
+        id: result.id,
+        run_id: result.runId,
+        game_id: result.gameId,
+        finished_at: result.finishedAt,
+        difficulty: result.difficulty ?? null,
+        outcome: result.outcome,
+        score: result.score ?? null,
+        moves: result.moves ?? null,
+        duration_ms: result.durationMs ?? null,
+        level: result.level ?? null,
+        streak: result.streak ?? null,
+        metadata_json: jsonString(result.metadata ?? {}),
+      })
+      .onConflictDoNothing({ target: [results.device_id, results.run_id] })
+      .run();
   }
 
   private clearResults(deviceId: string, clear: SyncResultClear): void {
     const gameKey = clear.gameId ?? allResultsClearKey;
     this.db
-      .prepare(
-        `INSERT INTO result_clears (device_id, game_id, cleared_at)
-         VALUES (?1, ?2, ?3)
-         ON CONFLICT(device_id, game_id) DO UPDATE SET cleared_at = excluded.cleared_at
-         WHERE excluded.cleared_at > result_clears.cleared_at`,
-      )
-      .run(deviceId, gameKey, clear.clearedAt);
+      .insert(resultClears)
+      .values({ device_id: deviceId, game_id: gameKey, cleared_at: clear.clearedAt })
+      .onConflictDoUpdate({
+        target: [resultClears.device_id, resultClears.game_id],
+        set: { cleared_at: clear.clearedAt },
+        setWhere: sql`excluded.cleared_at > ${resultClears.cleared_at}`,
+      })
+      .run();
 
-    if (clear.gameId) {
-      this.db
-        .prepare(
-          `DELETE FROM results
-           WHERE device_id = ?1 AND game_id = ?2 AND finished_at <= ?3`,
+    const resultFilter = clear.gameId
+      ? and(
+          eq(results.device_id, deviceId),
+          eq(results.game_id, clear.gameId),
+          lte(results.finished_at, clear.clearedAt),
         )
-        .run(deviceId, clear.gameId, clear.clearedAt);
-      return;
-    }
-
-    this.db
-      .prepare(`DELETE FROM results WHERE device_id = ?1 AND finished_at <= ?2`)
-      .run(deviceId, clear.clearedAt);
+      : and(eq(results.device_id, deviceId), lte(results.finished_at, clear.clearedAt));
+    this.db.delete(results).where(resultFilter).run();
   }
 
   private isResultCleared(deviceId: string, result: SyncResult): boolean {
     const row = this.db
-      .query(
-        `SELECT MAX(cleared_at) AS cleared_at
-         FROM result_clears
-         WHERE device_id = ?1 AND game_id IN (?2, ?3)`,
+      .select({ cleared_at: max(resultClears.cleared_at) })
+      .from(resultClears)
+      .where(
+        and(
+          eq(resultClears.device_id, deviceId),
+          inArray(resultClears.game_id, [result.gameId, allResultsClearKey]),
+        ),
       )
-      .get(deviceId, result.gameId, allResultsClearKey) as MaxClearRow | null;
+      .get();
     return Boolean(row?.cleared_at && result.finishedAt <= row.cleared_at);
   }
 
   private listPreferences(deviceId: string): SyncPreference[] {
     const rows = this.db
-      .query(
-        `SELECT game_id, data_json, updated_at
-         FROM preferences
-         WHERE device_id = ?1
-         ORDER BY game_id`,
-      )
-      .all(deviceId) as PreferenceRow[];
+      .select()
+      .from(preferences)
+      .where(eq(preferences.device_id, deviceId))
+      .orderBy(asc(preferences.game_id))
+      .all();
     return rows.map((row) => ({
       gameId: row.game_id,
       updatedAt: row.updated_at,
@@ -300,13 +290,13 @@ export class GameDatabase {
 
   private listSaves(deviceId: string): SyncSave[] {
     const rows = this.db
-      .query(
-        `SELECT game_id, data_json, updated_at, deleted_at
-         FROM saves
-         WHERE device_id = ?1 AND data_json IS NOT NULL AND deleted_at IS NULL
-         ORDER BY game_id`,
+      .select()
+      .from(saves)
+      .where(
+        and(eq(saves.device_id, deviceId), isNotNull(saves.data_json), isNull(saves.deleted_at)),
       )
-      .all(deviceId) as SaveRow[];
+      .orderBy(asc(saves.game_id))
+      .all();
     return rows.map((row) => ({
       gameId: row.game_id,
       updatedAt: row.updated_at,
@@ -316,13 +306,11 @@ export class GameDatabase {
 
   private listDeletedSaves(deviceId: string): SyncSaveTombstone[] {
     const rows = this.db
-      .query(
-        `SELECT game_id, data_json, updated_at, deleted_at
-         FROM saves
-         WHERE device_id = ?1 AND deleted_at IS NOT NULL
-         ORDER BY game_id`,
-      )
-      .all(deviceId) as SaveRow[];
+      .select()
+      .from(saves)
+      .where(and(eq(saves.device_id, deviceId), isNotNull(saves.deleted_at)))
+      .orderBy(asc(saves.game_id))
+      .all();
     return rows.map((row) => ({
       gameId: row.game_id,
       deletedAt: row.deleted_at ?? row.updated_at,
@@ -331,27 +319,22 @@ export class GameDatabase {
 
   private listResults(deviceId: string): SyncResult[] {
     const rows = this.db
-      .query(
-        `SELECT id, run_id, game_id, finished_at, difficulty, outcome, score, moves,
-                duration_ms, level, streak, metadata_json
-         FROM results
-         WHERE device_id = ?1
-         ORDER BY finished_at DESC
-         LIMIT ?2`,
-      )
-      .all(deviceId, maxTotalResults) as ResultRow[];
+      .select()
+      .from(results)
+      .where(eq(results.device_id, deviceId))
+      .orderBy(desc(results.finished_at))
+      .limit(maxTotalResults)
+      .all();
     return rows.map(rowToResult);
   }
 
   private listResultClears(deviceId: string): SyncResultClear[] {
     const rows = this.db
-      .query(
-        `SELECT game_id, cleared_at
-         FROM result_clears
-         WHERE device_id = ?1
-         ORDER BY cleared_at DESC`,
-      )
-      .all(deviceId) as ResultClearRow[];
+      .select()
+      .from(resultClears)
+      .where(eq(resultClears.device_id, deviceId))
+      .orderBy(desc(resultClears.cleared_at))
+      .all();
     return rows.map((row) =>
       row.game_id === allResultsClearKey
         ? { clearedAt: row.cleared_at }
@@ -360,14 +343,12 @@ export class GameDatabase {
   }
 
   private pruneResults(deviceId: string): void {
-    const rows = this.db
-      .query(
-        `SELECT id, game_id, finished_at
-         FROM results
-         WHERE device_id = ?1
-         ORDER BY finished_at DESC`,
-      )
-      .all(deviceId) as ResultPruneRow[];
+    const rows: ResultPruneRow[] = this.db
+      .select({ id: results.id, game_id: results.game_id, finished_at: results.finished_at })
+      .from(results)
+      .where(eq(results.device_id, deviceId))
+      .orderBy(desc(results.finished_at))
+      .all();
     const keep = new Set<string>();
     const perGameCounts = new Map<string, number>();
 
@@ -381,114 +362,93 @@ export class GameDatabase {
 
     for (const row of rows) {
       if (keep.has(row.id)) continue;
-      this.db.prepare(`DELETE FROM results WHERE device_id = ?1 AND id = ?2`).run(deviceId, row.id);
+      this.db
+        .delete(results)
+        .where(and(eq(results.device_id, deviceId), eq(results.id, row.id)))
+        .run();
     }
   }
 
   private findLeaderboardDuplicate(deviceId?: string, runId?: string): LeaderboardEntry | null {
     if (!deviceId || !runId) return null;
     const row = this.db
-      .query(
-        `SELECT ${leaderboardScoreColumns}
-         FROM leaderboard_scores
-         WHERE device_id = ?1 AND run_id = ?2`,
-      )
-      .get(deviceId, runId) as LeaderboardRow | null;
+      .select()
+      .from(leaderboardScores)
+      .where(and(eq(leaderboardScores.device_id, deviceId), eq(leaderboardScores.run_id, runId)))
+      .get();
     return row ? rowToLeaderboardEntry(row) : null;
   }
 
   private insertLeaderboardScore(score: LeaderboardInsert): LeaderboardEntry {
     const id = score.id ?? createLeaderboardId();
     const createdAt = score.createdAt ?? new Date().toISOString();
-    this.db
-      .prepare(
-        `INSERT INTO leaderboard_scores (
-           id, run_id, device_id, game_id, username, normalized_username, difficulty, outcome,
-           metric, metric_value, score, moves, duration_ms, level, streak, metadata_json, created_at
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)`,
-      )
-      .run(
-        id,
-        score.runId ?? null,
-        score.deviceId ?? null,
-        score.gameId,
-        score.username,
-        score.normalizedUsername,
-        score.difficulty ?? null,
-        score.outcome,
-        score.metric,
-        score.metricValue,
-        score.score ?? null,
-        score.moves ?? null,
-        score.durationMs ?? null,
-        score.level ?? null,
-        score.streak ?? null,
-        jsonString(score.metadata),
-        createdAt,
-      );
-
     const row = this.db
-      .query(
-        `SELECT ${leaderboardScoreColumns}
-         FROM leaderboard_scores
-         WHERE id = ?1`,
-      )
-      .get(id) as LeaderboardRow | null;
+      .insert(leaderboardScores)
+      .values({
+        id,
+        run_id: score.runId ?? null,
+        device_id: score.deviceId ?? null,
+        game_id: score.gameId,
+        username: score.username,
+        normalized_username: score.normalizedUsername,
+        difficulty: score.difficulty ?? null,
+        outcome: score.outcome,
+        metric: score.metric,
+        metric_value: score.metricValue,
+        score: score.score ?? null,
+        moves: score.moves ?? null,
+        duration_ms: score.durationMs ?? null,
+        level: score.level ?? null,
+        streak: score.streak ?? null,
+        metadata_json: jsonString(score.metadata),
+        created_at: createdAt,
+      })
+      .returning()
+      .get();
     if (!row) throw new Error("Leaderboard insert failed");
     return rowToLeaderboardEntry(row);
   }
 
   private leaderboardRank(options: LeaderboardRankOptions): number {
-    const comparator = options.direction === "min" ? "<" : ">";
-    const rankWhere = `(metric_value ${comparator} ?3 OR (metric_value = ?3 AND (created_at < ?4 OR (created_at = ?4 AND id < ?5))))`;
-    const query = leaderboardRankQuery(options);
     const row = this.db
-      .query(
-        `SELECT COUNT(*) AS count
-         FROM leaderboard_scores
-         WHERE game_id = ?1 AND metric = ?2 AND ${rankWhere}${query.difficultyClause}`,
-      )
-      .get(...query.parameters) as CountRow | null;
+      .select({ count: count() })
+      .from(leaderboardScores)
+      .where(leaderboardRankWhere(options))
+      .get();
     return (row?.count ?? 0) + 1;
   }
 }
 
-function leaderboardListQuery(options: LeaderboardListOptions): {
-  difficultyClause: string;
-  limitPlaceholder: "?3" | "?4";
-  parameters: SqlValue[];
-} {
-  if (options.difficulty) {
-    return {
-      difficultyClause: " AND difficulty = ?3",
-      limitPlaceholder: "?4",
-      parameters: [options.gameId, options.metric, options.difficulty, options.limit],
-    };
-  }
-
-  return {
-    difficultyClause: "",
-    limitPlaceholder: "?3",
-    parameters: [options.gameId, options.metric, options.limit],
-  };
+function leaderboardListWhere(options: LeaderboardListOptions) {
+  return and(
+    eq(leaderboardScores.game_id, options.gameId),
+    eq(leaderboardScores.metric, options.metric),
+    options.difficulty ? eq(leaderboardScores.difficulty, options.difficulty) : undefined,
+  );
 }
 
-function leaderboardRankQuery(options: LeaderboardRankOptions): {
-  difficultyClause: string;
-  parameters: SqlValue[];
-} {
-  const parameters = [
-    options.gameId,
-    options.metric,
-    options.metricValue,
-    options.createdAt,
-    options.id,
-  ];
-  if (!options.difficulty) return { difficultyClause: "", parameters };
-  return {
-    difficultyClause: " AND difficulty = ?6",
-    parameters: [...parameters, options.difficulty],
-  };
+function leaderboardRankWhere(options: LeaderboardRankOptions) {
+  const betterMetric =
+    options.direction === "min"
+      ? lt(leaderboardScores.metric_value, options.metricValue)
+      : gt(leaderboardScores.metric_value, options.metricValue);
+  const sameMetricEarlier = and(
+    eq(leaderboardScores.metric_value, options.metricValue),
+    or(
+      lt(leaderboardScores.created_at, options.createdAt),
+      and(
+        eq(leaderboardScores.created_at, options.createdAt),
+        lt(leaderboardScores.id, options.id),
+      ),
+    ),
+  );
+
+  return and(
+    eq(leaderboardScores.game_id, options.gameId),
+    eq(leaderboardScores.metric, options.metric),
+    or(betterMetric, sameMetricEarlier),
+    options.difficulty ? eq(leaderboardScores.difficulty, options.difficulty) : undefined,
+  );
 }
 
 export function defaultDatabasePath(): string {
