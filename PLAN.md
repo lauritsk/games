@@ -51,6 +51,9 @@ Relevant files:
 8. Treat stored data as untrusted: validate enough, ignore corrupt data.
 9. Keep per-game save shape owned by each game.
 10. Add server sync later as optional mirror, not source of truth.
+11. If a save exists, save payload wins over preferences for difficulty/mode.
+12. Multiple browser tabs use last-writer-wins; no cross-tab locking in first version.
+13. Track each playable run with `runId` so saves/results can dedupe safely.
 
 ## New modules
 
@@ -70,13 +73,19 @@ Suggested API:
 
 ```ts
 export type StoredEnvelope<T> = {
-  version: number;
+  schemaVersion: number;
   updatedAt: string;
   data: T;
 };
 
-export function readStored<T>(key: string, version: number): T | null;
-export function writeStored<T>(key: string, version: number, data: T): boolean;
+export type StoredParser<T> = (value: unknown) => T | null;
+
+export function readStored<T>(
+  key: string,
+  schemaVersion: number,
+  parse: StoredParser<T>,
+): T | null;
+export function writeStored<T>(key: string, schemaVersion: number, data: T): boolean;
 export function removeStored(key: string): void;
 export function storageKey(...parts: string[]): string;
 ```
@@ -88,6 +97,12 @@ games:v1:preferences
 games:v1:saves:<gameId>
 games:v1:results
 ```
+
+Version naming:
+
+- `games:v1` is storage namespace, not per-object schema.
+- `schemaVersion` belongs to collection/envelope shape.
+- `payloadVersion` belongs to per-game save payload shape.
 
 ### `src/game-preferences.ts`
 
@@ -113,7 +128,7 @@ Possible stored object:
 
 ```json
 {
-  "version": 1,
+  "schemaVersion": 1,
   "updatedAt": "2026-04-25T00:00:00.000Z",
   "data": {
     "snake": {
@@ -134,16 +149,27 @@ Persist one current save per game.
 Suggested types:
 
 ```ts
+export type SaveStatus = "ready" | "playing" | "paused";
+
 export type GameSave<T> = {
   gameId: string;
-  version: number;
+  payloadVersion: number;
+  runId: string;
   savedAt: string;
-  status: "ready" | "playing" | "paused";
+  status: SaveStatus;
   payload: T;
 };
 
-export function loadGameSave<T>(gameId: string, version: number): GameSave<T> | null;
-export function saveGameSave<T>(gameId: string, version: number, save: Omit<GameSave<T>, "gameId" | "version" | "savedAt">): void;
+export function loadGameSave<T>(
+  gameId: string,
+  payloadVersion: number,
+  parse: (value: unknown) => T | null,
+): GameSave<T> | null;
+export function saveGameSave<T>(
+  gameId: string,
+  payloadVersion: number,
+  save: Omit<GameSave<T>, "gameId" | "payloadVersion" | "savedAt">,
+): void;
 export function clearGameSave(gameId: string): void;
 export function hasGameSave(gameId: string): boolean;
 ```
@@ -166,6 +192,8 @@ Autosave events:
 - game pause: save immediately.
 - game move/drop/tick: throttled save only.
 
+Autosave listeners must be registered with the game `MountScope`/`AbortSignal` so unmount cleans them.
+
 ### `src/game-results.ts`
 
 Persist score/result history.
@@ -177,6 +205,7 @@ export type GameOutcome = "won" | "lost" | "draw" | "completed";
 
 export type GameResult = {
   id: string;
+  runId: string;
   gameId: string;
   finishedAt: string;
   durationMs?: number;
@@ -191,13 +220,19 @@ export type GameResult = {
 export function recordGameResult(result: Omit<GameResult, "id" | "finishedAt">): void;
 export function listGameResults(gameId?: string): GameResult[];
 export function clearGameResults(gameId?: string): void;
-export function bestGameResult(gameId: string, metric: "score" | "moves" | "durationMs"): GameResult | null;
+export function bestGameResult(
+  gameId: string,
+  metric: "score" | "moves" | "durationMs" | "level",
+  direction: "max" | "min",
+): GameResult | null;
 ```
 
-Bound history:
+Bound history and best-result rules:
 
 - Keep latest 250 total results, or latest 50 per game.
 - If both limits used, prune by `finishedAt`.
+- Dedupe records by `runId`.
+- Use max for score/level; min for moves/duration.
 
 ## Preferences plan
 
@@ -220,7 +255,7 @@ Implementation pattern inside each game:
 1. Load preferences at mount.
 2. Validate enum values.
 3. Initialize local `difficulty`/mode from preferences or default.
-4. When control changes, save preferences and reset game.
+4. When control changes, save preferences, clear old save, and reset game.
 
 Example pattern:
 
@@ -248,9 +283,11 @@ export function parseDifficulty(value: unknown): Difficulty | null;
 Keep simple:
 
 - If save exists when game mounts, restore automatically.
+- Save payload wins over stored preferences for difficulty/mode.
+- If no save exists, preferences initialize new game.
 - Status text should show restored state if paused/ready.
 - `New` button clears save via existing reset flow.
-- Finished game clears save.
+- Finished game clears save after result is recorded.
 
 ### Better later UX
 
@@ -330,6 +367,9 @@ type SaveMinesweeper = {
   config: { rows: number; columns: number; mines: number };
   board: MinesweeperCell[][];
   state: "playing" | "won" | "lost";
+  firstMove: boolean;
+  selectedRow: number;
+  selectedColumn: number;
   startedAt?: number;
   elapsedMs?: number;
 };
@@ -368,9 +408,8 @@ Save payload:
 ```ts
 type SaveMemory = {
   difficulty: Difficulty;
-  cards: Card[];
-  selectedIndexes: number[];
-  matchedIndexes: number[];
+  cards: MemoryCard[];
+  selected: number;
   moves: number;
   startedAt?: number;
   elapsedMs?: number;
@@ -380,7 +419,8 @@ type SaveMemory = {
 Important:
 
 - Save shuffled card order.
-- If two cards are temporarily face-up and timeout pending, restore them as selected or close them deterministically.
+- Before saving during pending mismatch timeout, close the unmatched pair and set `lock = false`.
+- Do not persist `pendingFlip` timer or `lock`.
 
 Save when:
 
@@ -402,7 +442,7 @@ Save payload:
 
 ```ts
 type SaveTicTacToe = {
-  board: Mark[];
+  board: TicTacToeCell[];
   current: Mark;
   mode: "bot" | "local";
   difficulty: Difficulty;
@@ -415,6 +455,10 @@ Save when:
 - after every move
 - after bot move
 - after mode/difficulty change
+
+Restore notes:
+
+- If restored in bot mode with `current === botMark` and no winner, schedule bot move after render.
 
 Clear when:
 
@@ -436,7 +480,7 @@ Save payload:
 
 ```ts
 type SaveConnect4 = {
-  board: Connect4Player[][];
+  board: Connect4Cell[][];
   current: Connect4Player;
   winner: Connect4Player | null;
   moves: number;
@@ -450,6 +494,10 @@ Save when:
 - after every player move
 - after bot move
 - after mode/difficulty change
+
+Restore notes:
+
+- If restored in bot mode with `current === connect4Bot` and no winner/draw, schedule bot move after render.
 
 Result history:
 
@@ -472,14 +520,15 @@ type SaveSnake = {
   food: SnakePoint;
   direction: Direction;
   queuedDirection: Direction;
-  state: "ready" | "playing" | "won" | "lost";
+  state: "ready" | "playing" | "paused" | "won" | "lost";
   score: number;
 };
 ```
 
 Implementation notes:
 
-- Add pause mode or restore `playing` as `ready` with message `Paused · press key to resume`.
+- Prefer adding real `paused` state before save/resume.
+- If old save says `playing`, restore as `paused` with message `Paused · press key to resume`.
 - Do not store `animationFrame`, `lastFrameTime`, `tickRemainder`.
 - On restore, no RAF running.
 - Clear held key state.
@@ -610,7 +659,7 @@ State should include:
 Restore rules:
 
 - `playing` becomes `paused`.
-- `wave` should become `paused` or deterministic ready-for-next-wave state; do not restore `setTimeout`.
+- If saved mode was `wave`, advance immediately with `nextInvaderWave(...)`, then restore as `paused`.
 - Timers/held keys not restored.
 
 Save when:
@@ -647,7 +696,7 @@ type GameRun = {
 };
 ```
 
-Store `runId` in save payload. Result history can dedupe by `runId`.
+Store `runId` in every save payload and every result. `recordGameResult` should no-op if same `runId` already exists.
 
 ### Example records
 
@@ -655,7 +704,8 @@ Tetris:
 
 ```json
 {
-  "id": "uuid",
+  "id": "result-uuid",
+  "runId": "run-uuid",
   "gameId": "tetris",
   "finishedAt": "2026-04-25T00:00:00.000Z",
   "difficulty": "Hard",
@@ -670,7 +720,8 @@ Memory:
 
 ```json
 {
-  "id": "uuid",
+  "id": "result-uuid",
+  "runId": "run-uuid",
   "gameId": "memory",
   "finishedAt": "2026-04-25T00:00:00.000Z",
   "difficulty": "Medium",
@@ -838,8 +889,8 @@ test/storage.test.ts
 Tasks:
 
 - implement `readStored`, `writeStored`, `removeStored`, `storageKey`.
-- support version mismatch fallback.
-- test corrupt JSON, missing key, version mismatch.
+- support schema version mismatch fallback.
+- test corrupt JSON, missing key, schema version mismatch.
 
 Run:
 
@@ -870,7 +921,25 @@ Acceptance:
 - Change Snake wall mode, reload, wall mode remains.
 - Existing appearance storage still works.
 
-### Phase 3: Result history
+### Phase 3: 2048 save/resume pilot
+
+Add enough of `src/game-state.ts` to prove save API on one simple game.
+
+Tasks:
+
+- implement one-save-per-game helpers.
+- add 2048 save payload version and parser.
+- save after successful move and on `pagehide`.
+- restore board/score/difficulty on reload.
+- clear save on New and on game over.
+
+Acceptance:
+
+- Make 2048 move, reload, board and score restore.
+- Press New, reload, fresh board appears.
+- Corrupt/old 2048 save is ignored safely.
+
+### Phase 4: Result history
 
 Add:
 
@@ -883,33 +952,34 @@ Tasks:
 
 - bounded result array.
 - record on game finish.
-- avoid duplicate records per run.
-- expose list/best helpers.
+- avoid duplicate records per `runId`.
+- expose list/best helpers with explicit max/min direction.
 
 Acceptance:
 
-- Finish Tetris, reload, result still listed via helper.
+- Finish a game, reload, result still listed via helper.
 - Result cap works.
+- Duplicate `runId` does not create duplicate result.
 - Corrupt history ignored/reset safely.
 
-### Phase 4: Save/resume for turn-based games
+### Phase 5: Save/resume for remaining turn-based games
 
 Implement in order:
 
 1. Tic-Tac-Toe
 2. Connect 4
-3. 2048
-4. Memory
-5. Minesweeper
+3. Memory
+4. Minesweeper
 
 Acceptance:
 
 - Make move, reload, board restored.
+- Pending bot turn resumes by scheduling bot after restore.
 - Press New, save cleared.
 - Finish game, save cleared and result recorded.
 - Difficulty/mode restored correctly.
 
-### Phase 5: Save/resume for realtime games
+### Phase 6: Save/resume for realtime games
 
 Implement in order:
 
@@ -923,10 +993,11 @@ Acceptance:
 - Start game, play, reload, state restored paused.
 - Resume continues from saved state.
 - No auto-running after reload.
+- No timers/timeouts/held keys are restored.
 - No excessive localStorage writes during gameplay.
 - Finish clears save and records result.
 
-### Phase 6: UI polish
+### Phase 7: UI polish
 
 Tasks:
 
@@ -936,7 +1007,7 @@ Tasks:
 - result summary after finish.
 - clear history action.
 
-### Phase 7: Optional offline/PWA
+### Phase 8: Optional offline/PWA
 
 Tasks:
 
@@ -945,7 +1016,7 @@ Tasks:
 - cache built assets.
 - verify state remains in localStorage modules, not Cache API.
 
-### Phase 8: Optional backend sync
+### Phase 9: Optional backend sync
 
 Tasks:
 
@@ -962,9 +1033,10 @@ Tasks:
 Add tests for:
 
 - storage safe parse/write/remove.
+- storage unavailable or throwing on `setItem`.
 - preference validation.
 - result pruning/best lookup.
-- save version mismatch.
+- schema version and payload version mismatch.
 
 ### Game logic tests
 
@@ -1009,19 +1081,20 @@ mise run check
 
 ## Migration/versioning
 
-Initial versions:
+Initial names:
 
 ```ts
-const PREFERENCES_VERSION = 1;
-const RESULTS_VERSION = 1;
-const SAVE_VERSION = 1; // per game can differ
+const STORAGE_NAMESPACE = "games:v1";
+const PREFERENCES_SCHEMA_VERSION = 1;
+const RESULTS_SCHEMA_VERSION = 1;
+const TETRIS_SAVE_PAYLOAD_VERSION = 1;
 ```
 
-Per-game save versions:
+Rules:
 
-```ts
-const SAVE_VERSION = 1;
-```
+- Bump `STORAGE_NAMESPACE` only for broad key layout changes.
+- Bump `*_SCHEMA_VERSION` when a collection/envelope shape changes.
+- Bump per-game `*_SAVE_PAYLOAD_VERSION` when that game's payload changes.
 
 If shape changes:
 
@@ -1046,17 +1119,18 @@ Useful because all data is local-first.
 | Corrupt localStorage breaks app | Safe parse + fallback + remove bad key. |
 | Quota exceeded | Catch write error; keep game playable. |
 | Realtime autosave too frequent | Throttle to 500-1000ms and flush on pagehide. |
-| Old save shape crashes after deploy | Version saves and validate payload. |
+| Old save shape crashes after deploy | Use `payloadVersion` and validate payload. |
 | Duplicate score records | Use `runId` or local `resultRecorded` guard. |
 | Restored timers behave wrong | Never store timers; restore paused. |
+| Multiple tabs overwrite saves | Accept last-writer-wins in first version; maybe add storage-event sync later. |
 | Server data conflicts later | Local-first API boundary allows merge/sync later. |
 
 ## Best first PR sequence
 
 1. `feat: add safe local storage helpers`
 2. `feat: persist game preferences`
-3. `feat: record local game results`
-4. `feat: resume 2048 games after reload`
+3. `feat: resume 2048 games after reload`
+4. `feat: record local game results`
 5. `feat: resume board games after reload`
 6. `feat: resume tetris games paused after reload`
 7. `feat: show saved games and best scores`
