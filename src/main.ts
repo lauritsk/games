@@ -22,8 +22,10 @@ import {
   type AppearanceMode,
 } from "./appearance";
 import { games } from "./games";
-import { bestGameResult, clearGameResults, listGameResults, type GameResult } from "./game-results";
+import { bestSummaryText } from "./game-result-format";
+import { type GameResult } from "./game-results";
 import { hasGameSave } from "./game-state";
+import { createGameHistoryDialog } from "./history-dialog";
 import { initializePwa } from "./pwa";
 import { playSound, unlockSound } from "./sound";
 
@@ -34,11 +36,11 @@ let unmountGame: (() => void) | null = null;
 let dashboardScope: MountScope | null = null;
 let gameScope: MountScope | null = null;
 let confirmCleanup: (() => void) | null = null;
-let historyCleanup: (() => void) | null = null;
 
 const page = el("main", { className: "app-shell center-screen" });
 const appearanceControl = createAppearanceControl();
 const workspace = el("section", { className: "workspace center-screen" });
+const historyDialog = createGameHistoryDialog();
 
 page.append(appearanceControl, workspace);
 app.append(page);
@@ -250,7 +252,7 @@ function renderGame(game: GameDefinition): void {
   const back = el("a", { className: "back-button pill surface interactive", text: "← Selection" });
   back.href = "#/";
   const history = button("History", "pill surface interactive");
-  history.addEventListener("click", () => showGameHistory(game));
+  history.addEventListener("click", () => historyDialog.show(game));
   nav.append(back, history);
   const gameHost = el("div", { className: "game-host center-screen" });
   screen.append(nav, gameHost);
@@ -281,190 +283,13 @@ function onResultRecorded(event: Event): void {
   const result = (event as CustomEvent<GameResult>).detail;
   const game = getRouteGame();
   if (!game || !result || result.gameId !== game.id) return;
-  showGameHistory(game, result);
-}
-
-function showGameHistory(game: GameDefinition, highlight?: GameResult): void {
-  historyCleanup?.();
-  let clearArmed = false;
-  const results = listGameResults(game.id);
-  const dialog = el("dialog", {
-    className: "history-dialog",
-    ariaLabel: `${game.name} result history`,
-  });
-  const panel = el("div", { className: "history-dialog__panel surface theme-" + game.theme });
-  panel.tabIndex = -1;
-  const title = el("h2", {
-    className: "history-dialog__title",
-    text: highlight ? "Result saved" : `${game.name} history`,
-  });
-  const details = el("div", { className: "history-dialog__details" });
-  const historyScroll = el("div", { className: "history-dialog__scroll" });
-  const actions = el("div", { className: "history-dialog__actions cluster" });
-  const clear = button("Clear", "pill surface interactive");
-  const close = button("Close", "pill surface interactive");
-  const previousFocus =
-    document.activeElement instanceof HTMLElement ? document.activeElement : null;
-
-  if (highlight) details.append(resultSummary(highlight));
-  const best = bestSummaryText(game.id);
-  if (best) details.append(el("p", { className: "history-dialog__best", text: best }));
-  historyScroll.append(resultList(results));
-  clear.disabled = results.length === 0;
-  clear.addEventListener("click", () => {
-    if (!clearArmed) {
-      clearArmed = true;
-      clear.textContent = "Confirm clear";
-      clear.dataset.danger = "true";
-      return;
-    }
-    clearGameResults(game.id);
-    playSound("uiToggle");
-    closeDialog();
-  });
-  close.addEventListener("click", closeDialog);
-  document.addEventListener("keydown", onModalDocumentKeyDown, { capture: true });
-  dialog.addEventListener("click", onModalBackdropClick);
-  dialog.addEventListener("keydown", onModalKeyDown);
-  dialog.addEventListener("cancel", (dialogEvent) => {
-    dialogEvent.preventDefault();
-    closeDialog();
-  });
-  actions.append(clear, close);
-  panel.append(title, details, historyScroll, actions);
-  dialog.append(panel);
-  document.body.append(dialog);
-  historyCleanup = closeDialog;
-  dialog.setAttribute("aria-modal", "true");
-  if (typeof dialog.showModal === "function") dialog.showModal();
-  else dialog.setAttribute("open", "");
-  focusHistoryTop();
-  requestAnimationFrame(focusHistoryTop);
-
-  function onModalDocumentKeyDown(event: KeyboardEvent): void {
-    const key = event.key.toLowerCase();
-    if (key !== "escape" && key !== "n") return;
-    event.preventDefault();
-    event.stopPropagation();
-    closeDialog();
-  }
-
-  function onModalBackdropClick(event: MouseEvent): void {
-    if (event.target === dialog) closeDialog();
-  }
-
-  function onModalKeyDown(event: KeyboardEvent): void {
-    event.stopPropagation();
-  }
-
-  function focusHistoryTop(): void {
-    if (!dialog.isConnected) return;
-    panel.scrollTop = 0;
-    historyScroll.scrollTop = 0;
-    panel.focus({ preventScroll: true });
-  }
-
-  function closeDialog(): void {
-    if (historyCleanup !== closeDialog) return;
-    historyCleanup = null;
-    document.removeEventListener("keydown", onModalDocumentKeyDown, { capture: true });
-    if (dialog.open) dialog.close();
-    dialog.remove();
-    if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
-  }
-}
-
-function resultSummary(result: GameResult): HTMLElement {
-  const summary = el("div", { className: "history-dialog__summary" });
-  summary.append(
-    el("strong", { text: formatOutcome(result.outcome) }),
-    el("span", { text: resultDetails(result).join(" · ") || "Result recorded" }),
-  );
-  return summary;
-}
-
-function resultList(results: GameResult[]): HTMLElement {
-  if (results.length === 0) return el("p", { className: "muted", text: "No results yet." });
-  const list = el("ol", { className: "history-list" });
-  results.slice(0, 10).forEach((result) => {
-    const item = el("li", { className: "history-list__item" });
-    item.append(
-      el("span", { className: "history-list__main", text: formatOutcome(result.outcome) }),
-      el("span", { className: "history-list__detail", text: resultDetails(result).join(" · ") }),
-      el("time", { className: "history-list__time", text: formatDate(result.finishedAt) }),
-    );
-    list.append(item);
-  });
-  return list;
-}
-
-function bestSummaryText(gameId: string): string | null {
-  const config = bestConfig(gameId);
-  const result = bestGameResult(gameId, config.metric, config.direction);
-  const value = result?.[config.metric];
-  return typeof value === "number"
-    ? `Best ${config.label}: ${formatMetric(config.metric, value)}`
-    : null;
-}
-
-function bestConfig(gameId: string): {
-  metric: "score" | "moves" | "durationMs" | "level";
-  direction: "max" | "min";
-  label: string;
-} {
-  if (gameId === "memory") return { metric: "moves", direction: "min", label: "moves" };
-  if (gameId === "minesweeper") return { metric: "durationMs", direction: "min", label: "time" };
-  if (gameId === "connect4" || gameId === "tic-tac-toe")
-    return { metric: "moves", direction: "min", label: "moves" };
-  return { metric: "score", direction: "max", label: "score" };
-}
-
-function resultDetails(result: GameResult): string[] {
-  const details: string[] = [];
-  if (typeof result.score === "number")
-    details.push(`Score ${formatMetric("score", result.score)}`);
-  if (typeof result.moves === "number")
-    details.push(`${formatMetric("moves", result.moves)} moves`);
-  if (typeof result.level === "number")
-    details.push(`Level ${formatMetric("level", result.level)}`);
-  if (typeof result.durationMs === "number")
-    details.push(formatMetric("durationMs", result.durationMs));
-  if (result.difficulty) details.push(result.difficulty);
-  return details;
-}
-
-function formatMetric(metric: "score" | "moves" | "durationMs" | "level", value: number): string {
-  if (metric === "durationMs") return formatDuration(value);
-  return new Intl.NumberFormat().format(value);
-}
-
-function formatDuration(ms: number): string {
-  const totalSeconds = Math.max(0, Math.round(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-}
-
-function formatOutcome(outcome: GameResult["outcome"]): string {
-  if (outcome === "won") return "Won";
-  if (outcome === "lost") return "Lost";
-  if (outcome === "draw") return "Draw";
-  return "Completed";
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(
-    date,
-  );
+  historyDialog.show(game, result);
 }
 
 function cleanupGame(): void {
   confirmCleanup?.();
   confirmCleanup = null;
-  historyCleanup?.();
-  historyCleanup = null;
+  historyDialog.close();
   gameScope?.cleanup();
   gameScope = null;
   dashboardScope?.cleanup();
