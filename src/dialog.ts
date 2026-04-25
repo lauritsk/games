@@ -1,9 +1,10 @@
 import { button, el } from "./dom";
 import { Keys, matchesKey } from "./keyboard";
+import { isModalOpen, openModal } from "./modal";
 import { playSound } from "./sound";
 
 export function isConfirmOpen(): boolean {
-  return Boolean(document.querySelector(".confirm"));
+  return isModalOpen();
 }
 
 export function confirmChoice(
@@ -11,35 +12,31 @@ export function confirmChoice(
   onYes: () => void,
   onClose?: () => void,
 ): () => void {
-  if (isConfirmOpen()) return () => undefined;
+  if (isModalOpen()) return () => undefined;
 
   let selected = 1;
-  const dialog = el("dialog", { className: "confirm", ariaLabel: message });
-  dialog.setAttribute("aria-modal", "true");
-
-  const panel = el("div", { className: "confirm__panel surface" });
   const text = el("p", { text: message });
-  const actions = el("div", { className: "confirm__actions cluster" });
+  const actions = el("div", { className: "confirm__actions modal__actions cluster" });
   const yes = button("Yes", "pill surface interactive");
   const no = button("No", "pill surface interactive");
   actions.append(yes, no);
-  panel.append(text, actions);
-  dialog.append(panel);
-  document.body.append(dialog);
 
-  const previousFocus =
-    document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const modal = openModal({
+    label: message,
+    size: "sm",
+    className: "confirm",
+    panelClassName: "confirm__panel",
+    dismissible: true,
+    initialFocus: () => (selected === 0 ? yes : no),
+    onClose,
+    children: [text, actions],
+  });
+
   yes.addEventListener("click", yesAction);
   no.addEventListener("click", close);
   yes.addEventListener("pointerenter", () => select(0));
   no.addEventListener("pointerenter", () => select(1));
-  dialog.addEventListener("cancel", (event) => {
-    event.preventDefault();
-    close();
-  });
-  document.addEventListener("keydown", onKeyDown);
-  if (typeof dialog.showModal === "function") dialog.showModal();
-  else dialog.setAttribute("open", "");
+  modal.dialog.addEventListener("keydown", onKeyDown);
   render();
 
   function onKeyDown(event: KeyboardEvent): void {
@@ -85,11 +82,7 @@ export function confirmChoice(
   }
 
   function close(): void {
-    document.removeEventListener("keydown", onKeyDown);
-    if (dialog.open) dialog.close();
-    dialog.remove();
-    previousFocus?.focus();
-    onClose?.();
+    modal.close();
   }
 
   return close;

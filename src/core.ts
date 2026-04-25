@@ -7,6 +7,7 @@ export * from "./game-time";
 export * from "./keyboard";
 export * from "./layout";
 export * from "./lifecycle";
+export * from "./modal";
 export * from "./progress";
 export * from "./types";
 export * from "./validation";
