@@ -1,4 +1,8 @@
-# Shared Arcade Leaderboard Plan
+# PLAN — Current TODO Item Whiteboard
+
+`PLAN.md` is scratch space for the next TODO item only. Rewrite this file after each completed item so it always reflects the current implementation target, assumptions, sequencing, and open questions.
+
+Current TODO item: public leaderboards.
 
 ## Goal
 
