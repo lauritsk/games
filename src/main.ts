@@ -1,5 +1,4 @@
 import {
-  button,
   clearNode,
   confirmChoice,
   createMountScope,
@@ -8,8 +7,11 @@ import {
   Keys,
   matchesKey,
   onDocumentKeyDown,
+  pillButton,
   required,
   syncChildren,
+  setSelected,
+  uiClass,
   type GameDefinition,
   type MountScope,
 } from "./core";
@@ -79,7 +81,7 @@ function updateAppearanceControl(control: HTMLElement): void {
   const currentMode = getAppearanceMode();
   control.querySelectorAll<HTMLButtonElement>("button[data-mode]").forEach((option) => {
     const selected = option.dataset.mode === currentMode;
-    option.dataset.selected = String(selected);
+    setSelected(option, selected);
     option.setAttribute("aria-checked", String(selected));
     option.title = currentMode === "system" ? `System: ${getResolvedAppearance()}` : "";
   });
@@ -194,7 +196,7 @@ function renderDashboard(): void {
       card.href = `#/${game.id}`;
       updateGameCard(card, game);
       card.className = `game-card surface interactive theme-${game.theme}`;
-      card.dataset.selected = String(index === selectedIndex);
+      setSelected(card, index === selectedIndex);
     });
   }
 }
@@ -226,7 +228,7 @@ function gameCard(game: GameDefinition): HTMLAnchorElement {
   const link = el("a", { className: `game-card surface interactive theme-${game.theme}` });
   link.href = `#/${game.id}`;
   updateGameCard(link, game);
-  link.dataset.selected = "false";
+  setSelected(link, false);
   link.addEventListener("click", () => playSound("dashboardSelect"));
   return link;
 }
@@ -249,9 +251,9 @@ function renderGame(game: GameDefinition): void {
 
   const screen = el("section", { className: "game-screen" });
   const nav = el("div", { className: "game-screen__nav cluster" });
-  const back = el("a", { className: "back-button pill surface interactive", text: "← Selection" });
+  const back = el("a", { className: `back-button ${uiClass.pill}`, text: "← Selection" });
   back.href = "#/";
-  const history = button("History", "pill surface interactive");
+  const history = pillButton("History");
   history.addEventListener("click", () => historyDialog.show(game));
   nav.append(back, history);
   const gameHost = el("div", { className: "game-host center-screen" });

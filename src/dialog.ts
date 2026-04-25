@@ -1,7 +1,8 @@
-import { button, el } from "./dom";
+import { el } from "./dom";
 import { Keys, matchesKey } from "./keyboard";
 import { isModalOpen, openModal } from "./modal";
 import { playSound } from "./sound";
+import { pillButton, setSelected } from "./ui";
 
 export function isConfirmOpen(): boolean {
   return isModalOpen();
@@ -17,8 +18,8 @@ export function confirmChoice(
   let selected = 1;
   const text = el("p", { text: message });
   const actions = el("div", { className: "confirm__actions modal__actions cluster" });
-  const yes = button("Yes", "pill surface interactive");
-  const no = button("No", "pill surface interactive");
+  const yes = pillButton("Yes");
+  const no = pillButton("No");
   actions.append(yes, no);
 
   const modal = openModal({
@@ -71,8 +72,8 @@ export function confirmChoice(
   }
 
   function render(): void {
-    yes.dataset.selected = String(selected === 0);
-    no.dataset.selected = String(selected === 1);
+    setSelected(yes, selected === 0);
+    setSelected(no, selected === 1);
     (selected === 0 ? yes : no).focus();
   }
 

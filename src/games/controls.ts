@@ -1,5 +1,5 @@
 import {
-  button,
+  actionButton,
   createDifficultyButton,
   createResetButton,
   nextDifficulty,
@@ -52,7 +52,7 @@ export function createModeControl<TValue extends string>(
   actions: HTMLElement,
   control: ToggleControl<TValue>,
 ): HTMLButtonElement {
-  const modeButton = button(control.label(control.get()), "button pill surface interactive");
+  const modeButton = actionButton(control.label(control.get()));
   modeButton.addEventListener("click", () => toggleMode(control));
   actions.append(modeButton);
   return modeButton;

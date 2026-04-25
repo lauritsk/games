@@ -10,4 +10,5 @@ export * from "./lifecycle";
 export * from "./modal";
 export * from "./progress";
 export * from "./types";
+export * from "./ui";
 export * from "./validation";

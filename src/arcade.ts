@@ -1,8 +1,10 @@
 import {
+  actionButton,
   button,
   directionFromKey,
   el,
   syncChildren,
+  uiClass,
   type Direction,
   type MountScope,
 } from "./core";
@@ -297,7 +299,7 @@ export function createPauseOverlay(board: HTMLElement, onResume: () => void): Pa
 }
 
 export function createPauseButton(actions: HTMLElement, onToggle: () => void): HTMLButtonElement {
-  const pauseButton = button("Pause", "button pill surface interactive");
+  const pauseButton = actionButton("Pause");
   pauseButton.addEventListener("click", onToggle);
   actions.append(pauseButton);
   return pauseButton;
@@ -315,7 +317,7 @@ export function createTouchControls(
   ];
   for (const [action, label] of entries) {
     if (!handlers[action]) continue;
-    const control = button(label, "touch-control pill surface interactive");
+    const control = button(label, uiClass.touchAction);
     control.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       handlers[action]?.();

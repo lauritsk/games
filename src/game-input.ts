@@ -1,4 +1,4 @@
-import { button } from "./dom";
+import { actionButton } from "./ui";
 import { isConfirmOpen } from "./dialog";
 import { directionFromKey, Keys, matchesKey } from "./keyboard";
 import type { Direction } from "./types";
@@ -49,14 +49,14 @@ export function createDifficultyButton(
   actions: HTMLElement,
   onClick: () => void,
 ): HTMLButtonElement {
-  const difficultyButton = button("", "button pill surface interactive");
+  const difficultyButton = actionButton("");
   difficultyButton.addEventListener("click", onClick);
   actions.append(difficultyButton);
   return difficultyButton;
 }
 
 export function createResetButton(actions: HTMLElement, onClick: () => void): HTMLButtonElement {
-  const resetButton = button("New", "button pill surface interactive");
+  const resetButton = actionButton("New");
   resetButton.addEventListener("click", onClick);
   actions.append(resetButton);
   return resetButton;

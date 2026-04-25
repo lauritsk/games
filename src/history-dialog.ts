@@ -1,4 +1,4 @@
-import { button, el, type GameDefinition } from "./core";
+import { el, pillButton, type GameDefinition } from "./core";
 import { bestSummaryText, formatDate, formatOutcome, resultDetails } from "./game-result-format";
 import { clearGameResults, listGameResults, type GameResult } from "./game-results";
 import { openModal, type ModalController } from "./modal";
@@ -28,8 +28,8 @@ export function createGameHistoryDialog(): GameHistoryDialog {
     const details = el("div", { className: "history-dialog__details" });
     const historyScroll = el("div", { className: "history-dialog__scroll" });
     const actions = el("div", { className: "history-dialog__actions modal__actions cluster" });
-    const clear = button("Clear", "pill surface interactive");
-    const closeButton = button("Close", "pill surface interactive");
+    const clear = pillButton("Clear");
+    const closeButton = pillButton("Close");
 
     if (highlight) details.append(resultSummary(highlight));
     const best = bestSummaryText(game.id);
