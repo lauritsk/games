@@ -1,4 +1,4 @@
-import { actionButton, type GameDefinition } from "@shared/core";
+import { actionButton, setIconLabel, type GameDefinition } from "@shared/core";
 import type { MultiplayerConnectionStatus } from "@features/multiplayer/multiplayer";
 import { createMultiplayerDialog } from "@features/multiplayer/multiplayer-dialog";
 import {
@@ -29,15 +29,18 @@ export function createMultiplayerActionButtons(
   options: CreateMultiplayerActionButtonsOptions,
 ): MultiplayerActionButtons {
   const dialog = createMultiplayerDialog();
-  const onlineButton = actionButton("Play online");
+  const onlineButton = actionButton("");
+  setIconLabel(onlineButton, "🌐", "Play online");
   onlineButton.addEventListener("click", () => {
     if (!options.getSession()) dialog.show(options.game, options.onSession);
   });
 
-  const startOnlineButton = actionButton("Start");
+  const startOnlineButton = actionButton("");
+  setIconLabel(startOnlineButton, "▶", "Start");
   startOnlineButton.addEventListener("click", options.onStart);
 
-  const rematchButton = actionButton("Rematch");
+  const rematchButton = actionButton("");
+  setIconLabel(rematchButton, "↺", "Rematch");
   rematchButton.addEventListener("click", options.onRematch);
 
   actions.append(onlineButton, startOnlineButton, rematchButton);

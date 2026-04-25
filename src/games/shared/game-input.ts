@@ -1,4 +1,4 @@
-import { actionButton } from "@shared/ui";
+import { actionButton, setIconLabel } from "@shared/ui";
 import { isConfirmOpen } from "@shared/dialog";
 import { directionFromKey, Keys, matchesKey } from "@shared/keyboard";
 import type { Direction } from "@shared/types";
@@ -223,7 +223,8 @@ export function createDifficultyButton(
 }
 
 export function createResetButton(actions: HTMLElement, onClick: () => void): HTMLButtonElement {
-  const resetButton = actionButton("New");
+  const resetButton = actionButton("");
+  setIconLabel(resetButton, "↻", "New");
   resetButton.addEventListener("click", onClick);
   actions.append(resetButton);
   return resetButton;

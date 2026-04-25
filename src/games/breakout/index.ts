@@ -28,6 +28,8 @@ import {
   parseStartedAt,
   pauseOnFocusLoss,
   resetGameProgress,
+  setDifficultyIconLabel,
+  setIconLabel,
   type Difficulty,
   type Direction,
   type GameDefinition,
@@ -280,8 +282,12 @@ export function mountBreakout(target: HTMLElement): () => void {
   }
 
   function render(): void {
-    difficultyButton.textContent = difficulty;
-    pauseButton.textContent = mode === "paused" ? "Resume" : "Pause";
+    setDifficultyIconLabel(difficultyButton, difficulty);
+    setIconLabel(
+      pauseButton,
+      mode === "paused" ? "▶" : "⏸",
+      mode === "paused" ? "Resume" : "Pause",
+    );
     status.textContent = statusText();
     overlay.setVisible(mode === "paused");
     positionBall();

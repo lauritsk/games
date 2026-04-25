@@ -1,5 +1,6 @@
 # TODO
 
+- [x] Add icon controls for obvious actions/settings.
 - [x] Normalize UI corner radiuses.
 - [x] Restore initial game selection menu.
 - [x] Repair compact UI visual consistency.

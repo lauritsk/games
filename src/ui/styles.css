@@ -253,7 +253,7 @@
     background: transparent;
     padding: 7px 10px;
     color: var(--muted);
-    font-size: 0.78rem;
+    font-size: 1rem;
     font-weight: 850;
     line-height: 1;
     text-align: center;
@@ -335,7 +335,7 @@
     max-width: 100%;
     border-radius: var(--radius-sm);
     color: var(--muted);
-    font-size: 0.86rem;
+    font-size: 1rem;
     font-weight: 800;
     line-height: 1;
   }
@@ -824,7 +824,7 @@
   .status,
   .button {
     height: 32px;
-    font-size: 0.88rem;
+    font-size: 0.94rem;
   }
 
   .status {
@@ -846,7 +846,7 @@
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-    min-width: 0;
+    min-width: 36px;
     padding-inline: 9px;
     border: 1px solid color-mix(in srgb, var(--line), transparent 18%);
     border-radius: var(--radius-sm);

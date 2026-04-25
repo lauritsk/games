@@ -23,6 +23,8 @@ import {
   pauseOnFocusLoss,
   resetGameProgress,
   setBoardGrid,
+  setDifficultyIconLabel,
+  setIconLabel,
   syncChildren,
   type Difficulty,
   type Direction,
@@ -267,8 +269,12 @@ export function mountTetris(target: HTMLElement): () => void {
 
   function render(): void {
     setBoardGrid(board, tetrisColumns, tetrisRows);
-    difficultyButton.textContent = difficulty;
-    pauseButton.textContent = mode === "paused" ? "Resume" : "Pause";
+    setDifficultyIconLabel(difficultyButton, difficulty);
+    setIconLabel(
+      pauseButton,
+      mode === "paused" ? "▶" : "⏸",
+      mode === "paused" ? "Resume" : "Pause",
+    );
     overlay.setVisible(mode === "paused");
     status.textContent = statusText();
 

@@ -16,6 +16,7 @@ import {
   parseOneOf,
   resetGameProgress,
   setBoardGrid,
+  setIconLabel,
   setSelected,
   syncChildren,
   type Difficulty,
@@ -65,6 +66,8 @@ import {
   createModeControl,
   createResetControl,
   nextBotPlayMode,
+  setBotPlayModeIconLabel,
+  setDifficultyControlIconLabel,
   toggleMode,
   type BotPlayMode,
 } from "@games/shared/controls";
@@ -243,17 +246,25 @@ export function mountConnect4(target: HTMLElement): () => void {
       seats: onlineSeats,
       countdown: onlineCountdownText(),
     });
-    modeButton.textContent = onlineSession ? "Online" : botPlayModeLabel(mode);
+    setBotPlayModeIconLabel(modeButton, onlineSession ? "Online" : mode);
     modeButton.disabled = Boolean(onlineSession);
-    difficultyButton.textContent = onlineSession ? "Online" : difficulty;
+    setDifficultyControlIconLabel(difficultyButton, onlineSession ? "Online" : difficulty);
     difficultyButton.disabled = Boolean(onlineSession);
-    onlineButton.textContent = onlineSession ? `Room ${onlineSession.code}` : "Play online";
+    setIconLabel(
+      onlineButton,
+      onlineSession ? `#${onlineSession.code}` : "🌐",
+      onlineSession ? `Room ${onlineSession.code}` : "Play online",
+    );
     onlineButton.disabled = Boolean(onlineSession);
     startOnlineButton.hidden =
       !onlineSession || onlineRoomStatus !== "lobby" || onlineSeat !== "p1";
     startOnlineButton.disabled = !canOnlineStart();
     rematchButton.hidden = !isOnlineFinished();
-    rematchButton.textContent = multiplayerRematchActionLabel(onlineSeat, currentSeatReady());
+    setIconLabel(
+      rematchButton,
+      onlineSeat === "p1" ? "▶" : "✓",
+      multiplayerRematchActionLabel(onlineSeat, currentSeatReady()),
+    );
     rematchButton.disabled = onlineStatus !== "connected" || !canOnlineRematch();
 
     const cells = syncChildren(grid, connect4Rows * connect4Columns, (index) => {

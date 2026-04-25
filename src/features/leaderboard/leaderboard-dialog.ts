@@ -1,4 +1,12 @@
-import { button, clearNode, el, pillButton, setSelected, type GameDefinition } from "@shared/core";
+import {
+  button,
+  clearNode,
+  difficultyIcon,
+  el,
+  pillButton,
+  setSelected,
+  type GameDefinition,
+} from "@shared/core";
 import { formatDate } from "@features/results/game-result-format";
 import type { GameResult } from "@features/results/game-results";
 import { loadGamePreferences } from "@games/shared/game-preferences";
@@ -80,8 +88,10 @@ export function createLeaderboardDialog(): LeaderboardDialog {
     function renderFilters(): void {
       clearNode(filters);
       for (const difficulty of difficulties) {
-        const filter = button(difficulty, "leaderboard-dialog__filter");
+        const filter = button(difficultyIcon(difficulty), "leaderboard-dialog__filter");
         filter.setAttribute("role", "tab");
+        filter.setAttribute("aria-label", difficulty);
+        filter.title = difficulty;
         filter.setAttribute("aria-selected", String(difficulty === selectedDifficulty));
         setSelected(filter, difficulty === selectedDifficulty);
         filter.addEventListener("click", () => {

@@ -12,6 +12,7 @@ import {
   onDocumentKeyDown,
   resetGameProgress,
   setBoardGrid,
+  setDifficultyIconLabel,
   syncChildren,
   type Difficulty,
   type Direction,
@@ -134,7 +135,7 @@ export function mount2048(target: HTMLElement): () => void {
   function render(): void {
     setBoardGrid(grid, size);
     status.textContent = over ? `Done · ${score}` : String(score);
-    difficultyButton.textContent = difficulty;
+    setDifficultyIconLabel(difficultyButton, difficulty);
 
     const values = board.flat();
     const tiles = syncChildren(grid, values.length, () =>

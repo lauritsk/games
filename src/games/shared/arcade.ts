@@ -2,6 +2,7 @@ import {
   actionButton,
   button,
   directionFromKey,
+  setIconLabel,
   el,
   syncChildren,
   isFiniteNumber,
@@ -310,7 +311,8 @@ export function createPauseOverlay(board: HTMLElement, onResume: () => void): Pa
 }
 
 export function createPauseButton(actions: HTMLElement, onToggle: () => void): HTMLButtonElement {
-  const pauseButton = actionButton("Pause");
+  const pauseButton = actionButton("");
+  setIconLabel(pauseButton, "⏸", "Pause");
   pauseButton.addEventListener("click", onToggle);
   actions.append(pauseButton);
   return pauseButton;

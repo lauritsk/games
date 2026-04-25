@@ -10,6 +10,7 @@ import {
   onDocumentKeyDown,
   pillButton,
   required,
+  setIconLabel,
   syncChildren,
   setSelected,
   type GameDefinition,
@@ -230,19 +231,22 @@ function renderGame(game: GameDefinition): void {
   const screen = el("section", { className: "game-screen" });
   const nav = el("header", { className: "game-screen__nav" });
   const crumb = el("div", { className: "game-screen__crumb" });
-  const back = el("a", { className: "back-button", text: "← Selection", ariaLabel: "← Selection" });
+  const back = el("a", { className: "back-button", ariaLabel: "← Selection" });
   back.href = "#/";
+  setIconLabel(back, "←", "← Selection");
   crumb.append(
     back,
     el("span", { className: "game-screen__crumb-separator", text: "/" }),
     el("strong", { className: "game-screen__title", text: game.name }),
   );
   const navActions = el("div", { className: "game-screen__nav-actions" });
-  const history = button("History", "nav-action");
+  const history = button("", "nav-action");
+  setIconLabel(history, "⏱", "History");
   history.addEventListener("click", () => historyDialog.show(game));
   navActions.append(history);
   if (hasLeaderboard(game.id)) {
-    const leaderboard = button("Leaderboard", "nav-action");
+    const leaderboard = button("", "nav-action");
+    setIconLabel(leaderboard, "🏆", "Leaderboard");
     leaderboard.addEventListener("click", () => leaderboardDialog.show(game));
     navActions.append(leaderboard);
   }

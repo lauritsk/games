@@ -19,6 +19,7 @@ import {
   resetGameProgress,
   required,
   setBoardGrid,
+  setIconLabel,
   syncChildren,
   type Difficulty,
   type Direction,
@@ -70,6 +71,8 @@ import {
   createDifficultyControl,
   createModeControl,
   createResetControl,
+  setDifficultyControlIconLabel,
+  setPlayerModeIconLabel,
 } from "@games/shared/controls";
 import {
   moveSnakePoint,
@@ -285,16 +288,24 @@ export function mountSnake(target: HTMLElement): () => void {
       countdown: onlineCountdownText(),
     });
     overlay.setVisible(!onlineSession && state === "paused");
-    difficultyButton.textContent = onlineSession ? "Online" : difficulty;
+    setDifficultyControlIconLabel(difficultyButton, onlineSession ? "Online" : difficulty);
     difficultyButton.disabled = Boolean(onlineSession);
-    wallModeButton.textContent = onlineSession ? "Online" : wallModeLabel(wallMode);
+    setPlayerModeIconLabel(wallModeButton, onlineSession ? "Online" : wallModeLabel(wallMode));
     wallModeButton.disabled = Boolean(onlineSession);
-    onlineButton.textContent = onlineSession ? `Room ${onlineSession.code}` : "Play online";
+    setIconLabel(
+      onlineButton,
+      onlineSession ? `#${onlineSession.code}` : "🌐",
+      onlineSession ? `Room ${onlineSession.code}` : "Play online",
+    );
     onlineButton.disabled = Boolean(onlineSession);
     startOnlineButton.hidden = !onlineSession || onlineRoomStatus !== "lobby";
     startOnlineButton.disabled = !canOnlineStart();
     rematchButton.hidden = !isOnlineFinished();
-    rematchButton.textContent = multiplayerRematchActionLabel(onlineSeat, currentSeatReady());
+    setIconLabel(
+      rematchButton,
+      onlineSeat === "p1" ? "▶" : "✓",
+      multiplayerRematchActionLabel(onlineSeat, currentSeatReady()),
+    );
     rematchButton.disabled = onlineStatus !== "connected" || !canOnlineRematch();
 
     const onlineCells = onlineSession ? onlineCellStates() : null;

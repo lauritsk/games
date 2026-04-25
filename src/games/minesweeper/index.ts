@@ -18,6 +18,7 @@ import {
   parseStartedAt,
   resetGameProgress,
   setBoardGrid,
+  setDifficultyIconLabel,
   setSelected,
   syncChildren,
   type Difficulty,
@@ -165,7 +166,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       cellSize: config.layout === "scroll" ? gameLayouts.scrollGrid.cellSize : undefined,
     });
     status.textContent = statusText();
-    difficultyButton.textContent = difficulty;
+    setDifficultyIconLabel(difficultyButton, difficulty);
 
     const tiles = syncChildren(grid, shape.rows * shape.columns, () => {
       const tile = el("button", { className: "game-cell mine-cell", type: "button" });

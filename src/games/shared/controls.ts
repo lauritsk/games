@@ -5,6 +5,8 @@ import {
   nextDifficulty,
   previousDifficulty,
   requestGameReset,
+  setDifficultyIconLabel,
+  setIconLabel,
   type Difficulty,
 } from "@shared/core";
 import { playSound } from "@ui/sound";
@@ -23,6 +25,28 @@ export function nextBotPlayMode(mode: BotPlayMode): BotPlayMode {
 
 export function botPlayModeLabel(mode: BotPlayMode): string {
   return mode === "bot" ? "Vs bot" : "2 players";
+}
+
+export function setBotPlayModeIconLabel(button: HTMLElement, mode: BotPlayMode | "Online"): void {
+  if (mode === "Online") {
+    setIconLabel(button, "🌐", "Online");
+    return;
+  }
+  setIconLabel(button, mode === "bot" ? "🤖" : "👥", botPlayModeLabel(mode));
+}
+
+export function setPlayerModeIconLabel(button: HTMLElement, label: string): void {
+  if (label === "Solo") setIconLabel(button, "👤", label);
+  else if (label === "2 players") setIconLabel(button, "👥", label);
+  else if (label === "Online") setIconLabel(button, "🌐", label);
+  else setIconLabel(button, label, label);
+}
+
+export function setDifficultyControlIconLabel(
+  button: HTMLElement,
+  difficulty: Difficulty | "Online",
+): void {
+  setDifficultyIconLabel(button, difficulty);
 }
 
 export type ToggleControl<TValue extends string> = {
@@ -52,7 +76,8 @@ export function createModeControl<TValue extends string>(
   actions: HTMLElement,
   control: ToggleControl<TValue>,
 ): HTMLButtonElement {
-  const modeButton = actionButton(control.label(control.get()));
+  const modeButton = actionButton("");
+  setPlayerModeIconLabel(modeButton, control.label(control.get()));
   modeButton.addEventListener("click", () => toggleMode(control));
   actions.append(modeButton);
   return modeButton;

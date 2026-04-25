@@ -4,7 +4,7 @@ import {
   setAppearanceMode,
   type AppearanceMode,
 } from "@ui/appearance";
-import { el, setSelected } from "@shared/core";
+import { el, setIconLabel, setSelected } from "@shared/core";
 
 const appearanceModes = ["system", "light", "dark"] as const satisfies AppearanceMode[];
 
@@ -14,11 +14,11 @@ export function createAppearanceControl(): HTMLElement {
   for (const mode of appearanceModes) {
     const option = el("button", {
       className: "appearance-toggle__option interactive",
-      text: labelAppearanceMode(mode),
       type: "button",
     });
     option.dataset.mode = mode;
     option.setAttribute("role", "radio");
+    setIconLabel(option, iconAppearanceMode(mode), labelAppearanceMode(mode));
     option.addEventListener("click", () => setAppearanceMode(mode));
     control.append(option);
   }
@@ -40,4 +40,10 @@ function labelAppearanceMode(mode: AppearanceMode): string {
   if (mode === "system") return "System";
   if (mode === "light") return "Light";
   return "Dark";
+}
+
+function iconAppearanceMode(mode: AppearanceMode): string {
+  if (mode === "system") return "⚙";
+  if (mode === "light") return "☀";
+  return "☾";
 }
