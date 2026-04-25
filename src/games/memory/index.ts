@@ -100,6 +100,7 @@ type SaveMemory = {
 };
 
 type OnlineMemoryState = {
+  difficulty: Difficulty;
   cards: MemoryCard[];
   current: MultiplayerSeat;
   scores: Record<MultiplayerSeat, number>;
@@ -197,7 +198,7 @@ export function mountMemory(target: HTMLElement): () => void {
       difficulty = next;
       savePreferences();
     },
-    reset: resetGame,
+    reset: resetAfterDifficultyChange,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
   const {
@@ -211,6 +212,7 @@ export function mountMemory(target: HTMLElement): () => void {
     onSession: startOnline,
     onStart: requestOnlineStart,
     onRematch: requestOnlineRematch,
+    getSettings: onlineSettings,
   });
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
@@ -240,6 +242,14 @@ export function mountMemory(target: HTMLElement): () => void {
     render();
   }
 
+  function resetAfterDifficultyChange(): void {
+    if (onlineSession) {
+      requestOnlineSettings();
+      return;
+    }
+    resetGame();
+  }
+
   function render(): void {
     setBoardGrid(grid, config.columns, config.rows);
     shell.dataset.turn = String(currentPlayer);
@@ -254,8 +264,8 @@ export function mountMemory(target: HTMLElement): () => void {
     });
     setPlayerModeIconLabel(modeButton, onlineSession ? "Online" : memoryModeLabel(mode));
     modeButton.disabled = Boolean(onlineSession);
-    setDifficultyControlIconLabel(difficultyButton, onlineSession ? "Online" : difficulty);
-    difficultyButton.disabled = Boolean(onlineSession);
+    setDifficultyControlIconLabel(difficultyButton, difficulty);
+    difficultyButton.disabled = Boolean(onlineSession && !canAdjustOnlineSettings());
     setIconLabel(
       onlineButton,
       onlineSession ? `#${onlineSession.code}` : "🌐",
@@ -307,8 +317,14 @@ export function mountMemory(target: HTMLElement): () => void {
     handleStandardGameKey(event, {
       onDirection: moveSelection,
       onActivate: () => flip(selected),
-      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
-      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
+      onNextDifficulty: () => {
+        if (!onlineSession || canAdjustOnlineSettings())
+          changeDifficulty(difficultyControl, "next");
+      },
+      onPreviousDifficulty: () => {
+        if (!onlineSession || canAdjustOnlineSettings())
+          changeDifficulty(difficultyControl, "previous");
+      },
       onReset: requestReset,
     });
   }
@@ -488,7 +504,7 @@ export function mountMemory(target: HTMLElement): () => void {
     onlineResultRecorded = false;
     onlineError = "";
     runId = createRunId();
-    config = memoryConfigs.Medium;
+    config = memoryConfigs[difficulty];
     cards = newMemoryDeck(config.pairs);
     selected = 0;
     moves = 0;
@@ -524,6 +540,13 @@ export function mountMemory(target: HTMLElement): () => void {
     render();
   }
 
+  function requestOnlineSettings(): void {
+    if (!canAdjustOnlineSettings()) return;
+    onlineError = "Updating settings…";
+    onlineConnection?.updateSettings(onlineRevision, onlineSettings());
+    render();
+  }
+
   function requestOnlineRematch(): void {
     if (!canOnlineRematch()) return;
     onlineError = onlineSeat === "p1" ? "Starting rematch…" : "Ready for rematch…";
@@ -539,6 +562,19 @@ export function mountMemory(target: HTMLElement): () => void {
       roomStatus: onlineRoomStatus,
       seats: onlineSeats,
     });
+  }
+
+  function canAdjustOnlineSettings(): boolean {
+    return Boolean(
+      onlineSession &&
+      onlineSeat === "p1" &&
+      onlineStatus === "connected" &&
+      onlineRoomStatus === "lobby",
+    );
+  }
+
+  function onlineSettings(): { difficulty: Difficulty } {
+    return { difficulty };
   }
 
   function canOnlineRematch(): boolean {
@@ -588,6 +624,7 @@ export function mountMemory(target: HTMLElement): () => void {
       onlineResultRecorded = false;
       startedAt = null;
     }
+    difficulty = state.difficulty;
     config = nextConfig;
     cards = state.cards;
     currentPlayer = playerForSeat(state.current);
@@ -654,6 +691,7 @@ export function mountMemory(target: HTMLElement): () => void {
     recordGameResult({
       runId,
       gameId: memory.id,
+      difficulty: state.difficulty,
       outcome,
       moves: state.moves,
       metadata: {
@@ -793,8 +831,10 @@ function parseMemoryWinner(value: unknown): MemoryPlayer | "draw" | null | undef
 
 function parseOnlineMemoryState(value: unknown): OnlineMemoryState | null {
   if (!isRecord(value) || !Array.isArray(value.cards)) return null;
-  const config = configForCardCount(value.cards.length);
-  if (!config) return null;
+  const difficulty = parseDifficulty(value.difficulty);
+  if (!difficulty) return null;
+  const config = memoryConfigs[difficulty];
+  if (value.cards.length !== config.pairs * 2) return null;
   const cards = parseCards(value.cards, config.pairs * 2);
   const current = parseMultiplayerSeat(value.current);
   const scores = parseOnlineScores(value.scores);
@@ -805,7 +845,7 @@ function parseOnlineMemoryState(value: unknown): OnlineMemoryState | null {
     typeof value.pendingCloseAt === "number" && Number.isFinite(value.pendingCloseAt)
       ? value.pendingCloseAt
       : null;
-  return { cards, current, scores, moves, winner, pendingCloseAt };
+  return { difficulty, cards, current, scores, moves, winner, pendingCloseAt };
 }
 
 function parseOnlineScores(value: unknown): Record<MultiplayerSeat, number> | null {

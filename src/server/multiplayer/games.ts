@@ -25,6 +25,7 @@ import {
   snakeOutOfBounds,
   snakePointKey,
   snakePointsEqual,
+  wrapSnakePoint,
   type SnakePoint,
 } from "@games/snake/logic";
 import {
@@ -40,7 +41,8 @@ import {
   oppositeMultiplayerSeat,
   type MultiplayerSeat,
 } from "@features/multiplayer/multiplayer-protocol";
-import type { Direction } from "@shared/types";
+import { parseDifficulty } from "@games/shared/game-preferences";
+import type { Difficulty, Direction } from "@shared/types";
 
 export type MultiplayerFinish = { winner: MultiplayerSeat | "draw" };
 
@@ -48,15 +50,22 @@ export type MultiplayerApplyResult<TState> =
   | { ok: true; state: TState; finished?: MultiplayerFinish }
   | { ok: false; error: string };
 
-export type MultiplayerAdapter<TState = unknown, TAction = unknown> = {
+export type MultiplayerAdapter<TState = unknown, TAction = unknown, TSettings = unknown> = {
   gameId: string;
   minPlayers?: number;
   maxPlayers?: number;
   autoStart?: boolean;
   tickMs?: number;
+  tickIntervalMs?(state: TState): number;
   acceptStaleActions?: boolean;
-  newState(): TState;
-  start?(state: TState, seats: readonly MultiplayerSeat[]): MultiplayerApplyResult<TState>;
+  defaultSettings?(): TSettings;
+  parseSettings?(value: unknown): TSettings | null;
+  newState(settings?: TSettings): TState;
+  start?(
+    state: TState,
+    seats: readonly MultiplayerSeat[],
+    settings?: TSettings,
+  ): MultiplayerApplyResult<TState>;
   tick?(state: TState): MultiplayerApplyResult<TState> | null;
   parseAction(value: unknown): TAction | null;
   applyAction(
@@ -216,7 +225,22 @@ type SnakeOnlinePlayer = {
   score: number;
 };
 
+type SnakeWallMode = "fatal" | "teleport";
+
+type SnakeOnlineSettings = {
+  difficulty: Difficulty;
+  wallMode: SnakeWallMode;
+};
+
+type SnakeOnlineConfig = {
+  size: number;
+  speed: number;
+};
+
 type SnakeOnlineState = {
+  difficulty: Difficulty;
+  wallMode: SnakeWallMode;
+  speed: number;
   size: number;
   food: SnakePoint;
   players: SnakeOnlinePlayer[];
@@ -235,8 +259,15 @@ type SnakeMoveProposal = {
   outOfBounds: boolean;
 };
 
-const snakeOnlineSize = 18;
-const snakeOnlineSpeedMs = 115;
+const snakeOnlineConfigs: Record<Difficulty, SnakeOnlineConfig> = {
+  Easy: { size: 14, speed: 170 },
+  Medium: { size: 18, speed: 115 },
+  Hard: { size: 22, speed: 75 },
+};
+const defaultSnakeOnlineSettings = {
+  difficulty: "Medium",
+  wallMode: "fatal",
+} satisfies SnakeOnlineSettings;
 const snakeStartDirections = {
   p1: "right",
   p2: "left",
@@ -244,29 +275,45 @@ const snakeStartDirections = {
   p4: "up",
 } satisfies Record<MultiplayerSeat, Direction>;
 
-export const snakeMultiplayerAdapter: MultiplayerAdapter<SnakeOnlineState, SnakeAction> = {
+export const snakeMultiplayerAdapter: MultiplayerAdapter<
+  SnakeOnlineState,
+  SnakeAction,
+  SnakeOnlineSettings
+> = {
   gameId: "snake",
   minPlayers: 2,
   maxPlayers: 4,
   autoStart: false,
-  tickMs: snakeOnlineSpeedMs,
+  tickIntervalMs: (state) => state.speed,
   acceptStaleActions: true,
-  newState: () => ({
-    size: snakeOnlineSize,
-    food: { row: 0, column: 0 },
-    players: [],
-    winner: null,
-    tick: 0,
-    startedAt: null,
-  }),
-  start(_state, seats) {
-    const players = seats.map((seat) => newSnakeOnlinePlayer(snakeOnlineSize, seat));
+  defaultSettings: () => ({ ...defaultSnakeOnlineSettings }),
+  parseSettings: parseSnakeOnlineSettings,
+  newState: (settings = defaultSnakeOnlineSettings) => {
+    const config = snakeOnlineConfigs[settings.difficulty];
+    return {
+      difficulty: settings.difficulty,
+      wallMode: settings.wallMode,
+      speed: config.speed,
+      size: config.size,
+      food: { row: 0, column: 0 },
+      players: [],
+      winner: null,
+      tick: 0,
+      startedAt: null,
+    };
+  },
+  start(_state, seats, settings = defaultSnakeOnlineSettings) {
+    const config = snakeOnlineConfigs[settings.difficulty];
+    const players = seats.map((seat) => newSnakeOnlinePlayer(config.size, seat));
     return {
       ok: true,
       state: {
-        size: snakeOnlineSize,
+        difficulty: settings.difficulty,
+        wallMode: settings.wallMode,
+        speed: config.speed,
+        size: config.size,
         food: randomSnakeFood(
-          snakeOnlineSize,
+          config.size,
           players.flatMap((player) => player.snake),
         ),
         players,
@@ -308,15 +355,17 @@ export const snakeMultiplayerAdapter: MultiplayerAdapter<SnakeOnlineState, Snake
       if (!head) continue;
       const direction = player.queuedDirection;
       const moved = moveSnakePoint(head, direction);
+      const outOfBounds = snakeOutOfBounds(moved, state.size);
+      const next = state.wallMode === "teleport" ? wrapSnakePoint(moved, state.size) : moved;
       const proposal = {
         seat: player.seat,
         direction,
-        next: moved,
-        ate: snakePointsEqual(moved, state.food),
-        outOfBounds: snakeOutOfBounds(moved, state.size),
+        next,
+        ate: snakePointsEqual(next, state.food),
+        outOfBounds,
       } satisfies SnakeMoveProposal;
       proposals.set(player.seat, proposal);
-      const key = snakePointKey(moved);
+      const key = snakePointKey(next);
       headCounts.set(key, (headCounts.get(key) ?? 0) + 1);
     }
 
@@ -331,7 +380,11 @@ export const snakeMultiplayerAdapter: MultiplayerAdapter<SnakeOnlineState, Snake
     const crashed = new Set<MultiplayerSeat>();
     for (const proposal of proposals.values()) {
       const key = snakePointKey(proposal.next);
-      if (proposal.outOfBounds || (headCounts.get(key) ?? 0) > 1 || occupied.has(key)) {
+      if (
+        (proposal.outOfBounds && state.wallMode === "fatal") ||
+        (headCounts.get(key) ?? 0) > 1 ||
+        occupied.has(key)
+      ) {
         crashed.add(proposal.seat);
       }
     }
@@ -388,7 +441,12 @@ export const snakeMultiplayerAdapter: MultiplayerAdapter<SnakeOnlineState, Snake
   publicSnapshot: (state) => ({ ...state }),
 };
 
+type MemoryOnlineSettings = {
+  difficulty: Difficulty;
+};
+
 type MemoryOnlineState = {
+  difficulty: Difficulty;
   cards: MemoryCard[];
   current: MultiplayerSeat;
   scores: Record<MultiplayerSeat, number>;
@@ -400,13 +458,19 @@ type MemoryOnlineState = {
 type MemoryAction = { type: "flip"; index: number };
 
 const memoryMismatchDelayMs = 650;
-const memoryOnlineConfig = memoryConfigs.Medium;
+const defaultMemoryOnlineSettings = { difficulty: "Medium" } satisfies MemoryOnlineSettings;
 
-export const memoryMultiplayerAdapter: MultiplayerAdapter<MemoryOnlineState, MemoryAction> = {
+export const memoryMultiplayerAdapter: MultiplayerAdapter<
+  MemoryOnlineState,
+  MemoryAction,
+  MemoryOnlineSettings
+> = {
   gameId: "memory",
   maxPlayers: 2,
   tickMs: 100,
-  newState: () => newMemoryOnlineState(),
+  defaultSettings: () => ({ ...defaultMemoryOnlineSettings }),
+  parseSettings: parseMemoryOnlineSettings,
+  newState: (settings = defaultMemoryOnlineSettings) => newMemoryOnlineState(settings),
   parseAction(value) {
     if (!isRecord(value) || value.type !== "flip") return null;
     const index = parseIntegerInRange(value.index, 0, memoryConfigs.Hard.pairs * 2);
@@ -487,9 +551,11 @@ export function oppositeSeat(seat: MultiplayerSeat): MultiplayerSeat {
   return oppositeMultiplayerSeat(seat);
 }
 
-function newMemoryOnlineState(): MemoryOnlineState {
+function newMemoryOnlineState(settings: MemoryOnlineSettings): MemoryOnlineState {
+  const config = memoryConfigs[settings.difficulty];
   return {
-    cards: newMemoryDeck(memoryOnlineConfig.pairs),
+    difficulty: settings.difficulty,
+    cards: newMemoryDeck(config.pairs),
     current: "p1",
     scores: { p1: 0, p2: 0, p3: 0, p4: 0 },
     moves: 0,
@@ -544,6 +610,19 @@ function startSnakeBodyForSeat(size: number, seat: MultiplayerSeat): SnakePoint[
     { row: size - 3, column: oneThird },
     { row: size - 2, column: oneThird },
   ];
+}
+
+function parseSnakeOnlineSettings(value: unknown): SnakeOnlineSettings | null {
+  if (!isRecord(value)) return null;
+  const difficulty = parseDifficulty(value.difficulty);
+  const wallMode = parseOneOf(value.wallMode, ["fatal", "teleport"] as const);
+  return difficulty && wallMode ? { difficulty, wallMode } : null;
+}
+
+function parseMemoryOnlineSettings(value: unknown): MemoryOnlineSettings | null {
+  if (!isRecord(value)) return null;
+  const difficulty = parseDifficulty(value.difficulty);
+  return difficulty ? { difficulty } : null;
 }
 
 function parseIntegerInRange(value: unknown, min: number, maxExclusive: number): number | null {

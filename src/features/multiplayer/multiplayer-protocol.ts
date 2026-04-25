@@ -31,6 +31,7 @@ export type MultiplayerRoomSnapshot = {
   revision: number;
   seats: Record<MultiplayerSeat, MultiplayerSeatSnapshot>;
   state: unknown;
+  settings?: unknown;
   countdownEndsAt?: number;
 };
 
@@ -64,10 +65,17 @@ export type MultiplayerStartMessage = {
   revision: number;
 };
 
+export type MultiplayerSettingsMessage = {
+  type: "settings";
+  revision: number;
+  settings: unknown;
+};
+
 export type MultiplayerClientMessage =
   | MultiplayerActionMessage
   | MultiplayerRematchMessage
-  | MultiplayerStartMessage;
+  | MultiplayerStartMessage
+  | MultiplayerSettingsMessage;
 
 export type MultiplayerCreateResponse =
   | { ok: true; session: MultiplayerSession }

@@ -18,6 +18,7 @@ export type MultiplayerConnection = {
   sendAction(revision: number, action: unknown): void;
   requestStart(revision: number): void;
   requestRematch(revision: number): void;
+  updateSettings(revision: number, settings: unknown): void;
   close(): void;
 };
 
@@ -31,11 +32,14 @@ export async function fetchMultiplayerStatus(): Promise<MultiplayerStatusRespons
   return requestJson<MultiplayerStatusResponse>("/api/multiplayer/status");
 }
 
-export async function createMultiplayerRoom(gameId: string): Promise<MultiplayerCreateResponse> {
+export async function createMultiplayerRoom(
+  gameId: string,
+  settings?: unknown,
+): Promise<MultiplayerCreateResponse> {
   return requestJson<MultiplayerCreateResponse>("/api/multiplayer/rooms", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ gameId }),
+    body: JSON.stringify({ gameId, ...(settings === undefined ? {} : { settings }) }),
   });
 }
 
@@ -124,6 +128,9 @@ export function connectMultiplayerSession(
     requestRematch(revision) {
       sendClientMessage({ type: "rematch", revision });
     },
+    updateSettings(revision, settings) {
+      sendClientMessage({ type: "settings", revision, settings });
+    },
     close() {
       closed = true;
       clearReconnect();
@@ -208,6 +215,7 @@ function parseRoom(value: unknown): MultiplayerRoomSnapshot | null {
     revision: value.revision,
     seats: { p1, p2, p3, p4 },
     state: value.state,
+    ...(Object.hasOwn(value, "settings") ? { settings: value.settings } : {}),
     ...(countdownEndsAt ? { countdownEndsAt } : {}),
   };
 }

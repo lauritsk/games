@@ -109,6 +109,8 @@ type OnlineSnakePlayer = {
 };
 
 type OnlineSnakeState = {
+  difficulty: Difficulty;
+  wallMode: WallMode;
   size: number;
   food: SnakePoint;
   players: OnlineSnakePlayer[];
@@ -222,7 +224,7 @@ export function mountSnake(target: HTMLElement): () => void {
     },
     next: (current) => (current === "fatal" ? "teleport" : "fatal"),
     label: wallModeLabel,
-    reset: resetGame,
+    reset: resetAfterSettingChange,
   });
   const difficultyControl = {
     get: () => difficulty,
@@ -230,7 +232,7 @@ export function mountSnake(target: HTMLElement): () => void {
       difficulty = next;
       savePreferences();
     },
-    reset: resetGame,
+    reset: resetAfterSettingChange,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
   const overlay = createPauseOverlay(viewport, togglePause);
@@ -245,6 +247,7 @@ export function mountSnake(target: HTMLElement): () => void {
     onSession: startOnline,
     onStart: requestOnlineStart,
     onRematch: requestOnlineRematch,
+    getSettings: onlineSettings,
   });
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
@@ -281,6 +284,14 @@ export function mountSnake(target: HTMLElement): () => void {
     render();
   }
 
+  function resetAfterSettingChange(): void {
+    if (onlineSession) {
+      requestOnlineSettings();
+      return;
+    }
+    resetGame();
+  }
+
   function render(previousSnake?: SnakePoint[]): void {
     const size = currentBoardSize();
     const boardRebuilt = prepareBoard(size);
@@ -294,10 +305,10 @@ export function mountSnake(target: HTMLElement): () => void {
       countdown: onlineCountdownText(),
     });
     overlay.setVisible(!onlineSession && state === "paused");
-    setDifficultyControlIconLabel(difficultyButton, onlineSession ? "Online" : difficulty);
-    difficultyButton.disabled = Boolean(onlineSession);
-    setPlayerModeIconLabel(wallModeButton, onlineSession ? "Online" : wallModeLabel(wallMode));
-    wallModeButton.disabled = Boolean(onlineSession);
+    setDifficultyControlIconLabel(difficultyButton, difficulty);
+    difficultyButton.disabled = Boolean(onlineSession && !canAdjustOnlineSettings());
+    setPlayerModeIconLabel(wallModeButton, wallModeLabel(wallMode));
+    wallModeButton.disabled = Boolean(onlineSession && !canAdjustOnlineSettings());
     setIconLabel(
       onlineButton,
       onlineSession ? `#${onlineSession.code}` : "🌐",
@@ -354,10 +365,12 @@ export function mountSnake(target: HTMLElement): () => void {
       onDirection: handleDirectionInput,
       onActivate: activate,
       onNextDifficulty: () => {
-        if (!onlineSession) changeDifficulty(difficultyControl, "next");
+        if (!onlineSession || canAdjustOnlineSettings())
+          changeDifficulty(difficultyControl, "next");
       },
       onPreviousDifficulty: () => {
-        if (!onlineSession) changeDifficulty(difficultyControl, "previous");
+        if (!onlineSession || canAdjustOnlineSettings())
+          changeDifficulty(difficultyControl, "previous");
       },
       onReset: requestReset,
     });
@@ -702,6 +715,13 @@ export function mountSnake(target: HTMLElement): () => void {
     render();
   }
 
+  function requestOnlineSettings(): void {
+    if (!canAdjustOnlineSettings()) return;
+    onlineError = "Updating settings…";
+    onlineConnection?.updateSettings(onlineRevision, onlineSettings());
+    render();
+  }
+
   function requestOnlineRematch(): void {
     if (!canOnlineRematch()) return;
     onlineError = onlineSeat === "p1" ? "Starting rematch…" : "Ready for rematch…";
@@ -727,6 +747,19 @@ export function mountSnake(target: HTMLElement): () => void {
       roomStatus: onlineRoomStatus,
       seats: onlineSeats,
     });
+  }
+
+  function canAdjustOnlineSettings(): boolean {
+    return Boolean(
+      onlineSession &&
+      onlineSeat === "p1" &&
+      onlineStatus === "connected" &&
+      onlineRoomStatus === "lobby",
+    );
+  }
+
+  function onlineSettings(): { difficulty: Difficulty; wallMode: WallMode } {
+    return { difficulty, wallMode };
   }
 
   function canOnlineRematch(): boolean {
@@ -771,6 +804,9 @@ export function mountSnake(target: HTMLElement): () => void {
     onlineCountdown.update(room);
     onlineSeats = room.seats;
     onlineState = snapshot;
+    difficulty = snapshot.difficulty;
+    wallMode = snapshot.wallMode;
+    config = configs[difficulty];
     if (
       wasInFinishedOrStartedOnlineGame &&
       room.status === "playing" &&
@@ -838,6 +874,7 @@ export function mountSnake(target: HTMLElement): () => void {
     recordGameResult({
       runId,
       gameId,
+      difficulty: snapshot.difficulty,
       outcome,
       score: Math.max(0, (player?.snake.length ?? 3) - 3),
       durationMs: durationSince(snapshot.startedAt),
@@ -846,6 +883,7 @@ export function mountSnake(target: HTMLElement): () => void {
         seat: onlineSeat,
         winner: snapshot.winner,
         players: snapshot.players.length,
+        wallMode: snapshot.wallMode,
         length: player?.snake.length ?? 0,
       },
     });
@@ -935,8 +973,10 @@ function parseSaveSnake(value: unknown): SaveSnake | null {
 
 function parseOnlineSnakeState(value: unknown): OnlineSnakeState | null {
   if (!isRecord(value)) return null;
+  const difficulty = parseDifficulty(value.difficulty);
+  const wallMode = parseWallMode(value.wallMode);
   const size = typeof value.size === "number" && Number.isInteger(value.size) ? value.size : null;
-  if (size === null || size < 8 || size > 40) return null;
+  if (!difficulty || !wallMode || size === null || size < 8 || size > 40) return null;
   const food = parsePoint(value.food, size);
   const winner = parseOnlineWinner(value.winner);
   const players = Array.isArray(value.players)
@@ -946,7 +986,7 @@ function parseOnlineSnakeState(value: unknown): OnlineSnakeState | null {
   const startedAt = parseStartedAt(value.startedAt);
   if (!food || winner === undefined || startedAt === undefined) return null;
   if (!players.every((player): player is OnlineSnakePlayer => player !== null)) return null;
-  return { size, food, players, winner, tick, startedAt };
+  return { difficulty, wallMode, size, food, players, winner, tick, startedAt };
 }
 
 function parseOnlineSnakePlayer(value: unknown, size: number): OnlineSnakePlayer | null {

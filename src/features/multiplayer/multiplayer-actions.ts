@@ -22,6 +22,7 @@ type CreateMultiplayerActionButtonsOptions = {
   onSession(session: MultiplayerSession): void;
   onStart(): void;
   onRematch(): void;
+  getSettings?(): unknown;
 };
 
 export function createMultiplayerActionButtons(
@@ -33,7 +34,7 @@ export function createMultiplayerActionButtons(
   onlineButton.dataset.action = "online";
   setIconLabel(onlineButton, "🌐", "Play online");
   onlineButton.addEventListener("click", () => {
-    if (!options.getSession()) dialog.show(options.game, options.onSession);
+    if (!options.getSession()) dialog.show(options.game, options.onSession, options.getSettings);
   });
 
   const startOnlineButton = actionButton("");

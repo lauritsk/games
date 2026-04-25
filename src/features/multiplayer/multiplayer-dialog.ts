@@ -13,7 +13,11 @@ import type { ModalController } from "@shared/modal";
 import { playSound } from "@ui/sound";
 
 export type MultiplayerDialog = {
-  show(game: GameDefinition, onSession: (session: MultiplayerSession) => void): void;
+  show(
+    game: GameDefinition,
+    onSession: (session: MultiplayerSession) => void,
+    getSettings?: () => unknown,
+  ): void;
   close(): void;
 };
 
@@ -24,7 +28,11 @@ export function createMultiplayerDialog(): MultiplayerDialog {
     cleanup?.();
   }
 
-  function show(game: GameDefinition, onSession: (session: MultiplayerSession) => void): void {
+  function show(
+    game: GameDefinition,
+    onSession: (session: MultiplayerSession) => void,
+    getSettings?: () => unknown,
+  ): void {
     close();
     let modal: ModalController | null = null;
     let created = false;
@@ -85,7 +93,7 @@ export function createMultiplayerDialog(): MultiplayerDialog {
       create.addEventListener("click", async () => {
         create.disabled = true;
         statusLine.textContent = "Creating room…";
-        const response = await createMultiplayerRoom(game.id);
+        const response = await createMultiplayerRoom(game.id, getSettings?.());
         if (!response.ok) {
           create.disabled = false;
           statusLine.textContent = response.error;

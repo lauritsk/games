@@ -238,6 +238,50 @@ describe("multiplayer API", () => {
     hub.dispose();
   });
 
+  test("applies host-selected online game settings", async () => {
+    const hub = new MultiplayerHub({ countdownMs: 0 });
+    const create = await hub.handleHttp(
+      new Request("http://local/api/multiplayer/rooms", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          gameId: "snake",
+          settings: { difficulty: "Hard", wallMode: "teleport" },
+        }),
+      }),
+    );
+    expect(create?.status).toBe(200);
+    const created = await json(create!);
+    const session = created.session as {
+      code: string;
+      playerId: string;
+      seat: "p1";
+    };
+    const joined = await hub.joinRoom(session.code);
+    expect(joined.ok).toBe(true);
+
+    const p1 = fakeSocket({ code: session.code, playerId: session.playerId, seat: "p1" });
+    hub.onOpen(p1);
+    let snapshot = lastSentJson(p1);
+    let room = snapshot.room as { revision: number; state: unknown; settings: unknown };
+    expect(room.settings).toEqual({ difficulty: "Hard", wallMode: "teleport" });
+    expect(room.state).toMatchObject({ difficulty: "Hard", wallMode: "teleport", size: 22 });
+
+    hub.onMessage(
+      p1,
+      JSON.stringify({
+        type: "settings",
+        revision: room.revision,
+        settings: { difficulty: "Easy", wallMode: "fatal" },
+      }),
+    );
+    snapshot = lastSentJson(p1);
+    room = snapshot.room as { revision: number; state: unknown; settings: unknown };
+    expect(room.settings).toEqual({ difficulty: "Easy", wallMode: "fatal" });
+    expect(room.state).toMatchObject({ difficulty: "Easy", wallMode: "fatal", size: 14 });
+    hub.dispose();
+  });
+
   test("supports four-player Snake lobbies before host start", async () => {
     const hub = new MultiplayerHub({ countdownMs: 0 });
     const created = await hub.createRoom("snake");

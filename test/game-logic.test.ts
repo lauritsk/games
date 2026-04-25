@@ -499,11 +499,11 @@ describe("multiplayer adapters", () => {
   });
 
   test("moves multiplayer Snake simultaneously and rejects reversal", () => {
-    const started = snakeMultiplayerAdapter.start?.(snakeMultiplayerAdapter.newState(), [
-      "p1",
-      "p2",
-      "p3",
-    ]);
+    const started = snakeMultiplayerAdapter.start?.(
+      snakeMultiplayerAdapter.newState({ difficulty: "Medium", wallMode: "fatal" }),
+      ["p1", "p2", "p3"],
+      { difficulty: "Medium", wallMode: "fatal" },
+    );
     expect(started?.ok).toBe(true);
     if (!started?.ok) return;
 
@@ -532,6 +532,14 @@ describe("multiplayer adapters", () => {
       column: 4,
     });
     expect(ticked.state.players.find((player) => player.seat === "p3")?.direction).toBe("right");
+  });
+
+  test("uses multiplayer difficulty settings", () => {
+    const snake = snakeMultiplayerAdapter.newState({ difficulty: "Hard", wallMode: "teleport" });
+    expect(snake).toMatchObject({ difficulty: "Hard", wallMode: "teleport", size: 22, speed: 75 });
+    const memory = memoryMultiplayerAdapter.newState({ difficulty: "Easy" });
+    expect(memory.difficulty).toBe("Easy");
+    expect(memory.cards).toHaveLength(12);
   });
 
   test("scores Memory matches and changes turns after mismatches", () => {

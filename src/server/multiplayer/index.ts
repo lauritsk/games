@@ -45,6 +45,7 @@ type Room = {
   countdownTimer: ReturnType<typeof setTimeout> | null;
   startSeats: MultiplayerSeat[] | null;
   state: unknown;
+  settings: unknown;
 };
 
 type UpgradePreparation =
@@ -117,7 +118,7 @@ export class MultiplayerHub {
     const body = await readSmallJson(request);
     const gameId = isRecord(body) && typeof body.gameId === "string" ? body.gameId : null;
     if (!gameId) return json({ ok: false, error: "Invalid room request" }, 400);
-    const result = await this.createRoom(gameId);
+    const result = await this.createRoom(gameId, isRecord(body) ? body.settings : undefined);
     return json(result, result.ok ? 200 : 400);
   }
 
@@ -139,11 +140,14 @@ export class MultiplayerHub {
 
   async createRoom(
     gameId: string,
+    requestedSettings?: unknown,
   ): Promise<{ ok: true; session: MultiplayerSession } | { ok: false; error: string }> {
     this.cleanup();
     if (this.rooms.size >= maxRooms) return { ok: false, error: "Too many active rooms" };
     const adapter = multiplayerAdapterForGame(gameId);
     if (!adapter) return { ok: false, error: "Game does not support online play" };
+    const settings = resolveAdapterSettings(adapter, requestedSettings);
+    if (!settings.ok) return { ok: false, error: settings.error };
     const code = this.createUniqueCode();
     if (!code) return { ok: false, error: "Could not create room" };
     const session = await this.createPlayerSession(code, gameId, "p1");
@@ -169,7 +173,8 @@ export class MultiplayerHub {
       tickTimer: null,
       countdownTimer: null,
       startSeats: null,
-      state: adapter.newState(),
+      state: adapter.newState(settings.value),
+      settings: settings.value,
     });
     return { ok: true, session };
   }
@@ -268,6 +273,10 @@ export class MultiplayerHub {
       this.handleRematch(ws, room);
       return;
     }
+    if (parsed.type === "settings") {
+      this.handleSettings(ws, room, parsed.settings);
+      return;
+    }
     if (room.status !== "playing") {
       this.sendError(ws, "Room is not ready", room);
       return;
@@ -331,6 +340,7 @@ export class MultiplayerHub {
         p4: seatSnapshot(room.players.p4, room.rematchReady.p4),
       },
       state: room.adapter.publicSnapshot(room.state),
+      settings: room.settings,
       ...(room.countdownEndsAt ? { countdownEndsAt: room.countdownEndsAt } : {}),
     };
   }
@@ -381,6 +391,32 @@ export class MultiplayerHub {
     this.publishRoom(ws, room);
   }
 
+  private handleSettings(
+    ws: ServerWebSocket<MultiplayerSocketData>,
+    room: Room,
+    requestedSettings: unknown,
+  ): void {
+    if (ws.data.seat !== "p1") {
+      this.sendError(ws, "Only the host can change settings", room);
+      return;
+    }
+    if (room.status !== "lobby") {
+      this.sendError(ws, "Settings can only change in the lobby", room);
+      return;
+    }
+    const settings = resolveAdapterSettings(room.adapter, requestedSettings);
+    if (!settings.ok) {
+      this.sendError(ws, settings.error, room);
+      return;
+    }
+    room.settings = settings.value;
+    room.state = room.adapter.newState(settings.value);
+    room.rematchReady = {};
+    room.revision += 1;
+    room.lastActivityAt = Date.now();
+    this.publishRoom(ws, room);
+  }
+
   private handleRematch(ws: ServerWebSocket<MultiplayerSocketData>, room: Room): void {
     if (room.status !== "finished") {
       this.sendError(ws, "Rematch is available after the game ends", room);
@@ -404,7 +440,7 @@ export class MultiplayerHub {
       return;
     }
 
-    room.state = room.adapter.newState();
+    room.state = room.adapter.newState(room.settings);
     const started = this.beginRoomCountdown(room, readySeats);
     if (!started.ok) {
       this.sendError(ws, started.error, room);
@@ -452,8 +488,8 @@ export class MultiplayerHub {
       return { ok: false, error: "Need more players" };
     }
     const result = room.adapter.start
-      ? room.adapter.start(room.state, seats)
-      : ({ ok: true, state: room.adapter.newState() } as const);
+      ? room.adapter.start(room.state, seats, room.settings)
+      : ({ ok: true, state: room.adapter.newState(room.settings) } as const);
     if (!result.ok) {
       room.startSeats = null;
       return { ok: false, error: result.error };
@@ -472,8 +508,10 @@ export class MultiplayerHub {
 
   private startRoomTicker(room: Room): void {
     this.stopRoomTicker(room);
-    if (!room.adapter.tick || !room.adapter.tickMs) return;
-    room.tickTimer = setInterval(() => this.tickRoom(room.code), room.adapter.tickMs);
+    if (!room.adapter.tick) return;
+    const tickMs = room.adapter.tickIntervalMs?.(room.state) ?? room.adapter.tickMs;
+    if (!tickMs) return;
+    room.tickTimer = setInterval(() => this.tickRoom(room.code), tickMs);
     room.tickTimer.unref?.();
   }
 
@@ -549,6 +587,9 @@ function parseClientMessage(message: string | Buffer): MultiplayerClientMessage 
     if (!Number.isInteger(value.revision)) return null;
     if (value.type === "start") return { type: "start", revision: value.revision };
     if (value.type === "rematch") return { type: "rematch", revision: value.revision };
+    if (value.type === "settings") {
+      return { type: "settings", revision: value.revision, settings: value.settings };
+    }
     if (value.type === "action") {
       return { type: "action", revision: value.revision, action: value.action };
     }
@@ -562,6 +603,17 @@ function isRevisionAccepted(room: Room, message: MultiplayerClientMessage): bool
   if (message.type === "action" && room.adapter.acceptStaleActions)
     return message.revision <= room.revision;
   return message.revision === room.revision;
+}
+
+function resolveAdapterSettings(
+  adapter: MultiplayerAdapter,
+  requestedSettings: unknown,
+): { ok: true; value: unknown } | { ok: false; error: string } {
+  if (requestedSettings === undefined) return { ok: true, value: adapter.defaultSettings?.() };
+  if (!adapter.parseSettings) return { ok: false, error: "Game does not support settings" };
+  const settings = adapter.parseSettings(requestedSettings);
+  if (!settings) return { ok: false, error: "Invalid game settings" };
+  return { ok: true, value: settings };
 }
 
 function findSeat(room: Room, playerId: string): MultiplayerSeat | null {
