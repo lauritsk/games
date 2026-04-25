@@ -26,6 +26,7 @@ import {
   type GameDefinition,
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
+import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import {
@@ -54,7 +55,8 @@ export const breakout: GameDefinition = {
 };
 
 export function mountBreakout(target: HTMLElement): () => void {
-  let difficulty: Difficulty = "Medium";
+  const preferences = loadGamePreferences(breakout.id);
+  let difficulty: Difficulty = parseDifficulty(preferences.difficulty) ?? "Medium";
   let state = newBreakoutState(configs[difficulty]);
   let mode: Mode = "ready";
   let loop: FixedStepLoop | null = null;
@@ -107,6 +109,7 @@ export function mountBreakout(target: HTMLElement): () => void {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
+      savePreferences();
     },
     reset: resetGame,
   };
@@ -133,6 +136,7 @@ export function mountBreakout(target: HTMLElement): () => void {
     state = newBreakoutState(configs[difficulty]);
     mode = "ready";
     input.clear();
+    savePreferences();
     render();
   }
 
@@ -280,6 +284,10 @@ export function mountBreakout(target: HTMLElement): () => void {
   function stopTimer(): void {
     loop?.stop();
     loop = null;
+  }
+
+  function savePreferences(): void {
+    saveGamePreferences(breakout.id, { difficulty });
   }
 
   render();

@@ -17,6 +17,7 @@ import {
   type GameDefinition,
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
+import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import {
@@ -52,7 +53,8 @@ export const tetris: GameDefinition = {
 };
 
 export function mountTetris(target: HTMLElement): () => void {
-  let difficulty: Difficulty = "Medium";
+  const preferences = loadGamePreferences(tetris.id);
+  let difficulty: Difficulty = parseDifficulty(preferences.difficulty) ?? "Medium";
   let state = newTetrisState();
   let mode: Mode = "ready";
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -93,6 +95,7 @@ export function mountTetris(target: HTMLElement): () => void {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
+      savePreferences();
     },
     reset: resetGame,
   };
@@ -106,6 +109,7 @@ export function mountTetris(target: HTMLElement): () => void {
     resetGameProgress(shell);
     state = newTetrisState();
     mode = "ready";
+    savePreferences();
     render();
   }
 
@@ -230,6 +234,10 @@ export function mountTetris(target: HTMLElement): () => void {
 
   function pointKey(point: TetrisPoint): string {
     return `${point.row}:${point.column}`;
+  }
+
+  function savePreferences(): void {
+    saveGamePreferences(tetris.id, { difficulty });
   }
 
   render();

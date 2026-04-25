@@ -18,6 +18,9 @@ import {
   type GameDefinition,
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
+import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
+import { recordGameResult } from "../game-results";
+import { clearGameSave, createRunId, loadGameSave, saveGameSave } from "../game-state";
 import { playSound } from "../sound";
 import {
   botPlayModeLabel,
@@ -44,6 +47,16 @@ import {
 } from "./connect4.logic";
 
 const names: Record<Connect4Player, string> = { 1: "Red", 2: "Gold" };
+const savePayloadVersion = 1;
+
+type SaveConnect4 = {
+  board: Connect4Cell[][];
+  current: Connect4Player;
+  winner: Connect4Player | null;
+  moves: number;
+  mode: BotPlayMode;
+  difficulty: Difficulty;
+};
 
 export const connect4: GameDefinition = {
   id: "connect4",
@@ -55,14 +68,27 @@ export const connect4: GameDefinition = {
 };
 
 export function mountConnect4(target: HTMLElement): () => void {
+  const preferences = loadGamePreferences(connect4.id);
   let board = newConnect4Board();
   let current: Connect4Player = 1;
   let winner: Connect4Player | null = null;
   let winningLine: Connect4WinLine = [];
   let moves = 0;
-  let mode: BotPlayMode = "bot";
-  let difficulty: Difficulty = "Medium";
+  let mode: BotPlayMode = parseBotPlayMode(preferences.options?.mode) ?? "bot";
+  let difficulty: Difficulty = parseDifficulty(preferences.difficulty) ?? "Medium";
   let selectedColumn = Math.floor(connect4Columns / 2);
+  let runId = createRunId();
+
+  const saved = loadGameSave(connect4.id, savePayloadVersion, parseSaveConnect4);
+  if (saved) {
+    runId = saved.runId;
+    board = saved.payload.board;
+    current = saved.payload.current;
+    winner = saved.payload.winner;
+    moves = saved.payload.moves;
+    mode = saved.payload.mode;
+    difficulty = saved.payload.difficulty;
+  }
 
   const {
     shell,
@@ -87,6 +113,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     get: () => mode,
     set: (next: BotPlayMode) => {
       mode = next;
+      savePreferences();
     },
     next: nextBotPlayMode,
     label: botPlayModeLabel,
@@ -98,6 +125,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
+      savePreferences();
     },
     reset: resetGame,
   };
@@ -107,13 +135,16 @@ export function mountConnect4(target: HTMLElement): () => void {
 
   function resetGame(): void {
     botMove.clear();
+    clearGameSave(connect4.id);
     resetGameProgress(shell);
+    runId = createRunId();
     board = newConnect4Board();
     current = connect4Human;
     winner = null;
     winningLine = [];
     moves = 0;
     selectedColumn = Math.floor(connect4Columns / 2);
+    savePreferences();
     render();
   }
 
@@ -182,10 +213,10 @@ export function mountConnect4(target: HTMLElement): () => void {
   }
 
   function statusText(): string {
-    if (moves === connect4Rows * connect4Columns) return "Draw";
     if (mode === "local") return winner ? `${names[winner]} wins` : `${names[current]} turn`;
     if (winner === connect4Human) return "You win";
     if (winner === connect4Bot) return "Bot wins";
+    if (moves === connect4Rows * connect4Columns) return "Draw";
     return current === connect4Human ? "Your turn" : "Bot thinking";
   }
 
@@ -217,7 +248,11 @@ export function mountConnect4(target: HTMLElement): () => void {
     } else {
       current = current === connect4Human ? connect4Bot : connect4Human;
     }
-    if (winner || moves === connect4Rows * connect4Columns) markGameFinished(shell);
+    if (winner || moves === connect4Rows * connect4Columns) {
+      markGameFinished(shell);
+      recordFinishedGame();
+      clearGameSave(connect4.id);
+    } else saveCurrentGame();
     if (winner) playSound(winner === connect4Human ? "gameWin" : "gameLose");
     else if (moves === connect4Rows * connect4Columns) playSound("gameMajor");
     else playSound("gameMove");
@@ -234,7 +269,32 @@ export function mountConnect4(target: HTMLElement): () => void {
     return board[0]?.[column] === 0;
   }
 
+  function saveCurrentGame(): void {
+    saveGameSave(connect4.id, savePayloadVersion, {
+      runId,
+      status: "playing",
+      payload: { board, current, winner, moves, mode, difficulty },
+    });
+  }
+
+  function recordFinishedGame(): void {
+    recordGameResult({
+      runId,
+      gameId: connect4.id,
+      difficulty,
+      outcome: winner ? (mode === "bot" && winner === connect4Bot ? "lost" : "won") : "draw",
+      moves,
+      metadata: { mode, winner: winner ?? "draw" },
+    });
+  }
+
+  function savePreferences(): void {
+    saveGamePreferences(connect4.id, { difficulty, options: { mode } });
+  }
+
+  if (moves > 0) markGameStarted(shell);
   render();
+  if (mode === "bot" && current === connect4Bot && !winner) scheduleBot();
 
   return () => {
     scope.cleanup();
@@ -242,6 +302,56 @@ export function mountConnect4(target: HTMLElement): () => void {
     botMove.clear();
     remove();
   };
+}
+
+function parseBotPlayMode(value: unknown): BotPlayMode | null {
+  return value === "bot" || value === "local" ? value : null;
+}
+
+function parseSaveConnect4(value: unknown): SaveConnect4 | null {
+  if (!isRecord(value)) return null;
+  const board = parseBoard(value.board);
+  const current = parsePlayer(value.current);
+  const winner = parseWinner(value.winner);
+  const mode = parseBotPlayMode(value.mode);
+  const difficulty = parseDifficulty(value.difficulty);
+  if (!board || !current || winner === undefined || !mode || !difficulty) return null;
+  if (
+    typeof value.moves !== "number" ||
+    value.moves < 0 ||
+    value.moves > connect4Rows * connect4Columns
+  )
+    return null;
+  return { board, current, winner, moves: value.moves, mode, difficulty };
+}
+
+function parseBoard(value: unknown): Connect4Cell[][] | null {
+  if (!Array.isArray(value) || value.length !== connect4Rows) return null;
+  const board = value.map((row) => {
+    if (!Array.isArray(row) || row.length !== connect4Columns) return null;
+    const cells = row.map(parseCell);
+    return cells.every((cell): cell is Connect4Cell => cell !== null) ? cells : null;
+  });
+  return board.every((row): row is Connect4Cell[] => row !== null) ? board : null;
+}
+
+function parseCell(value: unknown): Connect4Cell | null {
+  return value === 0 || value === connect4Human || value === connect4Bot
+    ? (value as Connect4Cell)
+    : null;
+}
+
+function parsePlayer(value: unknown): Connect4Player | null {
+  return value === connect4Human || value === connect4Bot ? (value as Connect4Player) : null;
+}
+
+function parseWinner(value: unknown): Connect4Player | null | undefined {
+  if (value === null) return null;
+  return parsePlayer(value) ?? undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function labelFor(row: number, column: number, value: Connect4Cell): string {

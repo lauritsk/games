@@ -16,6 +16,7 @@ import {
   type GameDefinition,
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
+import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
 import { playSound } from "../sound";
 import {
   changeDifficulty,
@@ -49,9 +50,10 @@ const configs: Record<Difficulty, Config> = {
   Medium: { size: 18, speed: 115 },
   Hard: { size: 22, speed: 75 },
 };
+const gameId = "snake";
 
 export const snake: GameDefinition = {
-  id: "snake",
+  id: gameId,
   name: "Snake",
   tagline: "Eat, grow, do not crash.",
   players: "Solo",
@@ -60,14 +62,15 @@ export const snake: GameDefinition = {
 };
 
 export function mountSnake(target: HTMLElement): () => void {
-  let difficulty: Difficulty = "Medium";
+  const preferences = loadGamePreferences(gameId);
+  let difficulty: Difficulty = parseDifficulty(preferences.difficulty) ?? "Medium";
+  let wallMode: WallMode = parseWallMode(preferences.options?.wallMode) ?? "fatal";
   let config = configs[difficulty];
   let snake = startSnakeBody(config.size);
   let food = randomSnakeFood(config.size, snake);
   let direction: Direction = "right";
   let queuedDirection: Direction = direction;
   let state: State = "ready";
-  let wallMode: WallMode = "fatal";
   let animationFrame = 0;
   let lastFrameTime = 0;
   let tickRemainder = 0;
@@ -95,6 +98,7 @@ export function mountSnake(target: HTMLElement): () => void {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
+      savePreferences();
     },
     reset: resetGame,
   };
@@ -103,6 +107,7 @@ export function mountSnake(target: HTMLElement): () => void {
     get: () => wallMode,
     set: (next) => {
       wallMode = next;
+      savePreferences();
     },
     next: (current) => (current === "fatal" ? "teleport" : "fatal"),
     label: wallModeLabel,
@@ -120,6 +125,7 @@ export function mountSnake(target: HTMLElement): () => void {
     direction = "right";
     queuedDirection = direction;
     state = "ready";
+    savePreferences();
     render();
   }
 
@@ -247,6 +253,10 @@ export function mountSnake(target: HTMLElement): () => void {
     return mode === "fatal" ? "Fatal walls" : "Teleport walls";
   }
 
+  function parseWallMode(value: unknown): WallMode | null {
+    return value === "fatal" || value === "teleport" ? value : null;
+  }
+
   function labelFor(point: SnakePoint, isHead: boolean, isSnake: boolean, isFood: boolean): string {
     if (isHead) return `Row ${point.row + 1}, column ${point.column + 1}, snake head`;
     if (isSnake) return `Row ${point.row + 1}, column ${point.column + 1}, snake body`;
@@ -338,6 +348,10 @@ export function mountSnake(target: HTMLElement): () => void {
     animationFrame = 0;
     lastFrameTime = 0;
     tickRemainder = 0;
+  }
+
+  function savePreferences(): void {
+    saveGamePreferences(gameId, { difficulty, options: { wallMode } });
   }
 
   render();

@@ -16,6 +16,7 @@ import {
   type GameDefinition,
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
+import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import {
@@ -42,7 +43,8 @@ export const memory: GameDefinition = {
 };
 
 export function mountMemory(target: HTMLElement): () => void {
-  let difficulty: Difficulty = "Medium";
+  const preferences = loadGamePreferences(memory.id);
+  let difficulty: Difficulty = parseDifficulty(preferences.difficulty) ?? "Medium";
   let config = configs[difficulty];
   let cards = newMemoryDeck(config.pairs);
   let selected = 0;
@@ -70,6 +72,7 @@ export function mountMemory(target: HTMLElement): () => void {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
+      savePreferences();
     },
     reset: resetGame,
   };
@@ -85,6 +88,7 @@ export function mountMemory(target: HTMLElement): () => void {
     selected = 0;
     moves = 0;
     lock = false;
+    savePreferences();
     render();
   }
 
@@ -179,6 +183,10 @@ export function mountMemory(target: HTMLElement): () => void {
     if (card.matched) return `Row ${row}, column ${column}, matched ${card.symbol}`;
     if (card.open) return `Row ${row}, column ${column}, open ${card.symbol}`;
     return `Row ${row}, column ${column}, hidden card`;
+  }
+
+  function savePreferences(): void {
+    saveGamePreferences(memory.id, { difficulty });
   }
 
   render();

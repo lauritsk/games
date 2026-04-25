@@ -17,6 +17,7 @@ import {
   type GameDefinition,
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
+import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import {
@@ -49,7 +50,8 @@ export const minesweeper: GameDefinition = {
 };
 
 export function mountMinesweeper(target: HTMLElement): () => void {
-  let difficulty: Difficulty = "Medium";
+  const preferences = loadGamePreferences(minesweeper.id);
+  let difficulty: Difficulty = parseDifficulty(preferences.difficulty) ?? "Medium";
   let config = configs[difficulty];
   let board = newMinesweeperBoard(config);
   let state: State = "playing";
@@ -78,6 +80,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
+      savePreferences();
     },
     reset: resetGame,
   };
@@ -92,6 +95,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     firstMove = true;
     selectedRow = 0;
     selectedColumn = 0;
+    savePreferences();
     render();
   }
 
@@ -278,6 +282,10 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     cell.flag = !cell.flag;
     playSound("gameMove");
     render();
+  }
+
+  function savePreferences(): void {
+    saveGamePreferences(minesweeper.id, { difficulty });
   }
 
   render();

@@ -28,6 +28,7 @@ import {
   type GameDefinition,
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
+import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import {
@@ -80,7 +81,8 @@ export const spaceInvaders: GameDefinition = {
 };
 
 export function mountSpaceInvaders(target: HTMLElement): () => void {
-  let difficulty: Difficulty = "Medium";
+  const preferences = loadGamePreferences(spaceInvaders.id);
+  let difficulty: Difficulty = parseDifficulty(preferences.difficulty) ?? "Medium";
   let state = newInvaderState(configs[difficulty]);
   let mode: Mode = "ready";
   let loop: FixedStepLoop | null = null;
@@ -139,6 +141,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
+      savePreferences();
     },
     reset: resetGame,
   };
@@ -165,6 +168,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     state = newInvaderState(configs[difficulty]);
     mode = "ready";
     input.clear();
+    savePreferences();
     render();
   }
 
@@ -344,6 +348,10 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   function stopTimer(): void {
     loop?.stop();
     loop = null;
+  }
+
+  function savePreferences(): void {
+    saveGamePreferences(spaceInvaders.id, { difficulty });
   }
 
   render();

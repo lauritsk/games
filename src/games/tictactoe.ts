@@ -17,6 +17,9 @@ import {
   type GameDefinition,
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
+import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
+import { recordGameResult } from "../game-results";
+import { clearGameSave, createRunId, loadGameSave, saveGameSave } from "../game-state";
 import { playSound } from "../sound";
 import {
   botPlayModeLabel,
@@ -39,6 +42,16 @@ import {
   type TicTacToeCell,
 } from "./tictactoe.logic";
 
+const savePayloadVersion = 1;
+
+type SaveTicTacToe = {
+  board: TicTacToeCell[];
+  current: Mark;
+  mode: BotPlayMode;
+  difficulty: Difficulty;
+  winner: Mark | "draw" | null;
+};
+
 export const tictactoe: GameDefinition = {
   id: "tictactoe",
   name: "Tic-Tac-Toe",
@@ -49,13 +62,26 @@ export const tictactoe: GameDefinition = {
 };
 
 export function mountTicTacToe(target: HTMLElement): () => void {
+  const preferences = loadGamePreferences(tictactoe.id);
   let board = newTicTacToeBoard();
   let current: Mark = humanMark;
-  let mode: BotPlayMode = "bot";
-  let difficulty: Difficulty = "Medium";
+  let mode: BotPlayMode = parseBotPlayMode(preferences.options?.mode) ?? "bot";
+  let difficulty: Difficulty = parseDifficulty(preferences.difficulty) ?? "Medium";
   let selected = 4;
   let winner: Mark | "draw" | null = null;
   let winLine: readonly number[] = [];
+  let runId = createRunId();
+
+  const saved = loadGameSave(tictactoe.id, savePayloadVersion, parseSaveTicTacToe);
+  if (saved) {
+    runId = saved.runId;
+    board = saved.payload.board;
+    current = saved.payload.current;
+    mode = saved.payload.mode;
+    difficulty = saved.payload.difficulty;
+    winner = saved.payload.winner;
+    if (winner && winner !== "draw") winLine = getTicTacToeWinner(board)?.line ?? [];
+  }
 
   const {
     shell,
@@ -80,6 +106,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     get: () => mode,
     set: (next: BotPlayMode) => {
       mode = next;
+      savePreferences();
     },
     next: nextBotPlayMode,
     label: botPlayModeLabel,
@@ -90,6 +117,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     get: () => difficulty,
     set: (next: Difficulty) => {
       difficulty = next;
+      savePreferences();
     },
     reset: resetGame,
   };
@@ -98,12 +126,15 @@ export function mountTicTacToe(target: HTMLElement): () => void {
 
   function resetGame(): void {
     botMove.clear();
+    clearGameSave(tictactoe.id);
     resetGameProgress(shell);
+    runId = createRunId();
     board = newTicTacToeBoard();
     current = humanMark;
     selected = 4;
     winner = null;
     winLine = [];
+    savePreferences();
     render();
   }
 
@@ -192,9 +223,14 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     } else {
       current = current === humanMark ? botMark : humanMark;
     }
-    if (winner)
+    if (winner) {
+      recordFinishedGame();
+      clearGameSave(tictactoe.id);
       playSound(winner === "draw" ? "gameMajor" : winner === humanMark ? "gameWin" : "gameLose");
-    else playSound("gameMove");
+    } else {
+      saveCurrentGame();
+      playSound("gameMove");
+    }
     render();
   }
 
@@ -204,13 +240,77 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     }, 260);
   }
 
+  function saveCurrentGame(): void {
+    saveGameSave(tictactoe.id, savePayloadVersion, {
+      runId,
+      status: "playing",
+      payload: { board, current, mode, difficulty, winner },
+    });
+  }
+
+  function recordFinishedGame(): void {
+    if (!winner) return;
+    recordGameResult({
+      runId,
+      gameId: tictactoe.id,
+      difficulty,
+      outcome: winner === "draw" ? "draw" : mode === "bot" && winner === botMark ? "lost" : "won",
+      moves: board.filter(Boolean).length,
+      metadata: { mode, winner },
+    });
+  }
+
+  function savePreferences(): void {
+    saveGamePreferences(tictactoe.id, { difficulty, options: { mode } });
+  }
+
+  if (board.some(Boolean)) markGameStarted(shell);
   render();
+  if (mode === "bot" && current === botMark && !winner) scheduleBot();
   return () => {
     scope.cleanup();
     invalidMove.cleanup();
     botMove.clear();
     remove();
   };
+}
+
+function parseBotPlayMode(value: unknown): BotPlayMode | null {
+  return value === "bot" || value === "local" ? value : null;
+}
+
+function parseSaveTicTacToe(value: unknown): SaveTicTacToe | null {
+  if (!isRecord(value)) return null;
+  const board = parseBoard(value.board);
+  const current = parseMark(value.current);
+  const mode = parseBotPlayMode(value.mode);
+  const difficulty = parseDifficulty(value.difficulty);
+  const winner = parseWinner(value.winner);
+  if (!board || !current || !mode || !difficulty || winner === undefined) return null;
+  return { board, current, mode, difficulty, winner };
+}
+
+function parseBoard(value: unknown): TicTacToeCell[] | null {
+  if (!Array.isArray(value) || value.length !== ticTacToeSize * ticTacToeSize) return null;
+  const board = value.map(parseCell);
+  return board.every((cell): cell is TicTacToeCell => cell !== null) ? board : null;
+}
+
+function parseCell(value: unknown): TicTacToeCell | null {
+  return value === humanMark || value === botMark || value === "" ? (value as TicTacToeCell) : null;
+}
+
+function parseMark(value: unknown): Mark | null {
+  return value === humanMark || value === botMark ? (value as Mark) : null;
+}
+
+function parseWinner(value: unknown): Mark | "draw" | null | undefined {
+  if (value === null || value === "draw") return value;
+  return parseMark(value) ?? undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function labelFor(index: number, value: TicTacToeCell): string {
