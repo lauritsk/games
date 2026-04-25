@@ -64,12 +64,11 @@
     --line: rgba(255, 255, 255, 0.14);
     --shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
     --screen-backdrop: rgba(0, 0, 0, 0.42);
-    --confirm-backdrop: var(--screen-backdrop);
     --board-highlight: rgba(255, 255, 255, 0.22);
     --cell-bg: rgba(0, 8, 24, 0.36);
     --cell-shadow: inset 0 7px 14px rgba(0, 8, 24, 0.38), 0 1px 0 rgba(255, 255, 255, 0.16);
     --cell-open-bg: rgba(255, 255, 255, 0.12);
-    --arcade-overlay-bg: rgba(0, 0, 0, 0.42);
+    --overlay-backdrop: rgba(0, 0, 0, 0.42);
     --star-color: rgba(255, 255, 255, 0.7);
   }
 
@@ -82,12 +81,11 @@
     --line: rgba(42, 27, 18, 0.14);
     --shadow: 0 18px 45px rgba(62, 38, 20, 0.14);
     --screen-backdrop: rgba(38, 27, 18, 0.28);
-    --confirm-backdrop: var(--screen-backdrop);
     --board-highlight: rgba(255, 255, 255, 0.72);
     --cell-bg: rgba(255, 255, 255, 0.5);
     --cell-shadow: inset 0 7px 14px rgba(62, 38, 20, 0.08), 0 1px 0 rgba(255, 255, 255, 0.74);
     --cell-open-bg: rgba(255, 255, 255, 0.84);
-    --arcade-overlay-bg: rgba(255, 255, 255, 0.54);
+    --overlay-backdrop: rgba(255, 255, 255, 0.54);
     --star-color: rgba(36, 23, 15, 0.22);
   }
 
@@ -663,7 +661,7 @@
     white-space: nowrap;
   }
 
-  .arcade-overlay {
+  .board-overlay {
     position: absolute;
     z-index: 4;
     inset: 0;
@@ -673,11 +671,11 @@
     height: 100%;
     padding: clamp(18px, 5vmin, 44px);
     border-radius: inherit;
-    background: transparent;
+    background: var(--overlay-backdrop);
     text-align: center;
   }
 
-  .arcade-overlay__panel {
+  .board-overlay__panel {
     display: grid;
     gap: 10px;
     width: min(360px, calc(100% - 28px));
@@ -686,14 +684,14 @@
     box-shadow: var(--shadow);
   }
 
-  .arcade-overlay__title {
+  .board-overlay__title {
     font-size: clamp(2.2rem, 11vmin, 4.8rem);
     font-weight: 950;
     letter-spacing: -0.07em;
     line-height: 0.9;
   }
 
-  .arcade-overlay__helper {
+  .board-overlay__helper {
     color: var(--muted);
     font-size: clamp(0.9rem, 2.5vmin, 1.15rem);
     font-weight: 850;
@@ -701,7 +699,7 @@
     line-height: 1.2;
   }
 
-  .arcade-overlay[hidden] {
+  .board-overlay[hidden] {
     display: none;
   }
 
@@ -1088,7 +1086,7 @@
     z-index: 2;
     display: grid;
     place-items: center;
-    background: var(--arcade-overlay-bg);
+    background: var(--overlay-backdrop);
     color: #ff6b6b;
     font-size: clamp(1.4rem, 7vmin, 3.2rem);
     font-weight: 950;

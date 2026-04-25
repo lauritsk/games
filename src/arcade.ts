@@ -270,32 +270,54 @@ export function createArcadeHud(
   }
 }
 
-export type PauseOverlay = {
+export type BoardOverlay = {
   element: HTMLButtonElement;
-  setVisible(visible: boolean, text?: string): void;
+  setVisible(visible: boolean, title?: string, helper?: string): void;
 };
 
-export function createPauseOverlay(board: HTMLElement, onResume: () => void): PauseOverlay {
-  const panel = el("span", { className: "arcade-overlay__panel surface" });
-  const title = el("span", { className: "arcade-overlay__title", text: "Paused" });
+export type BoardOverlayOptions = {
+  title: string;
+  helper?: string;
+  className?: string;
+  onClick?: () => void;
+};
+
+export type PauseOverlay = BoardOverlay;
+
+export function createBoardOverlay(
+  target: HTMLElement,
+  options: BoardOverlayOptions,
+): BoardOverlay {
+  const panel = el("span", { className: "board-overlay__panel surface" });
+  const title = el("span", { className: "board-overlay__title", text: options.title });
   const helper = el("span", {
-    className: "arcade-overlay__helper",
-    text: "Click here or press P to resume",
+    className: "board-overlay__helper",
+    text: options.helper ?? "",
   });
   panel.append(title, helper);
 
-  const element = button("", "arcade-overlay");
+  const element = button("", ["board-overlay", options.className].filter(Boolean).join(" "));
   element.hidden = true;
   element.append(panel);
-  element.addEventListener("click", onResume);
-  board.append(element);
+  if (options.onClick) element.addEventListener("click", options.onClick);
+  target.append(element);
   return {
     element,
-    setVisible(visible, text = "Paused"): void {
+    setVisible(visible, nextTitle = options.title, nextHelper = options.helper ?? ""): void {
       element.hidden = !visible;
-      title.textContent = text;
+      title.textContent = nextTitle;
+      helper.textContent = nextHelper;
+      helper.hidden = nextHelper.length === 0;
     },
   };
+}
+
+export function createPauseOverlay(board: HTMLElement, onResume: () => void): PauseOverlay {
+  return createBoardOverlay(board, {
+    title: "Paused",
+    helper: "Click here or press P to resume",
+    onClick: onResume,
+  });
 }
 
 export function createPauseButton(actions: HTMLElement, onToggle: () => void): HTMLButtonElement {
