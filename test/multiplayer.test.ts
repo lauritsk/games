@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ServerWebSocket } from "bun";
-import { MultiplayerHub, type MultiplayerSocketData } from "../src/server/multiplayer";
+import { MultiplayerHub, type MultiplayerSocketData } from "@server/multiplayer";
 
 async function json(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;

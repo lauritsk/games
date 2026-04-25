@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { GameDatabase } from "../src/server/db";
-import { buildLocalSyncSnapshot, mergeRemoteSyncSnapshot } from "../src/sync-local";
-import { storageKey, writeStored } from "../src/storage";
+import { GameDatabase } from "@server/db";
+import { buildLocalSyncSnapshot, mergeRemoteSyncSnapshot } from "@features/sync/sync-local";
+import { storageKey, writeStored } from "@shared/storage";
 
 class FakeStorage implements Storage {
   private readonly values = new Map<string, string>();

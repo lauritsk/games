@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --hot src/server.ts",
-    "build": "bun build ./index.html --outdir=dist --minify && bun build ./src/service-worker.js --outdir=dist --minify --entry-naming='[name].[ext]' && cp src/favicon.svg dist/favicon.svg",
+    "dev": "bun --hot src/server/index.ts",
+    "build": "bun build ./index.html --outdir=dist --minify && bun build ./src/ui/service-worker.js --outdir=dist --minify --entry-naming='[name].[ext]' && cp src/ui/favicon.svg dist/favicon.svg",
     "build:single": "bun build --compile --target=browser ./index.html --outdir=dist-single --minify",
     "typecheck": "tsc --noEmit",
     "test": "bun test test/*.test.ts",

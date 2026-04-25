@@ -1,15 +1,10 @@
 # TODO
-
+- [x] Restructure repository source layout for easier navigation.
 - [x] Improve rematch flow so only host can start next match and others request readiness.
-
 - [x] Add up-to-4-player Snake multiplayer mode.
-
 - [x] Align mobile/desktop result popup visual treatment and audit responsive UI inconsistencies.
-
 - [x] Document new game addition checklist.
-
 - [x] Optimize games for touchscreen controls.
-
 - [x] Apply refactor/design cleanup pass.
 - [x] Apply web design review to current project.
 - [x] Refactor maintainability hotspots.

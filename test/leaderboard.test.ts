@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { createSyncApiHandler } from "../src/server/api";
-import { GameDatabase } from "../src/server/db";
-import { parseLeaderboardSubmission } from "../src/server/leaderboard-schema";
-import { normalizeUsername, usernameError, validateUsername } from "../src/server/username";
+import { createSyncApiHandler } from "@server/api";
+import { GameDatabase } from "@server/db";
+import { parseLeaderboardSubmission } from "@server/leaderboard/schema";
+import { normalizeUsername, usernameError, validateUsername } from "@server/username";
 
 function validSubmission(overrides: Record<string, unknown> = {}) {
   return {

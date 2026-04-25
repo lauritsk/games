@@ -43,9 +43,9 @@ Use `-B` for breaking changes.
 
 Each added game should satisfy this checklist before review:
 
-- Reuse shared project pieces first: `src/core.ts`, `src/arcade.ts`, `src/keyboard.ts`, `src/game-input.ts`, shared dialogs/history/results, and theme tokens in `src/styles.css`.
+- Reuse shared project pieces first: `@shared/core`, `@games/shared/arcade`, `@games/shared/controls`, `@shared/keyboard`, `@games/shared/game-input`, shared dialogs/history/results, and theme tokens in `src/ui/styles.css`.
 - Keep unique game feel without duplicating generic UI, input, loop, collision, storage, or styling logic that already exists.
-- Separate non-trivial rules into `src/games/<game>.logic.ts` and cover them with deterministic tests.
+- Separate non-trivial rules into `src/games/<game>/logic.ts` and cover them with deterministic tests.
 - Register a `GameDefinition` with clear name, description, difficulty/options, theme, and result behavior.
 - Look good and remain playable on desktop, tablet, and mobile viewports.
 - Avoid page scroll during normal play; if a large board cannot fit, provide intentional in-game pan/zoom/overflow controls that are usable and visually polished.

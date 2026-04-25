@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { readStored, removeStored, storageKey, writeStored } from "../src/storage";
+import { readStored, removeStored, storageKey, writeStored } from "@shared/storage";
 
 class FakeStorage {
   private readonly values = new Map<string, string>();

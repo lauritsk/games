@@ -1,4 +1,4 @@
-import { containsProfanity } from "./profanity";
+import { containsProfanity } from "@server/profanity";
 
 export const usernameError = "Choose another name.";
 

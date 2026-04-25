@@ -30,7 +30,7 @@ run = "bun run build:single"
 
 [tasks."build:server"]
 description = "Build the Bun server bundle into a temporary directory"
-run = "rm -rf /tmp/games-server-build && bun build ./src/server.ts --outdir /tmp/games-server-build --target bun"
+run = "rm -rf /tmp/games-server-build && bun build ./src/server/index.ts --outdir /tmp/games-server-build --target bun --root . --entry-naming='server.[ext]'"
 
 [tasks.lint]
 description = "Run hk-managed checks across the repository"

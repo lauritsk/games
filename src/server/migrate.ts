@@ -1,4 +1,4 @@
-import { defaultDatabasePath, GameDatabase } from "./db";
+import { defaultDatabasePath, GameDatabase } from "@server/db";
 
 const db = new GameDatabase();
 db.close();

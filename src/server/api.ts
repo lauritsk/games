@@ -1,9 +1,9 @@
-import { GameDatabase } from "./db";
-import { leaderboardConfigForGame } from "../leaderboard-config";
-import { emptySyncSnapshot, isSyncId, parseSyncPush } from "../sync-schema";
-import type { SyncSnapshot } from "../sync-types";
-import { parseLeaderboardQuery, parseLeaderboardSubmission } from "./leaderboard-schema";
-import { checkRateLimit, rateLimitKey } from "./rate-limit";
+import { GameDatabase } from "@server/db";
+import { leaderboardConfigForGame } from "@features/leaderboard/leaderboard-config";
+import { emptySyncSnapshot, isSyncId, parseSyncPush } from "@features/sync/sync-schema";
+import type { SyncSnapshot } from "@features/sync/sync-types";
+import { parseLeaderboardQuery, parseLeaderboardSubmission } from "@server/leaderboard/schema";
+import { checkRateLimit, rateLimitKey } from "@server/rate-limit";
 
 const maxRequestBytes = 1_000_000;
 

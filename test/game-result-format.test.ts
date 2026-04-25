@@ -5,8 +5,8 @@ import {
   formatDuration,
   formatOutcome,
   resultDetails,
-} from "../src/game-result-format";
-import { recordGameResult } from "../src/game-results";
+} from "@features/results/game-result-format";
+import { recordGameResult } from "@features/results/game-results";
 
 class FakeStorage {
   private readonly values = new Map<string, string>();

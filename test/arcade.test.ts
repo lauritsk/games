@@ -9,7 +9,7 @@ import {
   vectorAdd,
   vectorScale,
   wrap,
-} from "../src/arcade";
+} from "@games/shared/arcade";
 
 describe("arcade helpers", () => {
   test("checks rectangle and circle collisions", () => {

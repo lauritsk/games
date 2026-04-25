@@ -3,6 +3,16 @@
     "target": "ESNext",
     "module": "Preserve",
     "moduleResolution": "bundler",
+    "paths": {
+      "@app/*": ["./src/app/*"],
+      "@features/*": ["./src/features/*"],
+      "@games": ["./src/games/index.ts"],
+      "@games/*": ["./src/games/*"],
+      "@server": ["./src/server/index.ts"],
+      "@server/*": ["./src/server/*"],
+      "@shared/*": ["./src/shared/*"],
+      "@ui/*": ["./src/ui/*"]
+    },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "strict": true,

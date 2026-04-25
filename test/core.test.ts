@@ -14,7 +14,7 @@ import {
   pauseOnFocusLoss,
   previousDifficulty,
   shuffleInPlace,
-} from "../src/core";
+} from "@shared/core";
 
 describe("difficulty cycling", () => {
   test("moves forward through difficulties and wraps", () => {

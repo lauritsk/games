@@ -1,18 +1,18 @@
 import { describe, expect, test } from "bun:test";
-import { canMove2048, merge2048Line, slide2048 } from "../src/games/2048.logic";
+import { canMove2048, merge2048Line, slide2048 } from "@games/2048/logic";
 import {
   newBreakoutState,
   moveBreakoutPaddle,
   stepBreakout,
   circleIntersectsRect,
-} from "../src/games/breakout.logic";
+} from "@games/breakout/logic";
 import {
   connect4Human,
   dropConnect4DiscInPlace,
   findConnect4TacticalMove,
   findConnect4Win,
   newConnect4Board,
-} from "../src/games/connect4.logic";
+} from "@games/connect4/logic";
 import {
   floodOpenMinesweeperInPlace,
   minesweeperNeighbors,
@@ -21,13 +21,13 @@ import {
   openSafeMinesweeperCount,
   seededMinesweeperBoard,
   type MinesweeperConfig,
-} from "../src/games/minesweeper.logic";
+} from "@games/minesweeper/logic";
 import {
   allMemoryMatched,
   newMemoryDeck,
   openUnmatchedMemoryCards,
   type MemoryCard,
-} from "../src/games/memory.logic";
+} from "@games/memory/logic";
 import {
   moveSnakePoint,
   nextSnakeDirection,
@@ -35,13 +35,13 @@ import {
   snakePointsEqual,
   startSnakeBody,
   wrapSnakePoint,
-} from "../src/games/snake.logic";
+} from "@games/snake/logic";
 import {
   fireInvaderShot,
   newInvaderState,
   nextInvaderWave,
   stepInvaders,
-} from "../src/games/space-invaders.logic";
+} from "@games/space-invaders/logic";
 import {
   canPlaceTetrisPiece,
   clearTetrisLines,
@@ -55,7 +55,7 @@ import {
   tetrisLineScore,
   tetrisRows,
   type TetrisBoard,
-} from "../src/games/tetris.logic";
+} from "@games/tetris/logic";
 import {
   chooseTicTacToeBotMove,
   getTicTacToeWinner,
@@ -63,13 +63,13 @@ import {
   newTicTacToeBoard,
   winningTicTacToeMove,
   type TicTacToeCell,
-} from "../src/games/tictactoe.logic";
+} from "@games/tictactoe/logic";
 import {
   connect4MultiplayerAdapter,
   memoryMultiplayerAdapter,
   snakeMultiplayerAdapter,
   ticTacToeMultiplayerAdapter,
-} from "../src/server/multiplayer-games";
+} from "@server/multiplayer/games";
 
 describe("2048 logic", () => {
   test("merges one pair per tile", () => {

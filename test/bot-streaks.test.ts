@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { getBotStreak, recordBotStreakOutcome, resetBotStreak } from "../src/bot-streaks";
+import { getBotStreak, recordBotStreakOutcome, resetBotStreak } from "@features/bot-streaks";
 
 class FakeStorage {
   private readonly values = new Map<string, string>();

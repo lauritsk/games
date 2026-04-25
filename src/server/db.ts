@@ -8,8 +8,8 @@ import {
   type LeaderboardInsert,
   type LeaderboardListOptions,
   type LeaderboardRow,
-} from "./leaderboard";
-import { SYNC_SCHEMA_SQL } from "./schema";
+} from "@server/leaderboard";
+import { SYNC_SCHEMA_SQL } from "@server/schema";
 import type {
   SyncPreference,
   SyncPush,
@@ -18,7 +18,7 @@ import type {
   SyncSave,
   SyncSaveTombstone,
   SyncSnapshot,
-} from "../sync-types";
+} from "@features/sync/sync-types";
 
 const maxTotalResults = 250;
 const maxResultsPerGame = 50;

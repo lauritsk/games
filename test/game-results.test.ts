@@ -4,8 +4,8 @@ import {
   clearGameResults,
   listGameResults,
   recordGameResult,
-} from "../src/game-results";
-import { storageKey } from "../src/storage";
+} from "@features/results/game-results";
+import { storageKey } from "@shared/storage";
 
 class FakeStorage {
   private readonly values = new Map<string, string>();

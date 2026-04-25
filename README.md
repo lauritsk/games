@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="src/favicon.svg" alt="Games" width="64" height="64" />
+  <img src="src/ui/favicon.svg" alt="Games" width="64" height="64" />
   <br />
   Games
 </h1>
@@ -70,13 +70,14 @@ Open <http://localhost:3000>.
 .
 ├── index.html              # Bun HTML bundler entrypoint
 ├── src/
-│   ├── main.ts             # App shell, hash routing, game selection
-│   ├── server.ts           # Bun dev/production server
-│   ├── games.ts            # Game registry
-│   ├── games/              # Game UIs and pure logic modules
-│   ├── arcade.ts           # Shared arcade loop, geometry, and controls
-│   ├── core.ts             # Shared types and DOM/game helpers
-│   └── styles.css          # Shared styles and theme tokens
+│   ├── app/                # Browser app shell, hash routing, game selection
+│   ├── features/           # Results, leaderboards, sync, multiplayer, bot streaks
+│   ├── games/              # Game registry plus one folder per game
+│   │   ├── shared/         # Game-only helpers: arcade, controls, layout, saves
+│   │   └── <game>/         # `index.ts` UI and `logic.ts` pure rules
+│   ├── server/             # Bun API/server, DB, leaderboard, multiplayer rooms
+│   ├── shared/             # Generic DOM, modal, keyboard, storage, type helpers
+│   └── ui/                 # Theme/assets/styles/PWA/sound/visual feedback
 ├── test/                   # Bun unit tests
 ├── e2e/                    # Playwright tests
 ├── Dockerfile
@@ -84,21 +85,23 @@ Open <http://localhost:3000>.
 └── mise.toml               # Tool versions and tasks
 ```
 
+See `docs/architecture.md` for a quick "where do I edit?" map.
+
 ## Add a game
 
-1. Create a game UI module in `src/games/<game>.ts` that exports a `GameDefinition`.
-2. Put non-trivial pure logic in `src/games/<game>.logic.ts`.
+1. Create a game UI module in `src/games/<game>/index.ts` that exports a `GameDefinition`.
+2. Put non-trivial pure logic in `src/games/<game>/logic.ts`.
 3. Add deterministic tests in `test/`.
-4. Register the game in `src/games.ts`.
-5. Reuse shared helpers from `src/core.ts`, `src/arcade.ts`, `src/keyboard.ts`, and `src/game-input.ts` where possible.
+4. Register the game in `src/games/index.ts`.
+5. Reuse helpers from `@shared/core`, `@games/shared/arcade`, `@games/shared/controls`, `@games/shared/game-input`, and `@shared/keyboard` where possible.
 6. Check the new game acceptance checklist in `CONTRIBUTING.md`.
 7. Run `mise run check` before opening a PR.
 
-Themes are shared tokens in `src/styles.css` and selected by each game's `theme` field. Current theme names include `deep-cave`, `deep-ocean`, `outer-space`, and `deep-forest`.
+Themes are shared tokens in `src/ui/styles.css` and selected by each game's `theme` field. Current theme names include `deep-cave`, `deep-ocean`, `outer-space`, and `deep-forest`.
 
 ## State and sync
 
-The browser keeps game preferences, saves, and result history in `localStorage` first. When served by `src/server.ts`, the app also syncs that local data to Bun's native SQLite driver (`bun:sqlite`) through `/api/sync`.
+The browser keeps game preferences, saves, and result history in `localStorage` first. When served by `src/server/index.ts`, the app also syncs that local data to Bun's native SQLite driver (`bun:sqlite`) through `/api/sync`.
 
 Default database path:
 
@@ -116,7 +119,7 @@ Static hosting still works, but sync, public leaderboards, and live multiplayer 
 
 ## Live multiplayer
 
-When served by `src/server.ts`, Tic-Tac-Toe and Connect 4 support casual live 1v1 rooms:
+When served by `src/server/index.ts`, Tic-Tac-Toe and Connect 4 support casual live 1v1 rooms:
 
 1. Open a supported game.
 2. Select `Play online`.
@@ -130,7 +133,7 @@ Static builds cannot host live multiplayer because they have no WebSocket/API se
 
 ## Leaderboards
 
-When served by `src/server.ts`, games can publish one primary leaderboard metric per game:
+When served by `src/server/index.ts`, games can publish one primary leaderboard metric per game:
 
 - Score leaderboards rank higher values first.
 - Fastest-time leaderboards rank lower durations first.

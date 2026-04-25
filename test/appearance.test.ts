@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseAppearanceMode, resolveAppearance } from "../src/appearance";
+import { parseAppearanceMode, resolveAppearance } from "@ui/appearance";
 
 describe("appearance mode", () => {
   test("defaults invalid or missing values to system", () => {
