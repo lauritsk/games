@@ -57,10 +57,13 @@ const appearanceControl = createAppearanceControl();
 const workspace = el("section", { className: "workspace center-screen" });
 const leaderboardDialog = createLeaderboardDialog();
 const historyDialog = createGameHistoryDialog({
-  resultActions: (game, result) => {
+  resultActions: (game, result, closeCurrent) => {
     if (!isLeaderboardEligible(result)) return [];
     const submit = pillButton("Submit score");
-    submit.addEventListener("click", () => leaderboardDialog.show(game, result));
+    submit.addEventListener("click", () => {
+      closeCurrent();
+      leaderboardDialog.show(game, result);
+    });
     return [submit];
   },
 });

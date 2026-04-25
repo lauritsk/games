@@ -468,7 +468,7 @@
   }
 
   .leaderboard-dialog__panel {
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   }
 
   .leaderboard-dialog__title {
@@ -482,6 +482,20 @@
     gap: 10px;
   }
 
+  .leaderboard-dialog__summary:empty {
+    display: none;
+  }
+
+  .leaderboard-dialog__filters {
+    justify-content: start;
+    flex-wrap: wrap;
+  }
+
+  .leaderboard-dialog__filters button[data-selected="true"] {
+    border-color: color-mix(in srgb, var(--accent), transparent 35%);
+    background: color-mix(in srgb, var(--accent), transparent 78%);
+  }
+
   .leaderboard-dialog__scroll {
     min-height: 0;
     overflow: auto;
@@ -489,20 +503,24 @@
     padding-right: 4px;
   }
 
-  .leaderboard-submit {
-    padding: 12px;
-    border: 1px solid color-mix(in srgb, var(--accent), transparent 68%);
-    border-radius: calc(var(--radius) - 6px);
-    background: color-mix(in srgb, var(--accent), transparent 88%);
-  }
-
-  .leaderboard-submit__intro,
   .leaderboard-submit__status {
     margin: 0;
   }
 
+  .leaderboard-submit__status[hidden] {
+    display: none;
+  }
+
+  .leaderboard-submit__controls {
+    display: flex;
+    align-items: end;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
   .leaderboard-submit__label {
     display: grid;
+    flex: 1 1 180px;
     gap: 5px;
     font-size: 0.82rem;
     font-weight: 850;
@@ -511,7 +529,7 @@
   .leaderboard-submit__input {
     min-width: 0;
     border: 1px solid var(--line);
-    border-radius: calc(var(--radius) - 8px);
+    border-radius: var(--round);
     padding: 10px 12px;
     background: color-mix(in srgb, var(--surface), transparent 15%);
     color: var(--ink);
@@ -520,7 +538,6 @@
 
   .leaderboard-list {
     display: grid;
-    gap: 8px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -531,10 +548,18 @@
     grid-template-columns: auto 1fr auto;
     gap: 3px 10px;
     align-items: center;
-    padding: 10px;
-    border: 1px solid var(--line);
-    border-radius: calc(var(--radius) - 8px);
-    background: color-mix(in srgb, var(--surface), transparent 22%);
+    padding: 10px 2px;
+    border-block-start: 1px solid var(--line);
+  }
+
+  .leaderboard-list__item:last-child {
+    border-block-end: 1px solid var(--line);
+  }
+
+  .leaderboard-list__item--submitted {
+    margin-block-start: 8px;
+    border-block-start-style: dashed;
+    background: color-mix(in srgb, var(--accent), transparent 92%);
   }
 
   .leaderboard-list__rank {
