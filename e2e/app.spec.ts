@@ -43,6 +43,28 @@ test("appearance defaults to system and can persist explicit choice", async ({ p
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
+test("game header controls do not overlap the appearance toggle", async ({ page }) => {
+  await openGame(page, "Tic-Tac-Toe");
+
+  const history = page.getByRole("button", { name: "History" });
+  const appearance = page.getByRole("radiogroup", { name: "Color theme" });
+  await expect(history).toBeVisible();
+  await expect(appearance).toBeVisible();
+
+  const historyBox = await history.boundingBox();
+  const appearanceBox = await appearance.boundingBox();
+  expect(historyBox).not.toBeNull();
+  expect(appearanceBox).not.toBeNull();
+
+  const overlaps =
+    historyBox!.x < appearanceBox!.x + appearanceBox!.width &&
+    historyBox!.x + historyBox!.width > appearanceBox!.x &&
+    historyBox!.y < appearanceBox!.y + appearanceBox!.height &&
+    historyBox!.y + historyBox!.height > appearanceBox!.y;
+  expect(overlaps).toBe(false);
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
 test("reset confirmation can cancel or accept an active game reset", async ({ page }) => {
   await openGame(page, "Tic-Tac-Toe");
 

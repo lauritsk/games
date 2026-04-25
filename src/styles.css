@@ -262,7 +262,7 @@
   .game-screen__nav {
     position: relative;
     z-index: 3;
-    justify-content: space-between;
+    justify-content: flex-start;
   }
 
   .back-button {
