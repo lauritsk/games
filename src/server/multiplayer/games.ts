@@ -288,39 +288,11 @@ export const snakeMultiplayerAdapter: MultiplayerAdapter<
   acceptStaleActions: true,
   defaultSettings: () => ({ ...defaultSnakeOnlineSettings }),
   parseSettings: parseSnakeOnlineSettings,
-  newState: (settings = defaultSnakeOnlineSettings) => {
-    const config = snakeOnlineConfigs[settings.difficulty];
-    return {
-      difficulty: settings.difficulty,
-      wallMode: settings.wallMode,
-      speed: config.speed,
-      size: config.size,
-      food: { row: 0, column: 0 },
-      players: [],
-      winner: null,
-      tick: 0,
-      startedAt: null,
-    };
-  },
+  newState: newSnakeOnlineState,
   start(_state, seats, settings = defaultSnakeOnlineSettings) {
-    const config = snakeOnlineConfigs[settings.difficulty];
-    const players = seats.map((seat) => newSnakeOnlinePlayer(config.size, seat));
     return {
       ok: true,
-      state: {
-        difficulty: settings.difficulty,
-        wallMode: settings.wallMode,
-        speed: config.speed,
-        size: config.size,
-        food: randomSnakeFood(
-          config.size,
-          players.flatMap((player) => player.snake),
-        ),
-        players,
-        winner: null,
-        tick: 0,
-        startedAt: Date.now(),
-      },
+      state: startSnakeOnlineState(seats, settings),
     };
   },
   parseAction(value) {
@@ -329,117 +301,207 @@ export const snakeMultiplayerAdapter: MultiplayerAdapter<
     return direction ? { type: "direction", direction } : null;
   },
   applyAction(state, seat, action) {
-    if (state.winner) return { ok: false, error: "Game already finished" };
-    const index = state.players.findIndex((player) => player.seat === seat);
-    const player = state.players[index];
-    if (index < 0 || !player) return { ok: false, error: "Not in this game" };
-    if (!player.alive) return { ok: false, error: "Snake has crashed" };
-    const queuedDirection = nextSnakeDirection(
-      player.direction,
-      player.queuedDirection,
-      action.direction,
-    );
-    const players = state.players.map((entry, playerIndex) =>
-      playerIndex === index ? { ...entry, queuedDirection } : entry,
-    );
-    return { ok: true, state: { ...state, players } };
+    return queueSnakeOnlineDirection(state, seat, action.direction);
   },
-  tick(state) {
-    if (state.winner || state.players.length < 2) return null;
+  tick: tickSnakeOnlineState,
+  publicSnapshot: (state) => ({ ...state }),
+};
 
-    const proposals = new Map<MultiplayerSeat, SnakeMoveProposal>();
-    const headCounts = new Map<string, number>();
-    for (const player of state.players) {
-      if (!player.alive) continue;
-      const head = player.snake[0];
-      if (!head) continue;
-      const direction = player.queuedDirection;
-      const moved = moveSnakePoint(head, direction);
-      const outOfBounds = snakeOutOfBounds(moved, state.size);
-      const next = state.wallMode === "teleport" ? wrapSnakePoint(moved, state.size) : moved;
-      const proposal = {
-        seat: player.seat,
-        direction,
-        next,
-        ate: snakePointsEqual(next, state.food),
-        outOfBounds,
-      } satisfies SnakeMoveProposal;
-      proposals.set(player.seat, proposal);
-      const key = snakePointKey(next);
-      headCounts.set(key, (headCounts.get(key) ?? 0) + 1);
+function newSnakeOnlineState(
+  settings: SnakeOnlineSettings = defaultSnakeOnlineSettings,
+): SnakeOnlineState {
+  const config = snakeOnlineConfigs[settings.difficulty];
+  return {
+    difficulty: settings.difficulty,
+    wallMode: settings.wallMode,
+    speed: config.speed,
+    size: config.size,
+    food: { row: 0, column: 0 },
+    players: [],
+    winner: null,
+    tick: 0,
+    startedAt: null,
+  };
+}
+
+function startSnakeOnlineState(
+  seats: readonly MultiplayerSeat[],
+  settings: SnakeOnlineSettings,
+): SnakeOnlineState {
+  const config = snakeOnlineConfigs[settings.difficulty];
+  const players = seats.map((seat) => newSnakeOnlinePlayer(config.size, seat));
+  return {
+    difficulty: settings.difficulty,
+    wallMode: settings.wallMode,
+    speed: config.speed,
+    size: config.size,
+    food: randomSnakeFood(
+      config.size,
+      players.flatMap((player) => player.snake),
+    ),
+    players,
+    winner: null,
+    tick: 0,
+    startedAt: Date.now(),
+  };
+}
+
+function queueSnakeOnlineDirection(
+  state: SnakeOnlineState,
+  seat: MultiplayerSeat,
+  direction: Direction,
+): MultiplayerApplyResult<SnakeOnlineState> {
+  if (state.winner) return { ok: false, error: "Game already finished" };
+  const index = state.players.findIndex((player) => player.seat === seat);
+  const player = state.players[index];
+  if (index < 0 || !player) return { ok: false, error: "Not in this game" };
+  if (!player.alive) return { ok: false, error: "Snake has crashed" };
+  const queuedDirection = nextSnakeDirection(player.direction, player.queuedDirection, direction);
+  const players = state.players.map((entry, playerIndex) =>
+    playerIndex === index ? { ...entry, queuedDirection } : entry,
+  );
+  return { ok: true, state: { ...state, players } };
+}
+
+function tickSnakeOnlineState(
+  state: SnakeOnlineState,
+): MultiplayerApplyResult<SnakeOnlineState> | null {
+  if (state.winner || state.players.length < 2) return null;
+
+  const proposals = snakeMoveProposals(state);
+  const crashed = crashedSnakeSeats(state, proposals);
+  const { players, ateFood } = applySnakeMoveProposals(state.players, proposals, crashed);
+  const winner = snakeOnlineWinner(players);
+  const food = nextSnakeOnlineFood(state, players, ateFood, winner);
+  const nextState = { ...state, players, food, winner, tick: state.tick + 1 };
+  return winner
+    ? { ok: true, state: nextState, finished: { winner } }
+    : { ok: true, state: nextState };
+}
+
+function snakeMoveProposals(state: SnakeOnlineState): Map<MultiplayerSeat, SnakeMoveProposal> {
+  const proposals = new Map<MultiplayerSeat, SnakeMoveProposal>();
+  for (const player of state.players) {
+    if (!player.alive) continue;
+    const head = player.snake[0];
+    if (!head) continue;
+    const direction = player.queuedDirection;
+    const moved = moveSnakePoint(head, direction);
+    const outOfBounds = snakeOutOfBounds(moved, state.size);
+    const next = state.wallMode === "teleport" ? wrapSnakePoint(moved, state.size) : moved;
+    proposals.set(player.seat, {
+      seat: player.seat,
+      direction,
+      next,
+      ate: snakePointsEqual(next, state.food),
+      outOfBounds,
+    });
+  }
+  return proposals;
+}
+
+function crashedSnakeSeats(
+  state: SnakeOnlineState,
+  proposals: ReadonlyMap<MultiplayerSeat, SnakeMoveProposal>,
+): Set<MultiplayerSeat> {
+  const headCounts = snakeHeadCounts(proposals.values());
+  const occupied = occupiedSnakeCells(state.players, proposals);
+  const crashed = new Set<MultiplayerSeat>();
+  for (const proposal of proposals.values()) {
+    const key = snakePointKey(proposal.next);
+    if (
+      (proposal.outOfBounds && state.wallMode === "fatal") ||
+      (headCounts.get(key) ?? 0) > 1 ||
+      occupied.has(key)
+    ) {
+      crashed.add(proposal.seat);
+    }
+  }
+  return crashed;
+}
+
+function snakeHeadCounts(proposals: Iterable<SnakeMoveProposal>): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const proposal of proposals) {
+    const key = snakePointKey(proposal.next);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function occupiedSnakeCells(
+  players: readonly SnakeOnlinePlayer[],
+  proposals: ReadonlyMap<MultiplayerSeat, SnakeMoveProposal>,
+): Set<string> {
+  const occupied = new Set<string>();
+  for (const player of players) {
+    const proposal = proposals.get(player.seat);
+    const body =
+      player.alive && proposal && !proposal.ate ? player.snake.slice(0, -1) : player.snake;
+    body.forEach((point) => occupied.add(snakePointKey(point)));
+  }
+  return occupied;
+}
+
+function applySnakeMoveProposals(
+  players: readonly SnakeOnlinePlayer[],
+  proposals: ReadonlyMap<MultiplayerSeat, SnakeMoveProposal>,
+  crashed: ReadonlySet<MultiplayerSeat>,
+): { players: SnakeOnlinePlayer[]; ateFood: boolean } {
+  let ateFood = false;
+  const nextPlayers = players.map((player) => {
+    const proposal = proposals.get(player.seat);
+    if (!player.alive || !proposal) return player;
+    if (crashed.has(player.seat)) {
+      return {
+        ...player,
+        direction: proposal.direction,
+        queuedDirection: proposal.direction,
+        alive: false,
+      };
     }
 
-    const occupied = new Set<string>();
-    for (const player of state.players) {
-      const proposal = proposals.get(player.seat);
-      const body =
-        player.alive && proposal && !proposal.ate ? player.snake.slice(0, -1) : player.snake;
-      body.forEach((point) => occupied.add(snakePointKey(point)));
-    }
-
-    const crashed = new Set<MultiplayerSeat>();
-    for (const proposal of proposals.values()) {
-      const key = snakePointKey(proposal.next);
-      if (
-        (proposal.outOfBounds && state.wallMode === "fatal") ||
-        (headCounts.get(key) ?? 0) > 1 ||
-        occupied.has(key)
-      ) {
-        crashed.add(proposal.seat);
-      }
-    }
-
-    let ateFood = false;
-    const players = state.players.map((player) => {
-      const proposal = proposals.get(player.seat);
-      if (!player.alive || !proposal) return player;
-      if (crashed.has(player.seat)) {
-        return {
-          ...player,
-          direction: proposal.direction,
-          queuedDirection: proposal.direction,
-          alive: false,
-        };
-      }
-
-      const snake = [proposal.next, ...player.snake];
-      if (proposal.ate) {
-        ateFood = true;
-        return {
-          ...player,
-          snake,
-          direction: proposal.direction,
-          queuedDirection: proposal.direction,
-          score: player.score + 1,
-        };
-      }
-      snake.pop();
+    const snake = [proposal.next, ...player.snake];
+    if (proposal.ate) {
+      ateFood = true;
       return {
         ...player,
         snake,
         direction: proposal.direction,
         queuedDirection: proposal.direction,
+        score: player.score + 1,
       };
-    });
+    }
+    snake.pop();
+    return {
+      ...player,
+      snake,
+      direction: proposal.direction,
+      queuedDirection: proposal.direction,
+    };
+  });
+  return { players: nextPlayers, ateFood };
+}
 
-    const alive = players.filter((player) => player.alive);
-    const onlySurvivor = alive[0]?.seat;
-    const winner: MultiplayerSeat | "draw" | null =
-      alive.length === 0 ? "draw" : alive.length === 1 && onlySurvivor ? onlySurvivor : null;
-    const food =
-      ateFood && !winner
-        ? randomSnakeFood(
-            state.size,
-            players.flatMap((player) => player.snake),
-          )
-        : state.food;
-    const nextState = { ...state, players, food, winner, tick: state.tick + 1 };
-    return winner
-      ? { ok: true, state: nextState, finished: { winner } }
-      : { ok: true, state: nextState };
-  },
-  publicSnapshot: (state) => ({ ...state }),
-};
+function snakeOnlineWinner(players: readonly SnakeOnlinePlayer[]): MultiplayerSeat | "draw" | null {
+  const alive = players.filter((player) => player.alive);
+  const onlySurvivor = alive[0]?.seat;
+  if (alive.length === 0) return "draw";
+  return alive.length === 1 && onlySurvivor ? onlySurvivor : null;
+}
+
+function nextSnakeOnlineFood(
+  state: SnakeOnlineState,
+  players: readonly SnakeOnlinePlayer[],
+  ateFood: boolean,
+  winner: MultiplayerSeat | "draw" | null,
+): SnakePoint {
+  if (!ateFood || winner) return state.food;
+  return randomSnakeFood(
+    state.size,
+    players.flatMap((player) => player.snake),
+  );
+}
 
 type MemoryOnlineSettings = {
   difficulty: Difficulty;

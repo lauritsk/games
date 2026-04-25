@@ -1,5 +1,6 @@
 # TODO
 
+- [x] Apply requested refactor cleanup pass while preserving behavior.
 - [x] Continue CSS dedupe pass with shared components/tokens.
 - [x] Update online waiting popup room code and player labels.
 - [x] Make results screen `n` key dismiss and start a new game instantly.
