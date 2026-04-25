@@ -335,7 +335,7 @@ export function mountSnake(target: HTMLElement): () => void {
     renderedSize = config.size;
     setBoardGrid(grid, config.size);
     cells = syncChildren(grid, config.size * config.size, () =>
-      el("div", { className: "snake-cell" }),
+      el("div", { className: "game-cell snake-cell" }),
     );
     return true;
   }

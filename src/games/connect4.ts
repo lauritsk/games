@@ -14,6 +14,7 @@ import {
   onDocumentKeyDown,
   resetGameProgress,
   setBoardGrid,
+  setSelected,
   syncChildren,
   type Difficulty,
   type GameDefinition,
@@ -157,7 +158,7 @@ export function mountConnect4(target: HTMLElement): () => void {
 
     const cells = syncChildren(grid, connect4Rows * connect4Columns, (index) => {
       const column = index % connect4Columns;
-      const cell = el("button", { className: "slot", type: "button" });
+      const cell = el("button", { className: "game-cell slot", type: "button" });
       cell.addEventListener("click", () => playTurn(column));
       cell.addEventListener("pointerenter", () => {
         if (selectedColumn === column) return;
@@ -174,8 +175,7 @@ export function mountConnect4(target: HTMLElement): () => void {
       cell.dataset.player = String(value);
       cell.dataset.row = String(row);
       cell.dataset.column = String(column);
-      if (column === selectedColumn) cell.dataset.selected = "true";
-      else delete cell.dataset.selected;
+      setSelected(cell, column === selectedColumn);
       if (winningLine.some(([r, c]) => r === row && c === column)) cell.dataset.win = "true";
       else delete cell.dataset.win;
       cell.disabled = isLocked();

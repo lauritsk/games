@@ -16,6 +16,7 @@ import {
   parseStartedAt,
   resetGameProgress,
   setBoardGrid,
+  setSelected,
   syncChildren,
   type Difficulty,
   type GameDefinition,
@@ -157,7 +158,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
     difficultyButton.textContent = difficulty;
 
     const tiles = syncChildren(grid, shape.rows * shape.columns, () => {
-      const tile = el("button", { className: "mine-cell", type: "button" });
+      const tile = el("button", { className: "game-cell mine-cell", type: "button" });
       tile.addEventListener("click", () =>
         openCell(Number(tile.dataset.row), Number(tile.dataset.column)),
       );
@@ -186,7 +187,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       tile.dataset.open = String(cell.open);
       tile.dataset.flag = String(cell.flag);
       tile.dataset.mine = String(cell.mine && (cell.open || state === "lost"));
-      tile.dataset.selected = String(row === selectedRow && column === selectedColumn);
+      setSelected(tile, row === selectedRow && column === selectedColumn);
       tile.textContent = cellText(cell);
       tile.disabled = false;
       tile.setAttribute("aria-disabled", String(state !== "playing"));

@@ -13,6 +13,7 @@ import {
   onDocumentKeyDown,
   resetGameProgress,
   setBoardGrid,
+  setSelected,
   syncChildren,
   type Difficulty,
   type GameDefinition,
@@ -145,7 +146,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     difficultyButton.textContent = difficulty;
 
     const cells = syncChildren(grid, board.length, (index) => {
-      const cell = el("button", { className: "ttt-cell", type: "button" });
+      const cell = el("button", { className: "game-cell ttt-cell", type: "button" });
       cell.addEventListener("click", () => playTurn(index));
       cell.addEventListener("pointerenter", () => {
         if (selected === index) return;
@@ -159,7 +160,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
       if (!cell) return;
       cell.textContent = value;
       cell.setAttribute("aria-label", labelFor(index, value));
-      cell.dataset.selected = String(index === selected);
+      setSelected(cell, index === selected);
       cell.dataset.mark = value;
       if (winLine.includes(index)) cell.dataset.win = "true";
       else delete cell.dataset.win;

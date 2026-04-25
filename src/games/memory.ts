@@ -14,6 +14,7 @@ import {
   parseStartedAt,
   resetGameProgress,
   setBoardGrid,
+  setSelected,
   syncChildren,
   type Difficulty,
   type GameDefinition,
@@ -135,7 +136,7 @@ export function mountMemory(target: HTMLElement): () => void {
     difficultyButton.textContent = difficulty;
 
     const tiles = syncChildren(grid, cards.length, (index) => {
-      const tile = el("button", { className: "memory-card", type: "button" });
+      const tile = el("button", { className: "game-cell memory-card", type: "button" });
       tile.addEventListener("click", () => flip(index));
       tile.addEventListener("pointerenter", () => {
         if (selected === index) return;
@@ -152,7 +153,7 @@ export function mountMemory(target: HTMLElement): () => void {
       tile.textContent = faceUp ? card.symbol : "?";
       tile.dataset.open = String(faceUp);
       tile.dataset.matched = String(card.matched);
-      tile.dataset.selected = String(index === selected);
+      setSelected(tile, index === selected);
       tile.disabled = false;
       tile.setAttribute("aria-disabled", String(lock || card.open || card.matched));
     });

@@ -254,7 +254,7 @@ export function mountTetris(target: HTMLElement): () => void {
       tetrisPieceCells(tetrisGhostPiece(state.board, state.piece)).map(pointKey),
     );
     const cells = syncChildren(board, tetrisRows * tetrisColumns, () =>
-      el("div", { className: "tetris-cell" }),
+      el("div", { className: "game-cell tetris-cell" }),
     );
     cells.forEach((cell, index) => {
       const point = { row: Math.floor(index / tetrisColumns), column: index % tetrisColumns };
