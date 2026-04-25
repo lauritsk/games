@@ -12,6 +12,14 @@ import {
   type GameDefinition,
   type MountScope,
 } from "./core";
+import {
+  getAppearanceMode,
+  getResolvedAppearance,
+  initializeAppearance,
+  onAppearanceChange,
+  setAppearanceMode,
+  type AppearanceMode,
+} from "./appearance";
 import { games } from "./games";
 import { playSound, unlockSound } from "./sound";
 
@@ -24,19 +32,85 @@ let gameScope: MountScope | null = null;
 let confirmCleanup: (() => void) | null = null;
 
 const page = el("main", { className: "app-shell center-screen" });
+const appearanceControl = createAppearanceControl();
 const workspace = el("section", { className: "workspace center-screen" });
 
-page.append(workspace);
+page.append(appearanceControl, workspace);
 app.append(page);
 
 window.addEventListener("hashchange", renderRoute);
 window.addEventListener("pointerdown", unlockSound, { capture: true });
 window.addEventListener("keydown", unlockSound, { capture: true });
+initializeAppearance();
+onAppearanceChange(() => {
+  updateAppearanceControl(appearanceControl);
+  updateThemeColor();
+});
 renderRoute();
+
+function createAppearanceControl(): HTMLElement {
+  const control = el("div", { className: "appearance-toggle surface", ariaLabel: "Color theme" });
+  control.setAttribute("role", "radiogroup");
+  (["system", "light", "dark"] satisfies AppearanceMode[]).forEach((mode) => {
+    const option = el("button", {
+      className: "appearance-toggle__option interactive",
+      text: labelAppearanceMode(mode),
+      type: "button",
+    });
+    option.dataset.mode = mode;
+    option.setAttribute("role", "radio");
+    option.addEventListener("click", () => setAppearanceMode(mode));
+    control.append(option);
+  });
+  updateAppearanceControl(control);
+  return control;
+}
+
+function updateAppearanceControl(control: HTMLElement): void {
+  const currentMode = getAppearanceMode();
+  control.querySelectorAll<HTMLButtonElement>("button[data-mode]").forEach((option) => {
+    const selected = option.dataset.mode === currentMode;
+    option.dataset.selected = String(selected);
+    option.setAttribute("aria-checked", String(selected));
+    option.title = currentMode === "system" ? `System: ${getResolvedAppearance()}` : "";
+  });
+}
+
+function labelAppearanceMode(mode: AppearanceMode): string {
+  if (mode === "system") return "System";
+  if (mode === "light") return "Light";
+  return "Dark";
+}
+
+function updateThemeColor(): void {
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!meta) return;
+  const theme = (document.body.dataset.theme ?? "deep-cave") as GameDefinition["theme"];
+  meta.content = themeColor(theme, getResolvedAppearance());
+}
+
+function themeColor(theme: GameDefinition["theme"], appearance: "light" | "dark"): string {
+  const colors = {
+    dark: {
+      "deep-cave": "#120d0a",
+      "deep-ocean": "#061521",
+      "outer-space": "#090716",
+      "deep-forest": "#07120d",
+    },
+    light: {
+      "deep-cave": "#fff4e6",
+      "deep-ocean": "#e7f7ff",
+      "outer-space": "#f1efff",
+      "deep-forest": "#edfbe8",
+    },
+  } satisfies Record<"light" | "dark", Record<GameDefinition["theme"], string>>;
+  return colors[appearance][theme];
+}
 
 function renderRoute(): void {
   const game = getRouteGame();
   document.body.dataset.theme = game?.theme ?? "deep-cave";
+  updateThemeColor();
   dashboardScope?.cleanup();
   dashboardScope = null;
   if (game) renderGame(game);

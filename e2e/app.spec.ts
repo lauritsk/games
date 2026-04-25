@@ -27,6 +27,22 @@ test.beforeEach(async ({ page }) => {
   await watchForClientErrors(page);
 });
 
+test("appearance defaults to system and can persist explicit choice", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-appearance", "dark");
+  await expect(page.getByRole("radio", { name: "System" })).toHaveAttribute("aria-checked", "true");
+
+  await page.getByRole("radio", { name: "Light" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-appearance", "light");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-appearance", "light");
+
+  await page.getByRole("radio", { name: "System" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-appearance", "dark");
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
 test("reset confirmation can cancel or accept an active game reset", async ({ page }) => {
   await openGame(page, "Tic-Tac-Toe");
 
