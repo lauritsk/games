@@ -5,7 +5,9 @@ Description=Games container
 Image=docker.io/lauritsk/games:latest
 AutoUpdate=registry
 ContainerName=games
+Environment=GAMES_DB_PATH=/app/data/games.sqlite
 PublishPort=127.0.0.1:3000:3000/tcp
+Volume=/var/lib/games/data:/app/data:Z,U
 
 [Service]
 Restart=always

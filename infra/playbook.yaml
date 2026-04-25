@@ -15,6 +15,14 @@
         state: directory
         mode: '0755'
 
+    - name: Ensure games state directory exists
+      ansible.builtin.file:
+        path: /var/lib/games/data
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
     - name: Ensure games quadlet is installed
       ansible.builtin.copy:
         src: games.container
