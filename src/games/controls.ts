@@ -15,6 +15,16 @@ export type DifficultyControl = {
   reset(): void;
 };
 
+export type BotPlayMode = "bot" | "local";
+
+export function nextBotPlayMode(mode: BotPlayMode): BotPlayMode {
+  return mode === "bot" ? "local" : "bot";
+}
+
+export function botPlayModeLabel(mode: BotPlayMode): string {
+  return mode === "bot" ? "Vs bot" : "2 players";
+}
+
 export type ToggleControl<TValue extends string> = {
   get(): TValue;
   set(value: TValue): void;

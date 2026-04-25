@@ -1,4 +1,5 @@
 import {
+  createDelayedAction,
   createGameShell,
   createMountScope,
   el,
@@ -19,11 +20,14 @@ import {
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import {
+  botPlayModeLabel,
   changeDifficulty,
   createDifficultyControl,
   createModeControl,
   createResetControl,
+  nextBotPlayMode,
   toggleMode,
+  type BotPlayMode,
 } from "./controls";
 import {
   chooseConnect4BotColumn,
@@ -38,8 +42,6 @@ import {
   type Connect4Player,
   type Connect4WinLine,
 } from "./connect4.logic";
-
-type Mode = "bot" | "local";
 
 const names: Record<Connect4Player, string> = { 1: "Red", 2: "Gold" };
 
@@ -58,10 +60,9 @@ export function mountConnect4(target: HTMLElement): () => void {
   let winner: Connect4Player | null = null;
   let winningLine: Connect4WinLine = [];
   let moves = 0;
-  let mode: Mode = "bot";
+  let mode: BotPlayMode = "bot";
   let difficulty: Difficulty = "Medium";
   let selectedColumn = Math.floor(connect4Columns / 2);
-  let botTimer: ReturnType<typeof setTimeout> | null = null;
 
   const {
     shell,
@@ -79,15 +80,16 @@ export function mountConnect4(target: HTMLElement): () => void {
   setBoardGrid(grid, connect4Columns, connect4Rows);
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
+  const botMove = createDelayedAction();
   onDocumentKeyDown(onKeyDown, scope);
 
   const modeControl = {
     get: () => mode,
-    set: (next: Mode) => {
+    set: (next: BotPlayMode) => {
       mode = next;
     },
-    next: (current: Mode) => (current === "bot" ? "local" : "bot"),
-    label: modeLabel,
+    next: nextBotPlayMode,
+    label: botPlayModeLabel,
     reset: resetGame,
   };
   const modeButton = createModeControl(actions, modeControl);
@@ -104,7 +106,7 @@ export function mountConnect4(target: HTMLElement): () => void {
   const requestReset = createResetControl(actions, shell, resetGame);
 
   function resetGame(): void {
-    clearBotTimer();
+    botMove.clear();
     resetGameProgress(shell);
     board = newConnect4Board();
     current = connect4Human;
@@ -118,7 +120,7 @@ export function mountConnect4(target: HTMLElement): () => void {
   function render(): void {
     shell.dataset.turn = String(current);
     status.textContent = statusText();
-    modeButton.textContent = modeLabel(mode);
+    modeButton.textContent = botPlayModeLabel(mode);
     difficultyButton.textContent = difficulty;
 
     const cells = syncChildren(grid, connect4Rows * connect4Columns, (index) => {
@@ -223,16 +225,9 @@ export function mountConnect4(target: HTMLElement): () => void {
   }
 
   function scheduleBot(): void {
-    clearBotTimer();
-    botTimer = setTimeout(() => {
-      botTimer = null;
+    botMove.start(() => {
       if (current === connect4Bot && !winner) play(chooseConnect4BotColumn(board, difficulty));
     }, 360);
-  }
-
-  function clearBotTimer(): void {
-    if (botTimer) clearTimeout(botTimer);
-    botTimer = null;
   }
 
   function canPlay(column: number): boolean {
@@ -244,13 +239,9 @@ export function mountConnect4(target: HTMLElement): () => void {
   return () => {
     scope.cleanup();
     invalidMove.cleanup();
-    clearBotTimer();
+    botMove.clear();
     remove();
   };
-}
-
-function modeLabel(mode: Mode): string {
-  return mode === "bot" ? "Vs bot" : "2 players";
 }
 
 function labelFor(row: number, column: number, value: Connect4Cell): string {

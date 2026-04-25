@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  createDelayedAction,
   moveGridIndex,
   moveGridPoint,
   nextDifficulty,
@@ -45,3 +46,33 @@ test("shuffleInPlace preserves items", () => {
   const items = [1, 2, 3, 4];
   expect(shuffleInPlace([...items]).sort()).toEqual(items);
 });
+
+test("delayed actions can be rescheduled and cleared", async () => {
+  let value = 0;
+  const action = createDelayedAction();
+
+  action.start(() => {
+    value = 1;
+  }, 20);
+  action.start(() => {
+    value = 2;
+  }, 20);
+  expect(action.pending).toBe(true);
+
+  await sleep(40);
+  expect(value).toBe(2);
+  expect(action.pending).toBe(false);
+
+  action.start(() => {
+    value = 3;
+  }, 20);
+  action.clear();
+  expect(action.pending).toBe(false);
+
+  await sleep(40);
+  expect(value).toBe(2);
+});
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

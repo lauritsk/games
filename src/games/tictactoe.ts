@@ -1,4 +1,5 @@
 import {
+  createDelayedAction,
   createGameShell,
   createMountScope,
   el,
@@ -18,11 +19,14 @@ import {
 import { createInvalidMoveFeedback } from "../feedback";
 import { playSound } from "../sound";
 import {
+  botPlayModeLabel,
   changeDifficulty,
   createDifficultyControl,
   createModeControl,
   createResetControl,
+  nextBotPlayMode,
   toggleMode,
+  type BotPlayMode,
 } from "./controls";
 import {
   botMark,
@@ -34,8 +38,6 @@ import {
   type Mark,
   type TicTacToeCell,
 } from "./tictactoe.logic";
-
-type Mode = "bot" | "local";
 
 export const tictactoe: GameDefinition = {
   id: "tictactoe",
@@ -49,12 +51,11 @@ export const tictactoe: GameDefinition = {
 export function mountTicTacToe(target: HTMLElement): () => void {
   let board = newTicTacToeBoard();
   let current: Mark = humanMark;
-  let mode: Mode = "bot";
+  let mode: BotPlayMode = "bot";
   let difficulty: Difficulty = "Medium";
   let selected = 4;
   let winner: Mark | "draw" | null = null;
   let winLine: readonly number[] = [];
-  let botTimer: ReturnType<typeof setTimeout> | null = null;
 
   const {
     shell,
@@ -72,15 +73,16 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   setBoardGrid(grid, ticTacToeSize);
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
+  const botMove = createDelayedAction();
   onDocumentKeyDown(onKeyDown, scope);
 
   const modeControl = {
     get: () => mode,
-    set: (next: Mode) => {
+    set: (next: BotPlayMode) => {
       mode = next;
     },
-    next: (current: Mode) => (current === "bot" ? "local" : "bot"),
-    label: modeLabel,
+    next: nextBotPlayMode,
+    label: botPlayModeLabel,
     reset: resetGame,
   };
   const modeButton = createModeControl(actions, modeControl);
@@ -95,7 +97,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   const requestReset = createResetControl(actions, shell, resetGame);
 
   function resetGame(): void {
-    clearBotTimer();
+    botMove.clear();
     resetGameProgress(shell);
     board = newTicTacToeBoard();
     current = humanMark;
@@ -107,7 +109,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
 
   function render(): void {
     status.textContent = statusText();
-    modeButton.textContent = modeLabel(mode);
+    modeButton.textContent = botPlayModeLabel(mode);
     difficultyButton.textContent = difficulty;
 
     const cells = syncChildren(grid, board.length, (index) => {
@@ -197,29 +199,18 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   }
 
   function scheduleBot(): void {
-    clearBotTimer();
-    botTimer = setTimeout(() => {
-      botTimer = null;
+    botMove.start(() => {
       if (current === botMark && !winner) play(chooseTicTacToeBotMove(board, difficulty));
     }, 260);
-  }
-
-  function clearBotTimer(): void {
-    if (botTimer) clearTimeout(botTimer);
-    botTimer = null;
   }
 
   render();
   return () => {
     scope.cleanup();
     invalidMove.cleanup();
-    clearBotTimer();
+    botMove.clear();
     remove();
   };
-}
-
-function modeLabel(mode: Mode): string {
-  return mode === "bot" ? "Vs bot" : "2 players";
 }
 
 function labelFor(index: number, value: TicTacToeCell): string {

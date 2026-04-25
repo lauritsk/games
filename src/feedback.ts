@@ -1,3 +1,4 @@
+import { createDelayedAction } from "./lifecycle";
 import { playSound } from "./sound";
 
 export type InvalidMoveFeedback = {
@@ -6,7 +7,7 @@ export type InvalidMoveFeedback = {
 };
 
 export function createInvalidMoveFeedback(target: HTMLElement): InvalidMoveFeedback {
-  let timer: ReturnType<typeof setTimeout> | null = null;
+  const invalidReset = createDelayedAction();
 
   return {
     trigger() {
@@ -14,15 +15,12 @@ export function createInvalidMoveFeedback(target: HTMLElement): InvalidMoveFeedb
       delete target.dataset.invalid;
       void target.offsetWidth;
       target.dataset.invalid = "true";
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
+      invalidReset.start(() => {
         delete target.dataset.invalid;
-        timer = null;
       }, 260);
     },
     cleanup() {
-      if (timer) clearTimeout(timer);
-      timer = null;
+      invalidReset.clear();
       delete target.dataset.invalid;
     },
   };

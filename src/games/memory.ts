@@ -1,4 +1,5 @@
 import {
+  createDelayedAction,
   createGameShell,
   createMountScope,
   el,
@@ -47,7 +48,6 @@ export function mountMemory(target: HTMLElement): () => void {
   let selected = 0;
   let moves = 0;
   let lock = false;
-  let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 
   const {
     shell,
@@ -65,6 +65,7 @@ export function mountMemory(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
+  const pendingFlip = createDelayedAction();
   const difficultyControl = {
     get: () => difficulty,
     set: (next: Difficulty) => {
@@ -77,7 +78,7 @@ export function mountMemory(target: HTMLElement): () => void {
   onDocumentKeyDown(onKeyDown, scope);
 
   function resetGame(): void {
-    clearPending();
+    pendingFlip.clear();
     resetGameProgress(shell);
     config = configs[difficulty];
     cards = newMemoryDeck(config.pairs);
@@ -160,11 +161,10 @@ export function mountMemory(target: HTMLElement): () => void {
       } else {
         playSound("gameBad");
         lock = true;
-        pendingTimer = setTimeout(() => {
+        pendingFlip.start(() => {
           a.open = false;
           b.open = false;
           lock = false;
-          pendingTimer = null;
           render();
         }, 650);
       }
@@ -181,15 +181,9 @@ export function mountMemory(target: HTMLElement): () => void {
     return `Row ${row}, column ${column}, hidden card`;
   }
 
-  function clearPending(): void {
-    if (!pendingTimer) return;
-    clearTimeout(pendingTimer);
-    pendingTimer = null;
-  }
-
   render();
   return () => {
-    clearPending();
+    pendingFlip.clear();
     invalidMove.cleanup();
     scope.cleanup();
     remove();

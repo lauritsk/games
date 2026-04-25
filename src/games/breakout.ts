@@ -10,6 +10,7 @@ import {
   type FixedStepLoop,
 } from "../arcade";
 import {
+  createDelayedAction,
   createGameShell,
   createMountScope,
   el,
@@ -57,7 +58,6 @@ export function mountBreakout(target: HTMLElement): () => void {
   let state = newBreakoutState(configs[difficulty]);
   let mode: Mode = "ready";
   let loop: FixedStepLoop | null = null;
-  let lifeLostTimer: ReturnType<typeof setTimeout> | null = null;
 
   const { shell, status, actions, board, remove } = createGameShell(target, {
     gameClass: "breakout-game",
@@ -69,6 +69,7 @@ export function mountBreakout(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
+  const lifeLostReset = createDelayedAction();
   const input = createHeldKeyInput(scope, (direction) => {
     if (isConfirmOpen() || (direction !== "left" && direction !== "right")) return;
     start();
@@ -126,7 +127,7 @@ export function mountBreakout(target: HTMLElement): () => void {
 
   function resetGame(): void {
     stopTimer();
-    stopLifeLostTimer();
+    lifeLostReset.clear();
     shell.dataset.lifeLost = "false";
     resetGameProgress(shell);
     state = newBreakoutState(configs[difficulty]);
@@ -261,18 +262,10 @@ export function mountBreakout(target: HTMLElement): () => void {
   }
 
   function showLifeLost(): void {
-    stopLifeLostTimer();
     shell.dataset.lifeLost = "true";
-    lifeLostTimer = setTimeout(() => {
+    lifeLostReset.start(() => {
       shell.dataset.lifeLost = "false";
-      lifeLostTimer = null;
     }, 900);
-  }
-
-  function stopLifeLostTimer(): void {
-    if (!lifeLostTimer) return;
-    clearTimeout(lifeLostTimer);
-    lifeLostTimer = null;
   }
 
   function aliveBrickCount(next: BreakoutState): number {
@@ -292,7 +285,7 @@ export function mountBreakout(target: HTMLElement): () => void {
   render();
   return () => {
     stopTimer();
-    stopLifeLostTimer();
+    lifeLostReset.clear();
     invalidMove.cleanup();
     input.destroy();
     scope.cleanup();

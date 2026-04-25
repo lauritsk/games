@@ -12,6 +12,7 @@ import {
   type FixedStepLoop,
 } from "../arcade";
 import {
+  createDelayedAction,
   createGameShell,
   createMountScope,
   el,
@@ -83,7 +84,6 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   let state = newInvaderState(configs[difficulty]);
   let mode: Mode = "ready";
   let loop: FixedStepLoop | null = null;
-  let waveTimer: ReturnType<typeof setTimeout> | null = null;
 
   const { shell, status, actions, board, remove } = createGameShell(target, {
     gameClass: "invaders-game",
@@ -95,6 +95,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
+  const waveAdvance = createDelayedAction();
   const input = createHeldKeyInput(scope, (direction) => {
     if (isConfirmOpen() || (direction !== "left" && direction !== "right")) return;
     start();
@@ -159,7 +160,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
 
   function resetGame(): void {
     stopTimer();
-    stopWaveTimer();
+    waveAdvance.clear();
     resetGameProgress(shell);
     state = newInvaderState(configs[difficulty]);
     mode = "ready";
@@ -235,8 +236,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
       stopTimer();
       input.clear();
       playSound("gameWin");
-      waveTimer = setTimeout(() => {
-        waveTimer = null;
+      waveAdvance.start(() => {
         state = nextInvaderWave(state, configs[difficulty]);
         mode = "playing";
         restartTimer();
@@ -346,16 +346,10 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     loop = null;
   }
 
-  function stopWaveTimer(): void {
-    if (!waveTimer) return;
-    clearTimeout(waveTimer);
-    waveTimer = null;
-  }
-
   render();
   return () => {
     stopTimer();
-    stopWaveTimer();
+    waveAdvance.clear();
     invalidMove.cleanup();
     input.destroy();
     scope.cleanup();
