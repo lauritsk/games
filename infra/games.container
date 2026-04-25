@@ -1,0 +1,14 @@
+[Unit]
+Description=Games container
+
+[Container]
+Image=docker.io/lauritsk/games:latest
+AutoUpdate=registry
+ContainerName=games
+PublishPort=3000:3000
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

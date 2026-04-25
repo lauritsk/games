@@ -1,0 +1,2 @@
+[games]
+games ansible_host=games ansible_user=root
