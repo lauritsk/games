@@ -15,4 +15,4 @@ const server = Bun.serve({
   },
 });
 
-console.log(`Classic Games running at ${server.url}`);
+console.log(`Games running at ${server.url}`);

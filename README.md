@@ -1,11 +1,11 @@
 <h1 align="center">
-  <img src="src/favicon.svg" alt="Classic Games" width="64" height="64" />
+  <img src="src/favicon.svg" alt="Games" width="64" height="64" />
   <br />
-  Classic Games
+  Games
 </h1>
 
 <p align="center">
-  A small, fast collection of browser-playable classic games built with Bun, TypeScript, and plain CSS.
+  A small, fast collection of browser-playable games built with Bun, TypeScript, and plain CSS.
 </p>
 
 ## Features
@@ -34,7 +34,7 @@ Open <http://localhost:3000>.
 | Game | Notes |
 | --- | --- |
 | Connect 4 | Local play against a bot with difficulty-aware moves. |
-| Minesweeper | Classic reveal/flag puzzle with scalable difficulty. |
+| Minesweeper | Reveal/flag puzzle with scalable difficulty. |
 | 2048 | Sliding tile puzzle with keyboard controls. |
 | Tic-Tac-Toe | Easy, medium, hard bot plus local two-player mode. |
 | Snake | Speed and wall behavior change by difficulty. |

@@ -18,7 +18,7 @@ Implemented games:
 
 ## Roadmap
 
-### Phase 1 — Ship high-value classics
+### Phase 1 — Ship high-value games
 
 Build these first because they fit current patterns or unlock reusable systems for later games.
 
