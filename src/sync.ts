@@ -101,7 +101,7 @@ function parseSyncResponse(value: unknown) {
   return parseSyncSnapshot(value) ?? emptySyncSnapshot();
 }
 
-function getDeviceId(): string {
+export function getDeviceId(): string {
   const stored = readStored(deviceKey, DEVICE_SCHEMA_VERSION, (value) =>
     typeof value === "string" ? value : null,
   );

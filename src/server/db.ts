@@ -1,6 +1,14 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { Database } from "bun:sqlite";
+import {
+  createLeaderboardId,
+  rowToLeaderboardEntry,
+  type LeaderboardEntry,
+  type LeaderboardInsert,
+  type LeaderboardListOptions,
+  type LeaderboardRow,
+} from "./leaderboard";
 import { SYNC_SCHEMA_SQL } from "./schema";
 import type {
   SyncPreference,
@@ -39,6 +47,7 @@ type ResultRow = {
 };
 type ResultPruneRow = { id: string; game_id: string; finished_at: string };
 type MaxClearRow = { cleared_at: string | null };
+type CountRow = { count: number };
 
 export class GameDatabase {
   private readonly db: Database;
@@ -78,6 +87,59 @@ export class GameDatabase {
     });
     apply();
     return this.snapshot(push.deviceId);
+  }
+
+  submitLeaderboardScore(
+    score: LeaderboardInsert,
+    direction: LeaderboardListOptions["direction"],
+  ): LeaderboardEntry {
+    const existing = this.findLeaderboardDuplicate(score.deviceId, score.runId);
+    const entry = existing ?? this.insertLeaderboardScore(score);
+    entry.rank = this.leaderboardRank({
+      gameId: entry.gameId,
+      metric: entry.metric,
+      direction,
+      difficulty: entry.difficulty,
+      metricValue: entry.metricValue,
+      createdAt: entry.createdAt,
+      id: entry.id,
+    });
+    return entry;
+  }
+
+  listLeaderboardScores(options: LeaderboardListOptions): LeaderboardEntry[] {
+    const directionSql = options.direction === "min" ? "ASC" : "DESC";
+    const rows = options.difficulty
+      ? (this.db
+          .query(
+            `SELECT id, game_id, username, difficulty, outcome, metric, metric_value, score,
+                    moves, duration_ms, level, metadata_json, created_at
+             FROM leaderboard_scores
+             WHERE game_id = ?1 AND metric = ?2 AND difficulty = ?3
+             ORDER BY metric_value ${directionSql}, created_at ASC, id ASC
+             LIMIT ?4`,
+          )
+          .all(
+            options.gameId,
+            options.metric,
+            options.difficulty,
+            options.limit,
+          ) as LeaderboardRow[])
+      : (this.db
+          .query(
+            `SELECT id, game_id, username, difficulty, outcome, metric, metric_value, score,
+                    moves, duration_ms, level, metadata_json, created_at
+             FROM leaderboard_scores
+             WHERE game_id = ?1 AND metric = ?2
+             ORDER BY metric_value ${directionSql}, created_at ASC, id ASC
+             LIMIT ?3`,
+          )
+          .all(options.gameId, options.metric, options.limit) as LeaderboardRow[]);
+    return rows.map((row, index) => {
+      const entry = rowToLeaderboardEntry(row);
+      entry.rank = index + 1;
+      return entry;
+    });
   }
 
   private touchDevice(deviceId: string): void {
@@ -296,6 +358,102 @@ export class GameDatabase {
       if (keep.has(row.id)) continue;
       this.db.prepare(`DELETE FROM results WHERE device_id = ?1 AND id = ?2`).run(deviceId, row.id);
     }
+  }
+
+  private findLeaderboardDuplicate(deviceId?: string, runId?: string): LeaderboardEntry | null {
+    if (!deviceId || !runId) return null;
+    const row = this.db
+      .query(
+        `SELECT id, game_id, username, difficulty, outcome, metric, metric_value, score,
+                moves, duration_ms, level, metadata_json, created_at
+         FROM leaderboard_scores
+         WHERE device_id = ?1 AND run_id = ?2`,
+      )
+      .get(deviceId, runId) as LeaderboardRow | null;
+    return row ? rowToLeaderboardEntry(row) : null;
+  }
+
+  private insertLeaderboardScore(score: LeaderboardInsert): LeaderboardEntry {
+    const id = score.id ?? createLeaderboardId();
+    const createdAt = score.createdAt ?? new Date().toISOString();
+    this.db
+      .prepare(
+        `INSERT INTO leaderboard_scores (
+           id, run_id, device_id, game_id, username, normalized_username, difficulty, outcome,
+           metric, metric_value, score, moves, duration_ms, level, metadata_json, created_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)`,
+      )
+      .run(
+        id,
+        score.runId ?? null,
+        score.deviceId ?? null,
+        score.gameId,
+        score.username,
+        score.normalizedUsername,
+        score.difficulty ?? null,
+        score.outcome,
+        score.metric,
+        score.metricValue,
+        score.score ?? null,
+        score.moves ?? null,
+        score.durationMs ?? null,
+        score.level ?? null,
+        jsonString(score.metadata),
+        createdAt,
+      );
+
+    const row = this.db
+      .query(
+        `SELECT id, game_id, username, difficulty, outcome, metric, metric_value, score,
+                moves, duration_ms, level, metadata_json, created_at
+         FROM leaderboard_scores
+         WHERE id = ?1`,
+      )
+      .get(id) as LeaderboardRow | null;
+    if (!row) throw new Error("Leaderboard insert failed");
+    return rowToLeaderboardEntry(row);
+  }
+
+  private leaderboardRank(options: {
+    gameId: string;
+    metric: string;
+    direction: LeaderboardListOptions["direction"];
+    difficulty?: string;
+    metricValue: number;
+    createdAt: string;
+    id: string;
+  }): number {
+    const comparator = options.direction === "min" ? "<" : ">";
+    const rankWhere = `(metric_value ${comparator} ?3 OR (metric_value = ?3 AND (created_at < ?4 OR (created_at = ?4 AND id < ?5))))`;
+    const row = options.difficulty
+      ? (this.db
+          .query(
+            `SELECT COUNT(*) AS count
+             FROM leaderboard_scores
+             WHERE game_id = ?1 AND metric = ?2 AND ${rankWhere} AND difficulty = ?6`,
+          )
+          .get(
+            options.gameId,
+            options.metric,
+            options.metricValue,
+            options.createdAt,
+            options.id,
+            options.difficulty,
+          ) as CountRow | null)
+      : (this.db
+          .query(
+            `SELECT COUNT(*) AS count
+             FROM leaderboard_scores
+             WHERE game_id = ?1 AND metric = ?2 AND ${rankWhere}`,
+          )
+          .get(
+            options.gameId,
+            options.metric,
+            options.metricValue,
+            options.createdAt,
+            options.id,
+          ) as CountRow | null);
+    return (row?.count ?? 0) + 1;
   }
 }
 

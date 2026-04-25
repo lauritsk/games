@@ -9,7 +9,11 @@ export type GameHistoryDialog = {
   close(): void;
 };
 
-export function createGameHistoryDialog(): GameHistoryDialog {
+export type GameHistoryDialogOptions = {
+  resultActions?: (game: GameDefinition, result: GameResult) => HTMLElement[];
+};
+
+export function createGameHistoryDialog(options: GameHistoryDialogOptions = {}): GameHistoryDialog {
   let cleanup: (() => void) | null = null;
 
   function close(): void {
@@ -48,6 +52,8 @@ export function createGameHistoryDialog(): GameHistoryDialog {
       closeDialog();
     });
     closeButton.addEventListener("click", closeDialog);
+    if (highlight) actions.append(...(options.resultActions?.(game, highlight) ?? []));
+    actions.append(clear, closeButton);
 
     modal = openModal({
       label: `${game.name} result history`,

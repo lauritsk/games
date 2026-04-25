@@ -1,0 +1,64 @@
+export type LeaderboardMetric = "score" | "moves" | "durationMs" | "level";
+export type LeaderboardDirection = "max" | "min";
+
+export type LeaderboardGameConfig = {
+  gameId: string;
+  metric: LeaderboardMetric;
+  direction: LeaderboardDirection;
+  label: string;
+  maxMetricValue: number;
+  allowedOutcomes?: readonly string[];
+};
+
+export const leaderboardGameConfigs = {
+  "2048": {
+    gameId: "2048",
+    metric: "score",
+    direction: "max",
+    label: "score",
+    maxMetricValue: 100_000_000,
+    allowedOutcomes: ["lost", "completed", "won"],
+  },
+  tetris: {
+    gameId: "tetris",
+    metric: "score",
+    direction: "max",
+    label: "score",
+    maxMetricValue: 100_000_000,
+    allowedOutcomes: ["lost"],
+  },
+  snake: {
+    gameId: "snake",
+    metric: "score",
+    direction: "max",
+    label: "score",
+    maxMetricValue: 1_000_000,
+    allowedOutcomes: ["won", "lost"],
+  },
+  breakout: {
+    gameId: "breakout",
+    metric: "score",
+    direction: "max",
+    label: "score",
+    maxMetricValue: 100_000_000,
+    allowedOutcomes: ["won", "lost"],
+  },
+  "space-invaders": {
+    gameId: "space-invaders",
+    metric: "score",
+    direction: "max",
+    label: "score",
+    maxMetricValue: 100_000_000,
+    allowedOutcomes: ["lost"],
+  },
+} as const satisfies Record<string, LeaderboardGameConfig>;
+
+export type LeaderboardGameId = keyof typeof leaderboardGameConfigs;
+
+export function leaderboardConfigForGame(gameId: string): LeaderboardGameConfig | null {
+  return (leaderboardGameConfigs as Record<string, LeaderboardGameConfig>)[gameId] ?? null;
+}
+
+export function leaderboardGameIds(): string[] {
+  return Object.keys(leaderboardGameConfigs);
+}

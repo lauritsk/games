@@ -466,6 +466,99 @@
     border-color: color-mix(in srgb, #ff6b6b, transparent 35%);
     background: color-mix(in srgb, #ff6b6b, transparent 82%);
   }
+
+  .leaderboard-dialog__panel {
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+  }
+
+  .leaderboard-dialog__title {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+
+  .leaderboard-dialog__summary,
+  .leaderboard-submit {
+    display: grid;
+    gap: 10px;
+  }
+
+  .leaderboard-dialog__scroll {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+  }
+
+  .leaderboard-submit {
+    padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--accent), transparent 68%);
+    border-radius: calc(var(--radius) - 6px);
+    background: color-mix(in srgb, var(--accent), transparent 88%);
+  }
+
+  .leaderboard-submit__intro,
+  .leaderboard-submit__status {
+    margin: 0;
+  }
+
+  .leaderboard-submit__label {
+    display: grid;
+    gap: 5px;
+    font-size: 0.82rem;
+    font-weight: 850;
+  }
+
+  .leaderboard-submit__input {
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: calc(var(--radius) - 8px);
+    padding: 10px 12px;
+    background: color-mix(in srgb, var(--surface), transparent 15%);
+    color: var(--ink);
+    font: inherit;
+  }
+
+  .leaderboard-list {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .leaderboard-list__item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 3px 10px;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: calc(var(--radius) - 8px);
+    background: color-mix(in srgb, var(--surface), transparent 22%);
+  }
+
+  .leaderboard-list__rank {
+    grid-row: span 2;
+    color: var(--accent);
+    font-weight: 900;
+  }
+
+  .leaderboard-list__main {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-weight: 850;
+  }
+
+  .leaderboard-list__detail,
+  .leaderboard-list__time {
+    color: var(--muted);
+    font-size: 0.82rem;
+  }
+
+  .leaderboard-list__time {
+    grid-row: span 2;
+  }
 }
 
 @layer game {

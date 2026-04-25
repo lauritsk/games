@@ -22,6 +22,8 @@ import { bestSummaryText } from "./game-result-format";
 import { type GameResult } from "./game-results";
 import { hasGameSave } from "./game-state";
 import { createGameHistoryDialog } from "./history-dialog";
+import { createLeaderboardDialog } from "./leaderboard-dialog";
+import { isLeaderboardEligible } from "./leaderboard";
 import { initializePwa } from "./pwa";
 import { playSound, unlockSound } from "./sound";
 import { initializeSync } from "./sync";
@@ -53,7 +55,15 @@ let confirmCleanup: (() => void) | null = null;
 const page = el("main", { className: "app-shell center-screen" });
 const appearanceControl = createAppearanceControl();
 const workspace = el("section", { className: "workspace center-screen" });
-const historyDialog = createGameHistoryDialog();
+const leaderboardDialog = createLeaderboardDialog();
+const historyDialog = createGameHistoryDialog({
+  resultActions: (game, result) => {
+    if (!isLeaderboardEligible(result)) return [];
+    const submit = pillButton("Submit score");
+    submit.addEventListener("click", () => leaderboardDialog.show(game, result));
+    return [submit];
+  },
+});
 
 page.append(appearanceControl, workspace);
 app.append(page);
@@ -219,8 +229,10 @@ function renderGame(game: GameDefinition): void {
   const back = el("a", { className: `back-button ${uiClass.pill}`, text: "← Selection" });
   back.href = "#/";
   const history = pillButton("History");
+  const leaderboard = pillButton("Leaderboard");
   history.addEventListener("click", () => historyDialog.show(game));
-  nav.append(back, history);
+  leaderboard.addEventListener("click", () => leaderboardDialog.show(game));
+  nav.append(back, history, leaderboard);
   const gameHost = el("div", { className: "game-host center-screen" });
   screen.append(nav, gameHost);
   workspace.append(screen);
@@ -261,6 +273,7 @@ function cleanupGame(): void {
   confirmCleanup?.();
   confirmCleanup = null;
   historyDialog.close();
+  leaderboardDialog.close();
   gameScope?.cleanup();
   gameScope = null;
   dashboardScope?.cleanup();
