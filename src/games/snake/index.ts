@@ -164,7 +164,7 @@ export function mountSnake(target: HTMLElement): () => void {
   let onlineStatus: MultiplayerConnectionStatus = "closed";
   let onlineRoomStatus: MultiplayerRoomStatus = "lobby";
   let onlineCountdownEndsAt: number | undefined;
-  let onlineSeats = emptyOnlineSeats();
+  let onlineSeats = emptyMultiplayerSeatSnapshots();
   let onlineState: OnlineSnakeState | null = null;
   let onlineResultRecorded = false;
   let onlineError = "";
@@ -651,7 +651,7 @@ export function mountSnake(target: HTMLElement): () => void {
     onlineStatus = "connecting";
     onlineRoomStatus = "lobby";
     onlineCountdownEndsAt = undefined;
-    onlineSeats = emptyOnlineSeats();
+    onlineSeats = emptyMultiplayerSeatSnapshots();
     onlineSeats[session.seat] = { joined: true, connected: false };
     onlineState = null;
     onlineResultRecorded = false;
@@ -735,7 +735,7 @@ export function mountSnake(target: HTMLElement): () => void {
     onlineRoomStatus = "lobby";
     onlineCountdownEndsAt = undefined;
     onlineCountdown.cleanup();
-    onlineSeats = emptyOnlineSeats();
+    onlineSeats = emptyMultiplayerSeatSnapshots();
     onlineState = null;
     onlineResultRecorded = false;
     onlineError = "";
@@ -877,10 +877,6 @@ export function mountSnake(target: HTMLElement): () => void {
     onlineCountdown.cleanup();
     remove();
   };
-}
-
-function emptyOnlineSeats(): MultiplayerRoomSnapshot["seats"] {
-  return emptyMultiplayerSeatSnapshots();
 }
 
 function onlinePlayerLabel(seat: MultiplayerSeat): string {

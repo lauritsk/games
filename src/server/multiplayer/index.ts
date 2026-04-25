@@ -11,7 +11,11 @@ import {
 } from "@features/multiplayer/multiplayer-protocol";
 import { isRecord } from "@shared/validation";
 import { checkRateLimit, rateLimitKey } from "@server/rate-limit";
-import { multiplayerAdapterForGame, type MultiplayerAdapter } from "@server/multiplayer/games";
+import {
+  multiplayerAdapterForGame,
+  type MultiplayerAdapter,
+  type MultiplayerApplyResult,
+} from "@server/multiplayer/games";
 
 export type MultiplayerSocketData = {
   code: string;
@@ -278,14 +282,7 @@ export class MultiplayerHub {
       this.sendError(ws, result.error, room);
       return;
     }
-    room.state = result.state;
-    room.revision += 1;
-    room.lastActivityAt = Date.now();
-    if (result.finished) {
-      room.status = "finished";
-      room.countdownEndsAt = null;
-      this.stopRoomTicker(room);
-    }
+    this.applyRoomResult(room, result);
     this.publishRoom(ws, room);
   }
 
@@ -503,15 +500,24 @@ export class MultiplayerHub {
       this.stopRoomTicker(room);
       return;
     }
+    this.applyRoomResult(room, result);
+    this.broadcastRoom(room);
+  }
+
+  private applyRoomResult(
+    room: Room,
+    result: Extract<MultiplayerApplyResult<unknown>, { ok: true }>,
+  ): void {
     room.state = result.state;
     room.revision += 1;
     room.lastActivityAt = Date.now();
-    if (result.finished) {
-      room.status = "finished";
-      room.countdownEndsAt = null;
-      this.stopRoomTicker(room);
-    }
-    this.broadcastRoom(room);
+    if (result.finished) this.finishRoom(room);
+  }
+
+  private finishRoom(room: Room): void {
+    room.status = "finished";
+    room.countdownEndsAt = null;
+    this.stopRoomTicker(room);
   }
 
   private cleanup(now = Date.now()): void {
