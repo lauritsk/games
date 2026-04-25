@@ -13,6 +13,7 @@ import {
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
+  parseOneOf,
   parseStartedAt,
   pauseOnFocusLoss,
   resetGameProgress,
@@ -395,7 +396,7 @@ function parsePoint(value: unknown): TetrisPoint | null {
 }
 
 function parseTetromino(value: unknown): Tetromino | null {
-  return tetrominoes.includes(value as Tetromino) ? (value as Tetromino) : null;
+  return parseOneOf(value, tetrominoes);
 }
 
 function parseBag(value: unknown): Tetromino[] | null {
@@ -405,7 +406,5 @@ function parseBag(value: unknown): Tetromino[] | null {
 }
 
 function parseMode(value: unknown): Mode | null {
-  return value === "ready" || value === "playing" || value === "paused" || value === "over"
-    ? value
-    : null;
+  return parseOneOf(value, ["ready", "playing", "paused", "over"] as const);
 }

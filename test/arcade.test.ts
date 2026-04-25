@@ -3,6 +3,7 @@ import {
   circleIntersectsRect,
   clamp,
   createArcadeModeController,
+  parseRect,
   pointInRect,
   rectsOverlap,
   vectorAdd,
@@ -22,6 +23,13 @@ describe("arcade helpers", () => {
       circleIntersectsRect({ x: 5, y: 5, radius: 2 }, { x: 6, y: 6, width: 5, height: 5 }),
     ).toBe(true);
     expect(pointInRect(3, 3, { x: 1, y: 1, width: 2, height: 2 })).toBe(true);
+    expect(parseRect({ x: 1, y: 2, width: 3, height: 4 })).toEqual({
+      x: 1,
+      y: 2,
+      width: 3,
+      height: 4,
+    });
+    expect(parseRect({ x: 1, y: 2, width: Number.NaN, height: 4 })).toBeNull();
   });
 
   test("clamps, wraps, and moves vectors", () => {

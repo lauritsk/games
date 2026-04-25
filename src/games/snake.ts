@@ -12,6 +12,7 @@ import {
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
+  parseOneOf,
   parseStartedAt,
   pauseOnFocusLoss,
   resetGameProgress,
@@ -485,7 +486,7 @@ export function mountSnake(target: HTMLElement): () => void {
 }
 
 function parseWallMode(value: unknown): WallMode | null {
-  return value === "fatal" || value === "teleport" ? value : null;
+  return parseOneOf(value, ["fatal", "teleport"] as const);
 }
 
 function parseSaveSnake(value: unknown): SaveSnake | null {
@@ -537,15 +538,9 @@ function parsePoint(value: unknown, size: number): SnakePoint | null {
 }
 
 function parseDirection(value: unknown): Direction | null {
-  return value === "up" || value === "right" || value === "down" || value === "left" ? value : null;
+  return parseOneOf(value, ["up", "right", "down", "left"] as const);
 }
 
 function parseState(value: unknown): State | null {
-  return value === "ready" ||
-    value === "playing" ||
-    value === "paused" ||
-    value === "won" ||
-    value === "lost"
-    ? value
-    : null;
+  return parseOneOf(value, ["ready", "playing", "paused", "won", "lost"] as const);
 }

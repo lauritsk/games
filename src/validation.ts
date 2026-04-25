@@ -21,3 +21,10 @@ export function isPositiveInteger(value: unknown): value is number {
 export function isIntegerInRange(value: unknown, length: number): value is number {
   return isInteger(value) && value >= 0 && value < length;
 }
+
+export function parseOneOf<const TAllowed extends readonly unknown[]>(
+  value: unknown,
+  allowed: TAllowed,
+): TAllowed[number] | null {
+  return allowed.includes(value) ? (value as TAllowed[number]) : null;
+}

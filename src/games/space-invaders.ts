@@ -5,6 +5,7 @@ import {
   createPauseButton,
   createPauseOverlay,
   createTouchControls,
+  parseRect,
   positionPercent,
   startFixedStepLoop,
   syncPositionedChildren,
@@ -24,6 +25,7 @@ import {
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
+  parseOneOf,
   parseStartedAt,
   pauseOnFocusLoss,
   resetGameProgress,
@@ -53,7 +55,6 @@ import {
   type InvaderAlien,
   type InvaderBarrier,
   type InvaderConfig,
-  type InvaderRect,
   type InvaderShot,
   type InvaderState,
 } from "./space-invaders.logic";
@@ -503,18 +504,6 @@ function parseInvaderState(value: unknown): InvaderState | null {
   };
 }
 
-function parseRect(value: unknown): InvaderRect | null {
-  if (!isRecord(value)) return null;
-  if (
-    !isFiniteNumber(value.x) ||
-    !isFiniteNumber(value.y) ||
-    !isFiniteNumber(value.width) ||
-    !isFiniteNumber(value.height)
-  )
-    return null;
-  return { x: value.x, y: value.y, width: value.width, height: value.height };
-}
-
 function parseAliens(value: unknown): InvaderAlien[] | null {
   if (!Array.isArray(value)) return null;
   const aliens = value.map((alien) => {
@@ -547,11 +536,5 @@ function parseShots(value: unknown): InvaderShot[] | null {
 }
 
 function parseMode(value: unknown): Mode | null {
-  return value === "ready" ||
-    value === "playing" ||
-    value === "paused" ||
-    value === "wave" ||
-    value === "lost"
-    ? value
-    : null;
+  return parseOneOf(value, ["ready", "playing", "paused", "wave", "lost"] as const);
 }

@@ -13,6 +13,7 @@ import {
   markGameStarted,
   moveGridPoint,
   onDocumentKeyDown,
+  parseOneOf,
   parseStartedAt,
   resetGameProgress,
   setBoardGrid,
@@ -455,7 +456,7 @@ function parseCell(value: unknown): MinesweeperCell | null {
 }
 
 function parseState(value: unknown): State | null {
-  return value === "playing" || value === "won" || value === "lost" ? value : null;
+  return parseOneOf(value, ["playing", "won", "lost"] as const);
 }
 
 function cellText(cell: MinesweeperCell): string {

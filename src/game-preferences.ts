@@ -1,7 +1,7 @@
 import type { Difficulty } from "./types";
 import { readStored, storageKey, writeStored } from "./storage";
 import { notifySyncChanged } from "./sync-local";
-import { isRecord } from "./validation";
+import { isRecord, parseOneOf } from "./validation";
 
 export type GamePreferences = {
   difficulty?: Difficulty;
@@ -12,7 +12,7 @@ type PreferencesByGame = Record<string, GamePreferences>;
 
 const PREFERENCES_SCHEMA_VERSION = 1;
 const preferencesKey = storageKey("preferences");
-const difficulties = new Set<Difficulty>(["Easy", "Medium", "Hard"]);
+const difficulties = ["Easy", "Medium", "Hard"] as const satisfies readonly Difficulty[];
 
 export function loadGamePreferences(gameId: string): GamePreferences {
   return loadPreferences()[gameId] ?? {};
@@ -32,7 +32,7 @@ export function updateGamePreferences(
 }
 
 export function parseDifficulty(value: unknown): Difficulty | null {
-  return difficulties.has(value as Difficulty) ? (value as Difficulty) : null;
+  return parseOneOf(value, difficulties);
 }
 
 function loadPreferences(): PreferencesByGame {

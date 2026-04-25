@@ -3,6 +3,7 @@ import {
   createHeldKeyInput,
   createPauseButton,
   createPauseOverlay,
+  parseRect,
   positionPercent,
   startFixedStepLoop,
   syncPositionedChildren,
@@ -22,6 +23,7 @@ import {
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
+  parseOneOf,
   parseStartedAt,
   pauseOnFocusLoss,
   resetGameProgress,
@@ -48,7 +50,6 @@ import {
   type BreakoutBall,
   type BreakoutBrick,
   type BreakoutConfig,
-  type BreakoutRect,
   type BreakoutState,
 } from "./breakout.logic";
 
@@ -414,18 +415,6 @@ function parseBreakoutState(value: unknown): BreakoutState | null {
   };
 }
 
-function parseRect(value: unknown): BreakoutRect | null {
-  if (!isRecord(value)) return null;
-  if (
-    !isFiniteNumber(value.x) ||
-    !isFiniteNumber(value.y) ||
-    !isFiniteNumber(value.width) ||
-    !isFiniteNumber(value.height)
-  )
-    return null;
-  return { x: value.x, y: value.y, width: value.width, height: value.height };
-}
-
 function parseBall(value: unknown): BreakoutBall | null {
   const rect = parseRect(value);
   if (!rect || !isRecord(value)) return null;
@@ -445,11 +434,5 @@ function parseBricks(value: unknown): BreakoutBrick[] | null {
 }
 
 function parseMode(value: unknown): Mode | null {
-  return value === "ready" ||
-    value === "playing" ||
-    value === "paused" ||
-    value === "won" ||
-    value === "lost"
-    ? value
-    : null;
+  return parseOneOf(value, ["ready", "playing", "paused", "won", "lost"] as const);
 }

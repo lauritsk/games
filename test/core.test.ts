@@ -8,6 +8,7 @@ import {
   moveGridIndex,
   moveGridPoint,
   nextDifficulty,
+  parseOneOf,
   parseStartedAt,
   pauseOnFocusLoss,
   previousDifficulty,
@@ -55,6 +56,12 @@ describe("shared guards and clocks", () => {
     expect(isIntegerInRange(2, 3)).toBe(true);
     expect(isIntegerInRange(3, 3)).toBe(false);
     expect(isIntegerInRange(1.5, 3)).toBe(false);
+  });
+
+  test("parses one-of values without widening invalid input", () => {
+    expect(parseOneOf("playing", ["ready", "playing"] as const)).toBe("playing");
+    expect(parseOneOf("lost", ["ready", "playing"] as const)).toBeNull();
+    expect(parseOneOf(2, [1, 2, 3] as const)).toBe(2);
   });
 
   test("parses nullable start times and elapsed durations", () => {

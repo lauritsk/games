@@ -4,6 +4,8 @@ import {
   directionFromKey,
   el,
   syncChildren,
+  isFiniteNumber,
+  isRecord,
   uiClass,
   type Direction,
   type MountScope,
@@ -77,6 +79,18 @@ export function rectsOverlap(a: Rect, b: Rect): boolean {
 
 export function pointInRect(x: number, y: number, rect: Rect): boolean {
   return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
+}
+
+export function parseRect(value: unknown): Rect | null {
+  if (!isRecord(value)) return null;
+  if (
+    !isFiniteNumber(value.x) ||
+    !isFiniteNumber(value.y) ||
+    !isFiniteNumber(value.width) ||
+    !isFiniteNumber(value.height)
+  )
+    return null;
+  return { x: value.x, y: value.y, width: value.width, height: value.height };
 }
 
 export function circleIntersectsRect(circle: Circle, rect: Rect): boolean {

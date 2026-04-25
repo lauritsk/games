@@ -12,6 +12,7 @@ import {
   markGameStarted,
   matchesKey,
   onDocumentKeyDown,
+  parseOneOf,
   resetGameProgress,
   setBoardGrid,
   setSelected,
@@ -306,7 +307,7 @@ export function mountConnect4(target: HTMLElement): () => void {
 }
 
 function parseBotPlayMode(value: unknown): BotPlayMode | null {
-  return value === "bot" || value === "local" ? value : null;
+  return parseOneOf(value, ["bot", "local"] as const);
 }
 
 function parseSaveConnect4(value: unknown): SaveConnect4 | null {
@@ -337,13 +338,11 @@ function parseBoard(value: unknown): Connect4Cell[][] | null {
 }
 
 function parseCell(value: unknown): Connect4Cell | null {
-  return value === 0 || value === connect4Human || value === connect4Bot
-    ? (value as Connect4Cell)
-    : null;
+  return parseOneOf(value, [0, connect4Human, connect4Bot] as const);
 }
 
 function parsePlayer(value: unknown): Connect4Player | null {
-  return value === connect4Human || value === connect4Bot ? (value as Connect4Player) : null;
+  return parseOneOf(value, [connect4Human, connect4Bot] as const);
 }
 
 function parseWinner(value: unknown): Connect4Player | null | undefined {

@@ -11,6 +11,7 @@ import {
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
+  parseOneOf,
   resetGameProgress,
   setBoardGrid,
   setSelected,
@@ -278,7 +279,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
 }
 
 function parseBotPlayMode(value: unknown): BotPlayMode | null {
-  return value === "bot" || value === "local" ? value : null;
+  return parseOneOf(value, ["bot", "local"] as const);
 }
 
 function parseSaveTicTacToe(value: unknown): SaveTicTacToe | null {
@@ -299,11 +300,11 @@ function parseBoard(value: unknown): TicTacToeCell[] | null {
 }
 
 function parseCell(value: unknown): TicTacToeCell | null {
-  return value === humanMark || value === botMark || value === "" ? (value as TicTacToeCell) : null;
+  return parseOneOf(value, [humanMark, botMark, ""] as const);
 }
 
 function parseMark(value: unknown): Mark | null {
-  return value === humanMark || value === botMark ? (value as Mark) : null;
+  return parseOneOf(value, [humanMark, botMark] as const);
 }
 
 function parseWinner(value: unknown): Mark | "draw" | null | undefined {
