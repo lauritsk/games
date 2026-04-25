@@ -2,6 +2,7 @@
 
 ## Maintenance
 
+- [x] Add Ansible host-key verification bypass config.
 - [x] Add production deploy GitHub Actions workflow.
 - [x] Extract shared online multiplayer game-session helper for repeated client boilerplate.
 - [x] Replace manual board parsers with shared fixed array/grid parsers.
