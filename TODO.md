@@ -1,5 +1,6 @@
 # TODO
 
+- [x] Fix multiplayer start countdown cadence.
 - [x] Fix online multiplayer settings controls for difficulty and game-specific options.
 - [x] Fix lower game bar status text left alignment.
 - [x] Pause pausable games when showing leave-game prompt.
