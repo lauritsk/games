@@ -229,6 +229,45 @@ describe("space invaders logic", () => {
     expect(invaded.lost).toBe(true);
   });
 
+  test("uses swept shot hitboxes instead of center-point checks", () => {
+    const state = newInvaderState(config);
+    const alien = state.aliens[0]!;
+    const crossed = stepInvaders(
+      {
+        ...state,
+        shots: [
+          {
+            x: alien.x + alien.width / 2,
+            y: alien.y + alien.height + 1,
+            vy: -6,
+            owner: "player",
+          },
+        ],
+      },
+      config,
+    );
+    expect(crossed.score).toBe(20);
+
+    const edge = stepInvaders(
+      {
+        ...state,
+        shots: [{ x: alien.x + 0.2, y: alien.y + alien.height / 2, vy: -1, owner: "player" }],
+      },
+      config,
+    );
+    expect(edge.score).toBe(20);
+  });
+
+  test("frontline aliens shoot before hidden rows", () => {
+    const shooterConfig = { ...config, alienRows: 2, alienColumns: 1, alienShotEvery: 16 };
+    const state = newInvaderState(shooterConfig);
+    const shot = stepInvaders({ ...state, tick: 11 }, shooterConfig).shots.find(
+      (candidate) => candidate.owner === "alien",
+    );
+    const bottomAlien = state.aliens[1]!;
+    expect(shot?.y).toBeCloseTo(bottomAlien.y + bottomAlien.height);
+  });
+
   test("winning takes priority over simultaneous loss", () => {
     const state = newInvaderState({ ...config, lives: 1 });
     const alien = state.aliens[0]!;

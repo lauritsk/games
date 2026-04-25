@@ -1,4 +1,4 @@
-import { clamp, pointInRect, type Rect } from "../arcade";
+import { clamp, rectsOverlap, type Rect } from "../arcade";
 
 export type InvaderRect = Rect;
 export type InvaderAlien = InvaderRect & { alive: boolean };
@@ -31,6 +31,8 @@ export type InvaderState = {
 
 export const invaderWidth = 100;
 export const invaderHeight = 100;
+export const invaderShotWidth = 0.7;
+export const invaderShotHeight = 2.6;
 
 export function newInvaderState(config: InvaderConfig, wave = 1): InvaderState {
   return {
@@ -145,23 +147,19 @@ export function stepInvaders(
       });
   }
 
+  shots = resolveShotClashes(shots);
   ({ shots, barriers } = resolveBarrierHits(shots, barriers));
-  const alienHit = shots.findIndex(
-    (shot) =>
-      shot.owner === "player" &&
-      aliens.some((alien) => alien.alive && pointInRect(shot.x, shot.y, alien)),
-  );
-  if (alienHit >= 0) {
-    const shot = shots[alienHit]!;
-    aliens = aliens.map((alien) =>
-      alien.alive && pointInRect(shot.x, shot.y, alien) ? { ...alien, alive: false } : alien,
+  const alienHit = findAlienShotHit(shots, aliens);
+  if (alienHit) {
+    aliens = aliens.map((alien, index) =>
+      index === alienHit.alienIndex ? { ...alien, alive: false } : alien,
     );
-    shots = shots.filter((_, index) => index !== alienHit);
+    shots = shots.filter((_, index) => index !== alienHit.shotIndex);
     score += 20 * state.wave;
   }
 
   const playerHit = shots.findIndex(
-    (shot) => shot.owner === "alien" && pointInRect(shot.x, shot.y, player),
+    (shot) => shot.owner === "alien" && rectsOverlap(shotHitbox(shot), playerHitbox(player)),
   );
   if (playerHit >= 0) {
     shots = shots.filter((_, index) => index !== playerHit);
@@ -198,9 +196,7 @@ function resolveBarrierHits(
   const nextShots: InvaderShot[] = [];
   let nextBarriers = barriers;
   for (const shot of shots) {
-    const hitIndex = nextBarriers.findIndex(
-      (barrier) => barrier.hp > 0 && pointInRect(shot.x, shot.y, barrier),
-    );
+    const hitIndex = firstHitIndex(shot, nextBarriers, barrierHitbox);
     if (hitIndex < 0) nextShots.push(shot);
     else
       nextBarriers = nextBarriers.map((barrier, index) =>
@@ -210,10 +206,96 @@ function resolveBarrierHits(
   return { shots: nextShots, barriers: nextBarriers };
 }
 
+function resolveShotClashes(shots: InvaderShot[]): InvaderShot[] {
+  const removed = new Set<number>();
+  for (const [playerIndex, playerShot] of shots.entries()) {
+    if (removed.has(playerIndex) || playerShot.owner !== "player") continue;
+    for (const [alienIndex, alienShot] of shots.entries()) {
+      if (removed.has(alienIndex) || alienShot.owner !== "alien") continue;
+      if (!rectsOverlap(shotHitbox(playerShot), shotHitbox(alienShot))) continue;
+      removed.add(playerIndex);
+      removed.add(alienIndex);
+      break;
+    }
+  }
+  return shots.filter((_, index) => !removed.has(index));
+}
+
+function findAlienShotHit(
+  shots: InvaderShot[],
+  aliens: InvaderAlien[],
+): { shotIndex: number; alienIndex: number } | null {
+  for (const [shotIndex, shot] of shots.entries()) {
+    if (shot.owner !== "player") continue;
+    const alienIndex = firstHitIndex(shot, aliens, alienHitbox);
+    if (alienIndex >= 0) return { shotIndex, alienIndex };
+  }
+  return null;
+}
+
+function firstHitIndex<T extends Rect>(
+  shot: InvaderShot,
+  rects: T[],
+  hitbox: (rect: T) => Rect,
+): number {
+  const shotRect = shotHitbox(shot);
+  const hits = rects
+    .map((rect, index) => ({ index, rect }))
+    .filter(({ rect }) => ("hp" in rect ? Number(rect.hp) > 0 : true))
+    .filter(({ rect }) => ("alive" in rect ? Boolean(rect.alive) : true))
+    .filter(({ rect }) => rectsOverlap(shotRect, hitbox(rect)));
+  if (hits.length === 0) return -1;
+  hits.sort((a, b) =>
+    shot.vy < 0 ? b.rect.y + b.rect.height - (a.rect.y + a.rect.height) : a.rect.y - b.rect.y,
+  );
+  return hits[0]!.index;
+}
+
+function shotHitbox(shot: InvaderShot): Rect {
+  const previousY = shot.y - shot.vy;
+  const top = Math.min(previousY, shot.y) - invaderShotHeight / 2;
+  const bottom = Math.max(previousY, shot.y) + invaderShotHeight / 2;
+  return {
+    x: shot.x - invaderShotWidth / 2,
+    y: top,
+    width: invaderShotWidth,
+    height: bottom - top,
+  };
+}
+
+function alienHitbox(alien: InvaderAlien): Rect {
+  return insetRect(alien, 0.35, 0.25);
+}
+
+function playerHitbox(player: InvaderRect): Rect {
+  return insetRect(player, 0.9, 0.2);
+}
+
+function barrierHitbox(barrier: InvaderBarrier): Rect {
+  return insetRect(barrier, barrier.hp <= 1 ? 1.2 : 0.45, barrier.hp <= 1 ? 0.55 : 0.25);
+}
+
+function insetRect(rect: Rect, x: number, y: number): Rect {
+  const width = Math.max(0, rect.width - x * 2);
+  const height = Math.max(0, rect.height - y * 2);
+  return { x: rect.x + x, y: rect.y + y, width, height };
+}
+
 function chooseAlienShooter(aliens: InvaderAlien[], tick: number): InvaderAlien | undefined {
-  const alive = aliens.filter((alien) => alien.alive);
-  if (alive.length === 0) return undefined;
-  return alive[tick % alive.length];
+  const frontline = frontlineAliens(aliens);
+  if (frontline.length === 0) return undefined;
+  return frontline[tick % frontline.length];
+}
+
+function frontlineAliens(aliens: InvaderAlien[]): InvaderAlien[] {
+  const byColumn = new Map<string, InvaderAlien>();
+  for (const alien of aliens) {
+    if (!alien.alive) continue;
+    const key = (alien.x + alien.width / 2).toFixed(3);
+    const current = byColumn.get(key);
+    if (!current || alien.y > current.y) byColumn.set(key, alien);
+  }
+  return [...byColumn.values()].sort((a, b) => a.x - b.x);
 }
 
 function clearedAlienCount(aliens: InvaderAlien[]): number {

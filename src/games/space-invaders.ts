@@ -31,6 +31,8 @@ import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import {
   fireInvaderShot,
+  invaderShotHeight,
+  invaderShotWidth,
   newInvaderState,
   nextInvaderWave,
   stepInvaders,
@@ -302,7 +304,13 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
       const shot = next.shots[index];
       if (!shot) return;
       child.dataset.owner = shot.owner;
-      position(child, shot.x - 0.35, shot.y - 1.3, 0.7, 2.6);
+      position(
+        child,
+        shot.x - invaderShotWidth / 2,
+        shot.y - invaderShotHeight / 2,
+        invaderShotWidth,
+        invaderShotHeight,
+      );
     });
   }
 

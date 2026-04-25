@@ -158,9 +158,11 @@
   .game,
   .board-viewport {
     min-width: 0;
+    min-height: 0;
     width: 100%;
   }
 
+  .workspace,
   .dashboard,
   .game-screen,
   .game-host {
