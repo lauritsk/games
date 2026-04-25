@@ -5,6 +5,11 @@
 "pipx:yamllint" = "1.38.0"
 uv = "0.11.7"
 
+[tasks.setup]
+description = "Install required ansible collections before deployment"
+run = "ansible-galaxy collection install containers.podman"
+
 [tasks.deploy]
 description = "Deploy games infrastructure with Ansible"
+depends = ["setup"]
 run = "ansible-playbook playbook.yaml"
