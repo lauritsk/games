@@ -66,6 +66,7 @@ import {
 } from "../src/games/tictactoe.logic";
 import {
   connect4MultiplayerAdapter,
+  snakeMultiplayerAdapter,
   ticTacToeMultiplayerAdapter,
 } from "../src/server/multiplayer-games";
 
@@ -494,6 +495,42 @@ describe("multiplayer adapters", () => {
     expect(
       connect4MultiplayerAdapter.applyAction(state, "p2", { type: "drop", column: 2 }).ok,
     ).toBe(false);
+  });
+
+  test("moves multiplayer Snake simultaneously and rejects reversal", () => {
+    const started = snakeMultiplayerAdapter.start?.(snakeMultiplayerAdapter.newState(), [
+      "p1",
+      "p2",
+      "p3",
+    ]);
+    expect(started?.ok).toBe(true);
+    if (!started?.ok) return;
+
+    const rejected = snakeMultiplayerAdapter.applyAction(started.state, "p1", {
+      type: "direction",
+      direction: "left",
+    });
+    expect(rejected.ok).toBe(true);
+    if (!rejected.ok) return;
+    expect(rejected.state.players.find((player) => player.seat === "p1")?.queuedDirection).toBe(
+      "right",
+    );
+
+    const turned = snakeMultiplayerAdapter.applyAction(rejected.state, "p3", {
+      type: "direction",
+      direction: "right",
+    });
+    expect(turned.ok).toBe(true);
+    if (!turned.ok) return;
+    const ticked = snakeMultiplayerAdapter.tick?.(turned.state);
+    expect(ticked?.ok).toBe(true);
+    if (!ticked?.ok) return;
+    expect(ticked.state.tick).toBe(1);
+    expect(ticked.state.players.find((player) => player.seat === "p1")?.snake[0]).toEqual({
+      row: 6,
+      column: 4,
+    });
+    expect(ticked.state.players.find((player) => player.seat === "p3")?.direction).toBe("right");
   });
 });
 

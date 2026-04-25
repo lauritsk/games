@@ -34,6 +34,20 @@ import {
   loadGameSave,
   saveGameSave,
 } from "../game-state";
+import {
+  connectMultiplayerSession,
+  type MultiplayerConnection,
+  type MultiplayerConnectionStatus,
+} from "../multiplayer";
+import { createMultiplayerDialog } from "../multiplayer-dialog";
+import {
+  multiplayerSeats,
+  parseMultiplayerSeat,
+  type MultiplayerRoomSnapshot,
+  type MultiplayerRoomStatus,
+  type MultiplayerSeat,
+  type MultiplayerSession,
+} from "../multiplayer-protocol";
 import { playSound } from "../sound";
 import {
   changeDifficulty,
@@ -59,8 +73,29 @@ type SnakeCellState = {
   snake: boolean;
   head: boolean;
   food: boolean;
+  owner: MultiplayerSeat | null;
+  alive: boolean;
+  yours: boolean;
 };
 type WallMode = "fatal" | "teleport";
+
+type OnlineSnakePlayer = {
+  seat: MultiplayerSeat;
+  snake: SnakePoint[];
+  direction: Direction;
+  queuedDirection: Direction;
+  alive: boolean;
+  score: number;
+};
+
+type OnlineSnakeState = {
+  size: number;
+  food: SnakePoint;
+  players: OnlineSnakePlayer[];
+  winner: MultiplayerSeat | "draw" | null;
+  tick: number;
+  startedAt: number | null;
+};
 
 const configs: Record<Difficulty, Config> = {
   Easy: { size: 14, speed: 170 },
@@ -83,14 +118,16 @@ type SaveSnake = {
   startedAt: number | null;
 };
 
-export const snake: GameDefinition = {
+const snakeGameDefinition: GameDefinition = {
   id: gameId,
   name: "Snake",
   tagline: "Eat, grow, do not crash.",
-  players: "Solo",
+  players: "Solo or online (2-4)",
   theme: "deep-forest",
   mount: mountSnake,
 };
+
+export const snake = snakeGameDefinition;
 
 export function mountSnake(target: HTMLElement): () => void {
   const preferences = loadGamePreferences(gameId);
@@ -104,6 +141,16 @@ export function mountSnake(target: HTMLElement): () => void {
   let state: State = "ready";
   let runId = createRunId();
   let startedAt: number | null = null;
+  let onlineSession: MultiplayerSession | null = null;
+  let onlineConnection: MultiplayerConnection | null = null;
+  let onlineSeat: MultiplayerSeat | null = null;
+  let onlineRevision = 0;
+  let onlineStatus: MultiplayerConnectionStatus = "closed";
+  let onlineRoomStatus: MultiplayerRoomStatus = "lobby";
+  let onlineSeats = emptyOnlineSeats();
+  let onlineState: OnlineSnakeState | null = null;
+  let onlineResultRecorded = false;
+  let onlineError = "";
 
   const saved = loadGameSave(gameId, savePayloadVersion, parseSaveSnake);
   if (saved) {
@@ -163,17 +210,45 @@ export function mountSnake(target: HTMLElement): () => void {
     label: wallModeLabel,
     reset: resetGame,
   });
+  const onlineDialog = createMultiplayerDialog();
+  const onlineButton = el("button", {
+    className: "button pill surface interactive",
+    text: "Play online",
+    type: "button",
+  });
+  onlineButton.addEventListener("click", () => {
+    if (!onlineSession) onlineDialog.show(snakeGameDefinition, startOnline);
+  });
+  actions.append(onlineButton);
+  const startOnlineButton = el("button", {
+    className: "button pill surface interactive",
+    text: "Start",
+    type: "button",
+  });
+  startOnlineButton.addEventListener("click", requestOnlineStart);
+  actions.append(startOnlineButton);
+  const rematchButton = el("button", {
+    className: "button pill surface interactive",
+    text: "Rematch",
+    type: "button",
+  });
+  rematchButton.addEventListener("click", requestOnlineRematch);
+  actions.append(rematchButton);
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
   addTouchGestureControls(
     grid,
-    { onTap: start, onSwipe: handleDirectionInput },
+    { onTap: activate, onSwipe: handleDirectionInput },
     { signal: scope.signal, touchAction: "none" },
   );
-  pauseOnFocusLoss(scope, { isActive: () => state === "playing", pause: togglePause });
+  pauseOnFocusLoss(scope, {
+    isActive: () => !onlineSession && state === "playing",
+    pause: togglePause,
+  });
   const autosave = createAutosave({ gameId, scope, save: saveCurrentGame });
 
   function resetGame(): void {
+    stopOnline();
     stopTimer();
     clearGameSave(gameId);
     resetGameProgress(shell);
@@ -190,46 +265,80 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function render(previousSnake?: SnakePoint[]): void {
-    const boardRebuilt = prepareBoard();
+    const size = currentBoardSize();
+    const boardRebuilt = prepareBoard(size);
     status.textContent = statusText();
-    overlay.setVisible(state === "paused");
-    difficultyButton.textContent = difficulty;
-    wallModeButton.textContent = wallModeLabel(wallMode);
+    overlay.setVisible(!onlineSession && state === "paused");
+    difficultyButton.textContent = onlineSession ? "Online" : difficulty;
+    difficultyButton.disabled = Boolean(onlineSession);
+    wallModeButton.textContent = onlineSession ? "Online" : wallModeLabel(wallMode);
+    wallModeButton.disabled = Boolean(onlineSession);
+    onlineButton.textContent = onlineSession ? `Room ${onlineSession.code}` : "Play online";
+    onlineButton.disabled = Boolean(onlineSession);
+    startOnlineButton.hidden = !onlineSession || onlineRoomStatus !== "lobby";
+    startOnlineButton.disabled = !canOnlineStart();
+    rematchButton.hidden = !canOnlineRematch();
+    rematchButton.disabled = onlineStatus !== "connected" || !canOnlineRematch();
 
+    const onlineCells = onlineSession ? onlineCellStates() : null;
     const body = new Set(snake.map(snakePointKey));
     const origins = previousSnake ? segmentOrigins(previousSnake) : new Map<string, SnakePoint>();
     const head = snakePointKey(required(snake[0]));
     cells.forEach((cell, index) => {
-      const point = { row: Math.floor(index / config.size), column: index % config.size };
+      const point = { row: Math.floor(index / size), column: index % size };
       const key = snakePointKey(point);
-      const isSnake = body.has(key);
-      const isHead = key === head;
-      const isFood = snakePointsEqual(point, food);
+      const onlineCell = onlineCells?.get(key);
+      const isOnline = onlineCells !== null;
+      const isSnake = isOnline ? Boolean(onlineCell) : body.has(key);
+      const isHead = isOnline ? Boolean(onlineCell?.head) : key === head;
+      const isFood = isOnline
+        ? Boolean(
+            onlineState &&
+            onlineRoomStatus === "playing" &&
+            snakePointsEqual(point, onlineState.food),
+          )
+        : snakePointsEqual(point, food);
       const cellState = {
         snake: isSnake,
         head: isHead,
         food: isFood,
+        owner: onlineCell?.owner ?? null,
+        alive: onlineCell?.alive ?? true,
+        yours: onlineCell?.yours ?? false,
       } satisfies SnakeCellState;
-      updateCell(cell, point, cellState, boardRebuilt, origins.get(key));
+      updateCell(cell, point, cellState, boardRebuilt, onlineCells ? undefined : origins.get(key));
     });
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (event.key.toLowerCase() === "p") {
+    if (!onlineSession && event.key.toLowerCase() === "p") {
       event.preventDefault();
       togglePause();
       return;
     }
     handleStandardGameKey(event, {
       onDirection: handleDirectionInput,
-      onActivate: start,
-      onNextDifficulty: () => changeDifficulty(difficultyControl, "next"),
-      onPreviousDifficulty: () => changeDifficulty(difficultyControl, "previous"),
+      onActivate: activate,
+      onNextDifficulty: () => {
+        if (!onlineSession) changeDifficulty(difficultyControl, "next");
+      },
+      onPreviousDifficulty: () => {
+        if (!onlineSession) changeDifficulty(difficultyControl, "previous");
+      },
       onReset: requestReset,
     });
   }
 
+  function activate(): void {
+    if (onlineSession) requestOnlineStart();
+    else start();
+  }
+
   function handleDirectionInput(next: Direction): void {
+    if (onlineSession) {
+      sendOnlineDirection(next);
+      return;
+    }
     if (queueDirection(next)) playSound("gameMove");
     else if (state === "playing" && next === oppositeSnakeDirection[direction])
       invalidMove.trigger();
@@ -252,6 +361,10 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function togglePause(): void {
+    if (onlineSession) {
+      invalidMove.trigger();
+      return;
+    }
     if (state === "playing") {
       state = "paused";
       stopTimer();
@@ -321,6 +434,7 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function statusText(): string {
+    if (onlineSession) return onlineStatusText();
     if (state === "ready") return `Ready · ${wallModeLabel(wallMode)}`;
     if (state === "paused") return `Paused · ${snake.length}`;
     if (state === "won") return "Full";
@@ -332,20 +446,30 @@ export function mountSnake(target: HTMLElement): () => void {
     return mode === "fatal" ? "Fatal walls" : "Teleport walls";
   }
 
-  function labelFor(point: SnakePoint, isHead: boolean, isSnake: boolean, isFood: boolean): string {
-    if (isHead) return `Row ${point.row + 1}, column ${point.column + 1}, snake head`;
-    if (isSnake) return `Row ${point.row + 1}, column ${point.column + 1}, snake body`;
-    if (isFood) return `Row ${point.row + 1}, column ${point.column + 1}, food`;
-    return `Row ${point.row + 1}, column ${point.column + 1}, empty`;
+  function currentBoardSize(): number {
+    return onlineSession ? (onlineState?.size ?? config.size) : config.size;
   }
 
-  function prepareBoard(): boolean {
-    if (renderedSize === config.size) return false;
-    renderedSize = config.size;
-    setBoardGrid(grid, config.size);
-    cells = syncChildren(grid, config.size * config.size, () =>
-      el("div", { className: "game-cell snake-cell" }),
-    );
+  function labelFor(point: SnakePoint, next: SnakeCellState): string {
+    const location = `Row ${point.row + 1}, column ${point.column + 1}`;
+    if (next.head) return `${location}, ${snakeCellOwnerLabel(next)} snake head`;
+    if (next.snake) return `${location}, ${snakeCellOwnerLabel(next)} snake body`;
+    if (next.food) return `${location}, food`;
+    return `${location}, empty`;
+  }
+
+  function snakeCellOwnerLabel(next: SnakeCellState): string {
+    if (!next.owner) return "snake";
+    const suffix = next.yours ? " (you)" : "";
+    const stateText = next.alive ? "" : " crashed";
+    return `${onlinePlayerLabel(next.owner)}${suffix}${stateText}`;
+  }
+
+  function prepareBoard(size: number): boolean {
+    if (renderedSize === size) return false;
+    renderedSize = size;
+    setBoardGrid(grid, size);
+    cells = syncChildren(grid, size * size, () => el("div", { className: "game-cell snake-cell" }));
     return true;
   }
 
@@ -368,10 +492,16 @@ export function mountSnake(target: HTMLElement): () => void {
     forceLabel: boolean,
     origin?: SnakePoint,
   ): void {
+    const owner = next.owner ?? "";
+    const alive = next.snake && next.owner ? String(next.alive) : "";
+    const yours = next.yours ? "true" : "";
     const changed =
       cell.dataset.snake !== String(next.snake) ||
       cell.dataset.head !== String(next.head) ||
-      cell.dataset.food !== String(next.food);
+      cell.dataset.food !== String(next.food) ||
+      (cell.dataset.owner ?? "") !== owner ||
+      (cell.dataset.alive ?? "") !== alive ||
+      (cell.dataset.yours ?? "") !== yours;
     if (!changed && !forceLabel) {
       animateSnakeCell(cell, point, next, origin);
       return;
@@ -381,8 +511,11 @@ export function mountSnake(target: HTMLElement): () => void {
       setData(cell, "snake", next.snake);
       setData(cell, "head", next.head);
       setData(cell, "food", next.food);
+      setStringData(cell, "owner", owner);
+      setStringData(cell, "alive", alive);
+      setStringData(cell, "yours", yours);
     }
-    cell.setAttribute("aria-label", labelFor(point, next.head, next.snake, next.food));
+    cell.setAttribute("aria-label", labelFor(point, next));
     animateSnakeCell(cell, point, next, origin);
   }
 
@@ -417,6 +550,14 @@ export function mountSnake(target: HTMLElement): () => void {
     if (cell.dataset[key] !== next) cell.dataset[key] = next;
   }
 
+  function setStringData(cell: HTMLDivElement, key: string, value: string): void {
+    if (!value) {
+      delete cell.dataset[key];
+      return;
+    }
+    if (cell.dataset[key] !== value) cell.dataset[key] = value;
+  }
+
   function stopTimer(): void {
     if (!animationFrame) return;
     cancelAnimationFrame(animationFrame);
@@ -446,6 +587,7 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function saveCurrentGame(): void {
+    if (onlineSession) return;
     if (startedAt === null) return;
     if (state === "won" || state === "lost") {
       clearGameSave(gameId);
@@ -481,6 +623,202 @@ export function mountSnake(target: HTMLElement): () => void {
     saveGamePreferences(gameId, { difficulty, options: { wallMode } });
   }
 
+  function startOnline(session: MultiplayerSession): void {
+    stopTimer();
+    clearGameSave(gameId);
+    resetGameProgress(shell);
+    onlineConnection?.close();
+    onlineSession = session;
+    onlineSeat = session.seat;
+    onlineRevision = 0;
+    onlineStatus = "connecting";
+    onlineRoomStatus = "lobby";
+    onlineSeats = emptyOnlineSeats();
+    onlineSeats[session.seat] = { joined: true, connected: false };
+    onlineState = null;
+    onlineResultRecorded = false;
+    onlineError = "";
+    runId = createRunId();
+    state = "ready";
+    onlineConnection = connectMultiplayerSession(session, {
+      onSnapshot: (message) => applyOnlineSnapshot(message.room, message.you.seat),
+      onError: (error, room) => {
+        onlineError = error;
+        if (room) applyOnlineSnapshot(room, onlineSeat ?? session.seat);
+        else render();
+      },
+      onStatus: (connectionStatus) => {
+        onlineStatus = connectionStatus;
+        if (connectionStatus === "connected") onlineError = "";
+        render();
+      },
+    });
+    render();
+  }
+
+  function requestOnlineStart(): void {
+    if (!onlineSession) return;
+    if (!canOnlineStart()) {
+      if (onlineRoomStatus === "lobby") invalidMove.trigger();
+      return;
+    }
+    onlineError = "Starting…";
+    onlineConnection?.requestStart(onlineRevision);
+    render();
+  }
+
+  function requestOnlineRematch(): void {
+    if (!canOnlineRematch()) return;
+    onlineError = "Starting rematch…";
+    onlineConnection?.requestRematch(onlineRevision);
+    render();
+  }
+
+  function sendOnlineDirection(next: Direction): void {
+    const player = onlineSeat ? onlinePlayerFor(onlineSeat) : null;
+    if (onlineStatus !== "connected" || onlineRoomStatus !== "playing" || !player?.alive) {
+      invalidMove.trigger();
+      return;
+    }
+    onlineConnection?.sendAction(onlineRevision, { type: "direction", direction: next });
+    playSound("gameMove");
+  }
+
+  function canOnlineStart(): boolean {
+    return Boolean(
+      onlineSession &&
+      onlineSeat === "p1" &&
+      onlineStatus === "connected" &&
+      onlineRoomStatus === "lobby" &&
+      joinedOnlineSeatCount() >= 2,
+    );
+  }
+
+  function canOnlineRematch(): boolean {
+    return Boolean(onlineSession && onlineState?.winner);
+  }
+
+  function stopOnline(): void {
+    onlineDialog.close();
+    onlineConnection?.close();
+    onlineConnection = null;
+    onlineSession = null;
+    onlineSeat = null;
+    onlineRevision = 0;
+    onlineStatus = "closed";
+    onlineRoomStatus = "lobby";
+    onlineSeats = emptyOnlineSeats();
+    onlineState = null;
+    onlineResultRecorded = false;
+    onlineError = "";
+  }
+
+  function applyOnlineSnapshot(room: MultiplayerRoomSnapshot, seat: MultiplayerSeat): void {
+    const snapshot = parseOnlineSnakeState(room.state);
+    if (!snapshot || room.gameId !== gameId) return;
+    const wasInFinishedOrStartedOnlineGame =
+      onlineResultRecorded || Boolean(onlineState?.winner) || (onlineState?.tick ?? 0) > 0;
+    onlineError = "";
+    onlineSeat = seat;
+    onlineRevision = room.revision;
+    onlineRoomStatus = room.status;
+    onlineSeats = room.seats;
+    onlineState = snapshot;
+    if (
+      wasInFinishedOrStartedOnlineGame &&
+      room.status === "playing" &&
+      snapshot.tick === 0 &&
+      !snapshot.winner
+    ) {
+      resetGameProgress(shell);
+      runId = createRunId();
+      onlineResultRecorded = false;
+    }
+    if (room.status === "playing" && snapshot.players.length > 0) markGameStarted(shell);
+    if (snapshot.winner) {
+      markGameFinished(shell);
+      recordOnlineFinished(snapshot);
+    }
+    render();
+  }
+
+  function onlineStatusText(): string {
+    if (onlineError) return onlineError;
+    if (onlineStatus === "connecting") return "Connecting…";
+    if (onlineStatus === "reconnecting") return "Reconnecting…";
+    if (!onlineSession) return "Online";
+    const joined = joinedOnlineSeatCount();
+    if (onlineRoomStatus === "lobby") {
+      if (onlineSeat === "p1") return `Room ${onlineSession.code} · ${joined}/4 · Start at 2`;
+      return `Room ${onlineSession.code} · ${joined}/4 · Waiting host`;
+    }
+    const winner = onlineState?.winner ?? null;
+    if (winner === "draw") return "Draw";
+    if (winner) return winner === onlineSeat ? "You win" : `${onlinePlayerLabel(winner)} wins`;
+    const player = onlineSeat ? onlinePlayerFor(onlineSeat) : null;
+    if (!player) return `Room ${onlineSession.code} · Watching`;
+    const alive = onlineState?.players.filter((entry) => entry.alive).length ?? 0;
+    if (!player.alive) return `Crashed · ${alive} alive`;
+    return `Length ${player.snake.length} · ${alive}/${onlineState?.players.length ?? joined} alive`;
+  }
+
+  function recordOnlineFinished(snapshot: OnlineSnakeState): void {
+    if (onlineResultRecorded || !onlineSeat || !snapshot.winner) return;
+    onlineResultRecorded = true;
+    const player = onlinePlayerFor(onlineSeat, snapshot);
+    const outcome =
+      snapshot.winner === "draw" ? "draw" : snapshot.winner === onlineSeat ? "won" : "lost";
+    recordGameResult({
+      runId,
+      gameId,
+      outcome,
+      score: Math.max(0, (player?.snake.length ?? 3) - 3),
+      durationMs: durationSince(snapshot.startedAt),
+      metadata: {
+        mode: "online",
+        seat: onlineSeat,
+        winner: snapshot.winner,
+        players: snapshot.players.length,
+        length: player?.snake.length ?? 0,
+      },
+    });
+  }
+
+  function onlineCellStates(): Map<
+    string,
+    { owner: MultiplayerSeat; head: boolean; alive: boolean; yours: boolean }
+  > {
+    const map = new Map<
+      string,
+      { owner: MultiplayerSeat; head: boolean; alive: boolean; yours: boolean }
+    >();
+    for (const player of onlineState?.players ?? []) {
+      player.snake.forEach((point, index) => {
+        const key = snakePointKey(point);
+        if (!map.has(key)) {
+          map.set(key, {
+            owner: player.seat,
+            head: index === 0,
+            alive: player.alive,
+            yours: player.seat === onlineSeat,
+          });
+        }
+      });
+    }
+    return map;
+  }
+
+  function onlinePlayerFor(
+    seat: MultiplayerSeat,
+    snapshot: OnlineSnakeState | null = onlineState,
+  ): OnlineSnakePlayer | null {
+    return snapshot?.players.find((player) => player.seat === seat) ?? null;
+  }
+
+  function joinedOnlineSeatCount(): number {
+    return multiplayerSeats.filter((seat) => onlineSeats[seat].joined).length;
+  }
+
   if (startedAt !== null) markGameStarted(shell);
   if (state === "won" || state === "lost") markGameFinished(shell);
   render();
@@ -489,8 +827,22 @@ export function mountSnake(target: HTMLElement): () => void {
     stopTimer();
     invalidMove.cleanup();
     scope.cleanup();
+    stopOnline();
     remove();
   };
+}
+
+function emptyOnlineSeats(): MultiplayerRoomSnapshot["seats"] {
+  return {
+    p1: { joined: false, connected: false },
+    p2: { joined: false, connected: false },
+    p3: { joined: false, connected: false },
+    p4: { joined: false, connected: false },
+  };
+}
+
+function onlinePlayerLabel(seat: MultiplayerSeat): string {
+  return seat.toUpperCase();
 }
 
 function parseWallMode(value: unknown): WallMode | null {
@@ -524,6 +876,42 @@ function parseSaveSnake(value: unknown): SaveSnake | null {
     score: value.score,
     startedAt,
   };
+}
+
+function parseOnlineSnakeState(value: unknown): OnlineSnakeState | null {
+  if (!isRecord(value)) return null;
+  const size = typeof value.size === "number" && Number.isInteger(value.size) ? value.size : null;
+  if (size === null || size < 8 || size > 40) return null;
+  const food = parsePoint(value.food, size);
+  const winner = parseOnlineWinner(value.winner);
+  const players = Array.isArray(value.players)
+    ? value.players.map((player) => parseOnlineSnakePlayer(player, size))
+    : [];
+  const tick = typeof value.tick === "number" && Number.isInteger(value.tick) ? value.tick : 0;
+  const startedAt = parseStartedAt(value.startedAt);
+  if (!food || winner === undefined || startedAt === undefined) return null;
+  if (!players.every((player): player is OnlineSnakePlayer => player !== null)) return null;
+  return { size, food, players, winner, tick, startedAt };
+}
+
+function parseOnlineSnakePlayer(value: unknown, size: number): OnlineSnakePlayer | null {
+  if (!isRecord(value)) return null;
+  const seat = parseMultiplayerSeat(value.seat);
+  const snake = parseSnake(value.snake, size);
+  const direction = parseDirection(value.direction);
+  const queuedDirection = parseDirection(value.queuedDirection);
+  const alive = typeof value.alive === "boolean" ? value.alive : null;
+  const score =
+    typeof value.score === "number" && Number.isInteger(value.score) ? value.score : null;
+  if (!seat || !snake || !direction || !queuedDirection || alive === null || score === null) {
+    return null;
+  }
+  return { seat, snake, direction, queuedDirection, alive, score };
+}
+
+function parseOnlineWinner(value: unknown): MultiplayerSeat | "draw" | null | undefined {
+  if (value === null || value === "draw") return value;
+  return parseMultiplayerSeat(value) ?? undefined;
 }
 
 function parseConfig(value: unknown, expected: Config): Config | null {

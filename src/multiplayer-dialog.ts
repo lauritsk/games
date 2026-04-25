@@ -23,7 +23,7 @@ export function createMultiplayerDialog(): MultiplayerDialog {
     const title = el("h2", { className: "multiplayer-dialog__title", text: `${game.name} online` });
     const summary = el("p", {
       className: "muted",
-      text: "Create a private 1v1 room or join one with a code.",
+      text: "Create a private online room or join one with a code.",
     });
     const body = el("div", { className: "multiplayer-dialog__body" });
     const actions = el("div", { className: "modal__actions cluster" });

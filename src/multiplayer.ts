@@ -16,6 +16,7 @@ export type MultiplayerConnectionStatus = "connecting" | "connected" | "reconnec
 
 export type MultiplayerConnection = {
   sendAction(revision: number, action: unknown): void;
+  requestStart(revision: number): void;
   requestRematch(revision: number): void;
   close(): void;
 };
@@ -117,6 +118,9 @@ export function connectMultiplayerSession(
     sendAction(revision, action) {
       sendClientMessage({ type: "action", revision, action });
     },
+    requestStart(revision) {
+      sendClientMessage({ type: "start", revision });
+    },
     requestRematch(revision) {
       sendClientMessage({ type: "rematch", revision });
     },
@@ -190,13 +194,15 @@ function parseRoom(value: unknown): MultiplayerRoomSnapshot | null {
   }
   const p1 = parseSeat(value.seats.p1);
   const p2 = parseSeat(value.seats.p2);
-  if (!p1 || !p2) return null;
+  const p3 = parseSeat(value.seats.p3);
+  const p4 = parseSeat(value.seats.p4);
+  if (!p1 || !p2 || !p3 || !p4) return null;
   return {
     code: value.code,
     gameId: value.gameId,
     status: parseMultiplayerRoomStatus(value.status) ?? "lobby",
     revision: value.revision,
-    seats: { p1, p2 },
+    seats: { p1, p2, p3, p4 },
     state: value.state,
   };
 }

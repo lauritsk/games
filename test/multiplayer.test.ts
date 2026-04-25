@@ -117,6 +117,42 @@ describe("multiplayer API", () => {
     hub.dispose();
   });
 
+  test("supports four-player Snake lobbies before host start", async () => {
+    const hub = new MultiplayerHub();
+    const created = await hub.createRoom("snake");
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const p2 = await hub.joinRoom(created.session.code);
+    const p3 = await hub.joinRoom(created.session.code);
+    const p4 = await hub.joinRoom(created.session.code);
+    const p5 = await hub.joinRoom(created.session.code);
+    expect(p2.ok).toBe(true);
+    expect(p3.ok).toBe(true);
+    expect(p4.ok).toBe(true);
+    if (p2.ok) expect(p2.session.seat).toBe("p2");
+    if (p3.ok) expect(p3.session.seat).toBe("p3");
+    if (p4.ok) expect(p4.session.seat).toBe("p4");
+    expect(p5).toEqual({ ok: false, error: "Room not found or unavailable" });
+
+    const p1Socket = fakeSocket({
+      code: created.session.code,
+      playerId: created.session.playerId,
+      seat: "p1",
+    });
+    hub.onMessage(p1Socket, JSON.stringify({ type: "start", revision: 3 }));
+
+    const message = lastSentJson(p1Socket);
+    expect(message.type).toBe("snapshot");
+    const room = message.room as { status: string; revision: number; state: unknown };
+    expect(room.status).toBe("playing");
+    expect(room.revision).toBe(4);
+    const state = room.state as { players: Array<{ seat: string; alive: boolean }> };
+    expect(state.players.map((player) => player.seat)).toEqual(["p1", "p2", "p3", "p4"]);
+    expect(state.players.every((player) => player.alive)).toBe(true);
+    hub.dispose();
+  });
+
   test("rejects third players and bad socket tokens", async () => {
     const hub = new MultiplayerHub();
     const created = await hub.createRoom("connect4");

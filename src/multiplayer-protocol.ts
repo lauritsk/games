@@ -1,9 +1,14 @@
-export type MultiplayerSeat = "p1" | "p2";
+export type MultiplayerSeat = "p1" | "p2" | "p3" | "p4";
 export type MultiplayerRoomStatus = "lobby" | "playing" | "finished";
 
 export const multiplayerCodeAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 export const multiplayerCodeLength = 6;
-export const multiplayerSeats = ["p1", "p2"] as const satisfies readonly MultiplayerSeat[];
+export const multiplayerSeats = [
+  "p1",
+  "p2",
+  "p3",
+  "p4",
+] as const satisfies readonly MultiplayerSeat[];
 
 export type MultiplayerSession = {
   code: string;
@@ -52,7 +57,15 @@ export type MultiplayerRematchMessage = {
   revision: number;
 };
 
-export type MultiplayerClientMessage = MultiplayerActionMessage | MultiplayerRematchMessage;
+export type MultiplayerStartMessage = {
+  type: "start";
+  revision: number;
+};
+
+export type MultiplayerClientMessage =
+  | MultiplayerActionMessage
+  | MultiplayerRematchMessage
+  | MultiplayerStartMessage;
 
 export type MultiplayerCreateResponse =
   | { ok: true; session: MultiplayerSession }
@@ -85,5 +98,7 @@ export function parseMultiplayerRoomStatus(value: unknown): MultiplayerRoomStatu
 }
 
 export function oppositeMultiplayerSeat(seat: MultiplayerSeat): MultiplayerSeat {
-  return seat === "p1" ? "p2" : "p1";
+  if (seat === "p1") return "p2";
+  if (seat === "p2") return "p1";
+  return seat === "p3" ? "p4" : "p3";
 }
