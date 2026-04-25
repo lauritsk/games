@@ -1,0 +1,46 @@
+---
+- name: Deploy games quadlet
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Ensure quadlet directory exists
+      ansible.builtin.file:
+        path: /etc/containers/systemd
+        state: directory
+        mode: '0755'
+
+    - name: Ensure games quadlet is installed
+      ansible.builtin.copy:
+        src: games.container
+        dest: /etc/containers/systemd/games.container
+        mode: '0644'
+
+    - name: Ensure podman auto updates are enabled
+      ansible.builtin.systemd:
+        name: podman-auto-update.timer
+        enabled: true
+        state: started
+
+    - name: Ensure Caddyfile is installed
+      ansible.builtin.copy:
+        src: Caddyfile
+        dest: /etc/caddy/Caddyfile
+        mode: '0644'
+        backup: true
+      notify: Restart caddy
+
+    - name: Ensure games service is enabled and restarted
+      ansible.builtin.systemd:
+        name: games.service
+        enabled: true
+        state: restarted
+        daemon_reload: true
+
+  handlers:
+    - name: Restart caddy
+      ansible.builtin.systemd:
+        name: caddy.service
+        state: restarted
+        enabled: true
+        daemon_reload: true
