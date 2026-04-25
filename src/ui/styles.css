@@ -54,7 +54,11 @@
       Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --gap: clamp(10px, 2vmin, 18px);
     --pad: clamp(10px, 2.4vmin, 24px);
-    --radius: 22px;
+    --radius-xs: 6px;
+    --radius-sm: 10px;
+    --radius-md: 16px;
+    --radius-lg: 22px;
+    --radius: var(--radius-lg);
     --round: 999px;
     --ease: 140ms ease;
     --focus: var(--accent);
@@ -206,7 +210,7 @@
     }
   }
   .pill {
-    border-radius: 12px;
+    border-radius: var(--radius-sm);
     padding: 8px 11px;
     font-weight: 850;
   }
@@ -299,7 +303,7 @@
     min-width: 0;
     padding: 8px 10px;
     border: 1px solid var(--line);
-    border-radius: 16px;
+    border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--surface), transparent 32%);
     color: var(--muted);
     font-size: 0.86rem;
@@ -329,7 +333,7 @@
   .nav-action {
     width: max-content;
     max-width: 100%;
-    border-radius: 7px;
+    border-radius: var(--radius-sm);
     color: var(--muted);
     font-size: 0.86rem;
     font-weight: 800;
@@ -588,7 +592,7 @@
     justify-self: start;
     overflow: hidden;
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
   }
 
   .leaderboard-dialog__filter {
@@ -644,7 +648,7 @@
   .leaderboard-submit__input {
     min-width: 0;
     border: 1px solid var(--line);
-    border-radius: var(--round);
+    border-radius: var(--radius-sm);
     padding: 10px 12px;
     background: color-mix(in srgb, var(--surface), transparent 15%);
     color: var(--ink);
@@ -785,7 +789,7 @@
     min-width: 0;
     padding: 5px 7px 5px 10px;
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--surface), transparent 42%);
   }
 
@@ -845,7 +849,7 @@
     min-width: 0;
     padding-inline: 9px;
     border: 1px solid color-mix(in srgb, var(--line), transparent 18%);
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface), transparent 54%);
     color: var(--muted);
     font-weight: 850;
@@ -878,7 +882,7 @@
     overflow: hidden;
     padding: clamp(9px, 2vmin, 18px);
     border: 1px solid color-mix(in srgb, var(--accent), transparent 68%);
-    border-radius: calc(var(--radius) + 10px);
+    border-radius: var(--radius-lg);
     box-shadow:
       inset 0 1px 0 var(--board-highlight),
       var(--shadow);
@@ -1028,7 +1032,7 @@
     overscroll-behavior: contain;
     padding: 12px;
     border: 1px solid var(--line);
-    border-radius: 16px;
+    border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--surface-flat), transparent 8%);
   }
 
@@ -1241,7 +1245,7 @@
     --cell-selected-outline-offset: 2px;
     display: grid;
     place-items: center;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     color: var(--ink);
     font-size: clamp(0.72rem, 2.2vmin, 1rem);
     font-weight: 900;
@@ -1266,7 +1270,7 @@
     display: grid;
     place-items: center;
     overflow: hidden;
-    border-radius: 12px;
+    border-radius: var(--radius-sm);
     color: var(--ink);
     font-size: clamp(1rem, 5vmin, 2rem);
     font-variant-numeric: tabular-nums;
@@ -1286,7 +1290,7 @@
   .ttt-cell {
     display: grid;
     place-items: center;
-    border-radius: 16px;
+    border-radius: var(--radius-md);
     color: var(--ink);
     font-size: clamp(2.4rem, 12vmin, 6rem);
     font-weight: 950;
@@ -1305,7 +1309,7 @@
   }
 
   .snake-cell {
-    border-radius: 5px;
+    border-radius: var(--radius-xs);
     box-shadow: none;
     transition:
       background-color 48ms linear,
@@ -1362,7 +1366,7 @@
     width: 100%;
     height: 100%;
     aspect-ratio: auto;
-    border-radius: 5px;
+    border-radius: var(--radius-xs);
     transition:
       background var(--ease),
       transform var(--ease),
@@ -1409,7 +1413,7 @@
     aspect-ratio: auto;
     width: 100%;
     height: 100%;
-    border-radius: 14px;
+    border-radius: var(--radius-md);
     color: var(--ink);
     font-size: clamp(1.3rem, 6vmin, 3rem);
     font-weight: 950;
@@ -1459,13 +1463,13 @@
   }
 
   .breakout-paddle {
-    border-radius: 999px;
+    border-radius: var(--round);
     background: var(--accent);
     box-shadow: 0 0 16px color-mix(in srgb, var(--accent), transparent 44%);
   }
 
   .breakout-brick {
-    border-radius: 7px;
+    border-radius: var(--radius-xs);
     background: linear-gradient(180deg, #ffd766, #f0a85d);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.35),
@@ -1512,7 +1516,7 @@
   }
 
   .invader-barrier {
-    border-radius: 7px 7px 12px 12px;
+    border-radius: var(--radius-xs) var(--radius-xs) var(--radius-sm) var(--radius-sm);
     background: #67d8ff;
     box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.18);
   }
@@ -1529,7 +1533,7 @@
   }
 
   .invader-shot {
-    border-radius: 999px;
+    border-radius: var(--round);
     background: var(--ink);
     box-shadow: 0 0 10px color-mix(in srgb, var(--ink), transparent 40%);
   }
