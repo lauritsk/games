@@ -4,6 +4,11 @@
   become: true
 
   tasks:
+    - name: Ensure podman is installed
+      ansible.builtin.package:
+        name: podman
+        state: present
+
     - name: Ensure quadlet directory exists
       ansible.builtin.file:
         path: /etc/containers/systemd
@@ -21,6 +26,26 @@
         name: podman-auto-update.timer
         enabled: true
         state: started
+
+    - name: Pull latest games image
+      ansible.builtin.shell: |
+        set -euo pipefail
+        image="docker.io/lauritsk/games:latest"
+        format='{{ "{{" }}.Id{{ "}}" }}'
+        before="$(
+          podman image inspect "$image" --format "$format" 2>/dev/null || true
+        )"
+        podman pull "$image"
+        after="$(podman image inspect "$image" --format "$format")"
+        if [ "$before" = "$after" ]; then
+          echo "__image_unchanged__"
+        else
+          echo "__image_changed__"
+        fi
+      args:
+        executable: /bin/bash
+      register: games_image_pull
+      changed_when: "'__image_changed__' in games_image_pull.stdout"
 
     - name: Ensure Caddyfile is installed
       ansible.builtin.copy:
