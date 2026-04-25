@@ -7,13 +7,16 @@ import {
   writeStoredEnvelope,
 } from "@shared/storage";
 import { emptySyncSnapshot, parseSyncResult } from "@features/sync/sync-schema";
+import * as v from "valibot";
 import type {
   SyncResult,
   SyncResultClear,
   SyncSaveTombstone,
   SyncSnapshot,
 } from "@features/sync/sync-types";
-import { isRecord } from "@shared/validation";
+import { parseWithSchema, unknownRecordSchema } from "@shared/validation";
+
+const timestampMapValueSchema = v.string();
 
 const PREFERENCES_SCHEMA_VERSION = 1;
 const SAVE_SCHEMA_VERSION = 1;
@@ -295,24 +298,27 @@ function saveSyncLocalState(state: SyncLocalState): void {
 }
 
 function parseSyncLocalState(value: unknown): SyncLocalState | null {
-  if (!isRecord(value)) return null;
+  const record = parseWithSchema(unknownRecordSchema, value);
+  if (!record) return null;
   return {
-    saveDeletes: parseTimestampMap(value.saveDeletes),
-    resultClears: parseTimestampMap(value.resultClears),
+    saveDeletes: parseTimestampMap(record.saveDeletes),
+    resultClears: parseTimestampMap(record.resultClears),
   };
 }
 
 function parseTimestampMap(value: unknown): Record<string, string> {
-  if (!isRecord(value)) return {};
+  const record = parseWithSchema(unknownRecordSchema, value);
+  if (!record) return {};
   const map: Record<string, string> = {};
-  for (const [key, timestamp] of Object.entries(value)) {
-    if (typeof timestamp === "string") map[key] = timestamp;
+  for (const [key, timestamp] of Object.entries(record)) {
+    const parsed = parseWithSchema(timestampMapValueSchema, timestamp);
+    if (parsed !== null) map[key] = parsed;
   }
   return map;
 }
 
 function parseRecordValue(value: unknown): Record<string, unknown> | null {
-  return isRecord(value) ? value : null;
+  return parseWithSchema(unknownRecordSchema, value);
 }
 
 function parseAnyValue<T>(value: T): T {

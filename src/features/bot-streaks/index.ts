@@ -1,7 +1,8 @@
+import * as v from "valibot";
 import type { Difficulty } from "@shared/types";
 import type { GameOutcome } from "@features/results/game-results";
 import { readStored, storageKey, writeStored } from "@shared/storage";
-import { isRecord } from "@shared/validation";
+import { integerBetweenSchema, parseWithSchema, unknownRecordSchema } from "@shared/validation";
 
 export type BotStreak = {
   current: number;
@@ -10,6 +11,8 @@ export type BotStreak = {
 
 const STREAK_SCHEMA_VERSION = 1;
 const streaksKey = storageKey("bot-streaks");
+const countSchema = integerBetweenSchema(0, 10_000);
+const streakSchema = v.object({ current: countSchema, best: countSchema });
 
 type StoredStreaks = Record<string, BotStreak>;
 
@@ -47,22 +50,15 @@ function readStreaks(): StoredStreaks {
 }
 
 function parseStreaks(value: unknown): StoredStreaks | null {
-  if (!isRecord(value)) return null;
+  const record = parseWithSchema(unknownRecordSchema, value);
+  if (!record) return null;
   const streaks: StoredStreaks = {};
-  for (const [key, entry] of Object.entries(value)) {
-    if (!isRecord(entry)) continue;
-    const current = parseCount(entry.current);
-    const best = parseCount(entry.best);
-    if (current === null || best === null) continue;
-    streaks[key] = { current, best: Math.max(best, current) };
+  for (const [key, entry] of Object.entries(record)) {
+    const parsed = parseWithSchema(streakSchema, entry);
+    if (parsed)
+      streaks[key] = { current: parsed.current, best: Math.max(parsed.best, parsed.current) };
   }
   return streaks;
-}
-
-function parseCount(value: unknown): number | null {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 10_000
-    ? value
-    : null;
 }
 
 function streakKey(gameId: string, difficulty: Difficulty): string {

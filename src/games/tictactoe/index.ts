@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import {
   addTouchGestureControls,
   createDelayedAction,
@@ -7,12 +8,13 @@ import {
   gameLayouts,
   handleStandardGameKey,
   isConfirmOpen,
-  isRecord,
+  integerSchema,
   moveGridIndex,
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
-  parseOneOf,
+  parseWithSchema,
+  picklistSchema,
   resetGameProgress,
   setBoardGrid,
   setIconLabel,
@@ -98,6 +100,24 @@ type OnlineTicTacToeState = {
   winLine: readonly number[];
   moves: number;
 };
+
+const botPlayModeSchema = picklistSchema(["bot", "local"] as const);
+const ticTacToeCellSchema = picklistSchema([humanMark, botMark, ""] as const);
+const ticTacToeMarkSchema = picklistSchema([humanMark, botMark] as const);
+const saveTicTacToeBaseSchema = v.looseObject({
+  board: v.unknown(),
+  current: v.unknown(),
+  mode: v.unknown(),
+  difficulty: v.unknown(),
+  winner: v.unknown(),
+});
+const onlineTicTacToeBaseSchema = v.looseObject({
+  board: v.unknown(),
+  current: v.unknown(),
+  winner: v.unknown(),
+  winLine: v.optional(v.unknown()),
+  moves: v.optional(integerSchema, 0),
+});
 
 export const tictactoe: GameDefinition = {
   id: "tictactoe",
@@ -599,16 +619,17 @@ export function mountTicTacToe(target: HTMLElement): () => void {
 }
 
 function parseBotPlayMode(value: unknown): BotPlayMode | null {
-  return parseOneOf(value, ["bot", "local"] as const);
+  return parseWithSchema(botPlayModeSchema, value);
 }
 
 function parseSaveTicTacToe(value: unknown): SaveTicTacToe | null {
-  if (!isRecord(value)) return null;
-  const board = parseBoard(value.board);
-  const current = parseMark(value.current);
-  const mode = parseBotPlayMode(value.mode);
-  const difficulty = parseDifficulty(value.difficulty);
-  const winner = parseWinner(value.winner);
+  const parsed = parseWithSchema(saveTicTacToeBaseSchema, value);
+  if (!parsed) return null;
+  const board = parseBoard(parsed.board);
+  const current = parseMark(parsed.current);
+  const mode = parseBotPlayMode(parsed.mode);
+  const difficulty = parseDifficulty(parsed.difficulty);
+  const winner = parseWinner(parsed.winner);
   if (!board || !current || !mode || !difficulty || winner === undefined) return null;
   return { board, current, mode, difficulty, winner };
 }
@@ -620,11 +641,11 @@ function parseBoard(value: unknown): TicTacToeCell[] | null {
 }
 
 function parseCell(value: unknown): TicTacToeCell | null {
-  return parseOneOf(value, [humanMark, botMark, ""] as const);
+  return parseWithSchema(ticTacToeCellSchema, value);
 }
 
 function parseMark(value: unknown): Mark | null {
-  return parseOneOf(value, [humanMark, botMark] as const);
+  return parseWithSchema(ticTacToeMarkSchema, value);
 }
 
 function parseWinner(value: unknown): Mark | "draw" | null | undefined {
@@ -633,16 +654,16 @@ function parseWinner(value: unknown): Mark | "draw" | null | undefined {
 }
 
 function parseOnlineTicTacToeState(value: unknown): OnlineTicTacToeState | null {
-  if (!isRecord(value)) return null;
-  const board = parseBoard(value.board);
-  const current = parseMultiplayerSeat(value.current);
-  const winner = parseOnlineWinner(value.winner);
+  const parsed = parseWithSchema(onlineTicTacToeBaseSchema, value);
+  if (!parsed) return null;
+  const board = parseBoard(parsed.board);
+  const current = parseMultiplayerSeat(parsed.current);
+  const winner = parseOnlineWinner(parsed.winner);
   if (!board || !current || winner === undefined) return null;
-  const winLine = Array.isArray(value.winLine)
-    ? value.winLine.filter((index): index is number => typeof index === "number")
+  const winLine = Array.isArray(parsed.winLine)
+    ? parsed.winLine.filter((index): index is number => typeof index === "number")
     : [];
-  const moves = typeof value.moves === "number" && Number.isInteger(value.moves) ? value.moves : 0;
-  return { board, current, winner, winLine, moves };
+  return { board, current, winner, winLine, moves: parsed.moves };
 }
 
 function parseOnlineWinner(value: unknown): MultiplayerSeat | "draw" | null | undefined {

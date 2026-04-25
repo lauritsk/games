@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import {
   addTouchGestureControls,
   createDelayedAction,
@@ -7,13 +8,14 @@ import {
   gameLayouts,
   handleStandardGameKey,
   isConfirmOpen,
-  isRecord,
+  integerBetweenSchema,
   Keys,
   markGameFinished,
   markGameStarted,
   matchesKey,
   onDocumentKeyDown,
-  parseOneOf,
+  parseWithSchema,
+  picklistSchema,
   resetGameProgress,
   setBoardGrid,
   setIconLabel,
@@ -104,6 +106,26 @@ type OnlineConnect4State = {
   winningLine: Connect4WinLine;
   moves: number;
 };
+
+const botPlayModeSchema = picklistSchema(["bot", "local"] as const);
+const connect4CellSchema = picklistSchema([0, connect4Human, connect4Bot] as const);
+const connect4PlayerSchema = picklistSchema([connect4Human, connect4Bot] as const);
+const connect4MovesSchema = integerBetweenSchema(0, connect4Rows * connect4Columns);
+const saveConnect4BaseSchema = v.looseObject({
+  board: v.unknown(),
+  current: v.unknown(),
+  winner: v.unknown(),
+  moves: connect4MovesSchema,
+  mode: v.unknown(),
+  difficulty: v.unknown(),
+});
+const onlineConnect4BaseSchema = v.looseObject({
+  board: v.unknown(),
+  current: v.unknown(),
+  winner: v.unknown(),
+  winningLine: v.optional(v.unknown()),
+  moves: v.optional(connect4MovesSchema, 0),
+});
 
 export const connect4: GameDefinition = {
   id: "connect4",
@@ -633,24 +655,19 @@ export function mountConnect4(target: HTMLElement): () => void {
 }
 
 function parseBotPlayMode(value: unknown): BotPlayMode | null {
-  return parseOneOf(value, ["bot", "local"] as const);
+  return parseWithSchema(botPlayModeSchema, value);
 }
 
 function parseSaveConnect4(value: unknown): SaveConnect4 | null {
-  if (!isRecord(value)) return null;
-  const board = parseBoard(value.board);
-  const current = parsePlayer(value.current);
-  const winner = parseWinner(value.winner);
-  const mode = parseBotPlayMode(value.mode);
-  const difficulty = parseDifficulty(value.difficulty);
+  const parsed = parseWithSchema(saveConnect4BaseSchema, value);
+  if (!parsed) return null;
+  const board = parseBoard(parsed.board);
+  const current = parsePlayer(parsed.current);
+  const winner = parseWinner(parsed.winner);
+  const mode = parseBotPlayMode(parsed.mode);
+  const difficulty = parseDifficulty(parsed.difficulty);
   if (!board || !current || winner === undefined || !mode || !difficulty) return null;
-  if (
-    typeof value.moves !== "number" ||
-    value.moves < 0 ||
-    value.moves > connect4Rows * connect4Columns
-  )
-    return null;
-  return { board, current, winner, moves: value.moves, mode, difficulty };
+  return { board, current, winner, moves: parsed.moves, mode, difficulty };
 }
 
 function parseBoard(value: unknown): Connect4Cell[][] | null {
@@ -664,11 +681,11 @@ function parseBoard(value: unknown): Connect4Cell[][] | null {
 }
 
 function parseCell(value: unknown): Connect4Cell | null {
-  return parseOneOf(value, [0, connect4Human, connect4Bot] as const);
+  return parseWithSchema(connect4CellSchema, value);
 }
 
 function parsePlayer(value: unknown): Connect4Player | null {
-  return parseOneOf(value, [connect4Human, connect4Bot] as const);
+  return parseWithSchema(connect4PlayerSchema, value);
 }
 
 function parseWinner(value: unknown): Connect4Player | null | undefined {
@@ -677,20 +694,20 @@ function parseWinner(value: unknown): Connect4Player | null | undefined {
 }
 
 function parseOnlineConnect4State(value: unknown): OnlineConnect4State | null {
-  if (!isRecord(value)) return null;
-  const board = parseBoard(value.board);
-  const current = parseMultiplayerSeat(value.current);
-  const winner = parseOnlineWinner(value.winner);
+  const parsed = parseWithSchema(onlineConnect4BaseSchema, value);
+  if (!parsed) return null;
+  const board = parseBoard(parsed.board);
+  const current = parseMultiplayerSeat(parsed.current);
+  const winner = parseOnlineWinner(parsed.winner);
   if (!board || !current || winner === undefined) return null;
-  const winningLine = Array.isArray(value.winningLine)
-    ? value.winningLine.flatMap((point): Connect4WinLine => {
+  const winningLine = Array.isArray(parsed.winningLine)
+    ? parsed.winningLine.flatMap((point): Connect4WinLine => {
         if (!Array.isArray(point) || point.length !== 2) return [];
         const [row, column] = point;
         return typeof row === "number" && typeof column === "number" ? [[row, column]] : [];
       })
     : [];
-  const moves = typeof value.moves === "number" && Number.isInteger(value.moves) ? value.moves : 0;
-  return { board, current, winner, winningLine, moves };
+  return { board, current, winner, winningLine, moves: parsed.moves };
 }
 
 function parseOnlineWinner(value: unknown): MultiplayerSeat | "draw" | null | undefined {

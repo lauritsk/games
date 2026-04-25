@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import type { ServerWebSocket } from "bun";
 import {
   multiplayerCodeAlphabet,
@@ -10,7 +11,7 @@ import {
   type MultiplayerSession,
   type MultiplayerSessionRole,
 } from "@features/multiplayer/multiplayer-protocol";
-import { isRecord } from "@shared/validation";
+import { integerSchema, parseWithSchema } from "@shared/validation";
 import { json, readLimitedJson, tooManyRequestsJson } from "@server/http";
 import { checkRateLimit, checkRequestRateLimit } from "@server/rate-limit";
 import {
@@ -70,6 +71,18 @@ const hardTtlMs = 24 * 60 * 60_000;
 const maxRequestBytes = 10_000;
 const defaultCountdownMs = 3000;
 
+const createRoomRequestSchema = v.looseObject({
+  gameId: v.pipe(v.string(), v.minLength(1)),
+  settings: v.optional(v.unknown()),
+});
+const roomCodeRequestSchema = v.looseObject({ code: v.optional(v.string(), "") });
+const clientMessageSchema = v.variant("type", [
+  v.object({ type: v.literal("start"), revision: integerSchema }),
+  v.object({ type: v.literal("rematch"), revision: integerSchema }),
+  v.object({ type: v.literal("settings"), revision: integerSchema, settings: v.unknown() }),
+  v.object({ type: v.literal("action"), revision: integerSchema, action: v.unknown() }),
+]);
+
 export type MultiplayerHubOptions = {
   countdownMs?: number;
 };
@@ -124,17 +137,15 @@ export class MultiplayerHub {
     if (!checkRequestRateLimit(request, "multiplayer-create", { windowMs: 60_000, max: 12 })) {
       return tooManyRequestsJson();
     }
-    const body = await readSmallJson(request);
-    const gameId = isRecord(body) && typeof body.gameId === "string" ? body.gameId : null;
-    if (!gameId) return json({ ok: false, error: "Invalid room request" }, 400);
-    const result = await this.createRoom(gameId, isRecord(body) ? body.settings : undefined);
+    const body = parseWithSchema(createRoomRequestSchema, await readSmallJson(request));
+    if (!body) return json({ ok: false, error: "Invalid room request" }, 400);
+    const result = await this.createRoom(body.gameId, body.settings);
     return json(result, result.ok ? 200 : 400);
   }
 
   private async handleJoinRoomRequest(request: Request): Promise<Response> {
-    const body = await readSmallJson(request);
-    const code = isRecord(body) && typeof body.code === "string" ? body.code : "";
-    const normalized = normalizeMultiplayerCode(code);
+    const body = parseWithSchema(roomCodeRequestSchema, await readSmallJson(request));
+    const normalized = normalizeMultiplayerCode(body?.code ?? "");
     if (
       !checkRequestRateLimit(request, `multiplayer-join:${normalized}`, {
         windowMs: 60_000,
@@ -148,9 +159,8 @@ export class MultiplayerHub {
   }
 
   private async handleSpectateRoomRequest(request: Request): Promise<Response> {
-    const body = await readSmallJson(request);
-    const code = isRecord(body) && typeof body.code === "string" ? body.code : "";
-    const normalized = normalizeMultiplayerCode(code);
+    const body = parseWithSchema(roomCodeRequestSchema, await readSmallJson(request));
+    const normalized = normalizeMultiplayerCode(body?.code ?? "");
     if (
       !checkRequestRateLimit(request, `multiplayer-spectate:${normalized}`, {
         windowMs: 60_000,
@@ -645,17 +655,7 @@ export class MultiplayerHub {
 function parseClientMessage(message: string | Buffer): MultiplayerClientMessage | null {
   try {
     const value = JSON.parse(typeof message === "string" ? message : message.toString()) as unknown;
-    if (!isRecord(value) || typeof value.revision !== "number") return null;
-    if (!Number.isInteger(value.revision)) return null;
-    if (value.type === "start") return { type: "start", revision: value.revision };
-    if (value.type === "rematch") return { type: "rematch", revision: value.revision };
-    if (value.type === "settings") {
-      return { type: "settings", revision: value.revision, settings: value.settings };
-    }
-    if (value.type === "action") {
-      return { type: "action", revision: value.revision, action: value.action };
-    }
-    return null;
+    return parseWithSchema(clientMessageSchema, value);
   } catch {
     return null;
   }

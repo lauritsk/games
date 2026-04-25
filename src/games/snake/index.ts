@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import { createPauseOverlay } from "@games/shared/arcade";
 import {
   addTouchGestureControls,
@@ -7,13 +8,15 @@ import {
   el,
   gameLayouts,
   handleStandardGameKey,
-  isFiniteNumber,
-  isIntegerInRange,
-  isRecord,
+  finiteNumberSchema,
+  integerBetweenSchema,
+  integerRangeSchema,
+  integerSchema,
+  parseWithSchema,
+  picklistSchema,
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
-  parseOneOf,
   parseStartedAt,
   pauseGameOnRequest,
   pauseOnFocusLoss,
@@ -139,6 +142,42 @@ type SaveSnake = {
   score: number;
   startedAt: number | null;
 };
+
+const wallModeSchema = picklistSchema(["fatal", "teleport"] as const);
+const directionSchema = picklistSchema(["up", "right", "down", "left"] as const);
+const snakeStateSchema = picklistSchema(["ready", "playing", "paused", "won", "lost"] as const);
+const saveSnakeBaseSchema = v.looseObject({
+  difficulty: v.unknown(),
+  wallMode: v.unknown(),
+  config: v.unknown(),
+  snake: v.unknown(),
+  food: v.unknown(),
+  direction: v.unknown(),
+  queuedDirection: v.unknown(),
+  state: v.unknown(),
+  score: finiteNumberSchema,
+  startedAt: v.unknown(),
+});
+const onlineSnakeBaseSchema = v.looseObject({
+  difficulty: v.unknown(),
+  wallMode: v.unknown(),
+  size: integerBetweenSchema(8, 40),
+  food: v.unknown(),
+  players: v.optional(v.unknown()),
+  winner: v.unknown(),
+  tick: v.optional(integerSchema, 0),
+  startedAt: v.unknown(),
+});
+const onlineSnakePlayerBaseSchema = v.looseObject({
+  seat: v.unknown(),
+  snake: v.unknown(),
+  direction: v.unknown(),
+  queuedDirection: v.unknown(),
+  alive: v.boolean(),
+  score: integerSchema,
+});
+const snakeConfigBaseSchema = v.looseObject({ size: v.unknown(), speed: v.unknown() });
+const snakePointBaseSchema = v.looseObject({ row: v.unknown(), column: v.unknown() });
 
 const snakeGameDefinition: GameDefinition = {
   id: gameId,
@@ -947,23 +986,23 @@ function onlinePlayerLabel(seat: MultiplayerSeat): string {
 }
 
 function parseWallMode(value: unknown): WallMode | null {
-  return parseOneOf(value, ["fatal", "teleport"] as const);
+  return parseWithSchema(wallModeSchema, value);
 }
 
 function parseSaveSnake(value: unknown): SaveSnake | null {
-  if (!isRecord(value)) return null;
-  const difficulty = parseDifficulty(value.difficulty);
-  const wallMode = parseWallMode(value.wallMode);
+  const parsed = parseWithSchema(saveSnakeBaseSchema, value);
+  if (!parsed) return null;
+  const difficulty = parseDifficulty(parsed.difficulty);
+  const wallMode = parseWallMode(parsed.wallMode);
   if (!difficulty || !wallMode) return null;
-  const config = parseConfig(value.config, configs[difficulty]);
-  const snake = parseSnake(value.snake, config?.size ?? 0);
-  const food = parsePoint(value.food, config?.size ?? 0);
-  const direction = parseDirection(value.direction);
-  const queuedDirection = parseDirection(value.queuedDirection);
-  const state = parseState(value.state);
-  const startedAt = parseStartedAt(value.startedAt);
+  const config = parseConfig(parsed.config, configs[difficulty]);
+  const snake = parseSnake(parsed.snake, config?.size ?? 0);
+  const food = parsePoint(parsed.food, config?.size ?? 0);
+  const direction = parseDirection(parsed.direction);
+  const queuedDirection = parseDirection(parsed.queuedDirection);
+  const state = parseState(parsed.state);
+  const startedAt = parseStartedAt(parsed.startedAt);
   if (!config || !snake || !food || !direction || !queuedDirection || !state) return null;
-  if (!isFiniteNumber(value.score)) return null;
   if (startedAt === undefined) return null;
   return {
     difficulty,
@@ -974,42 +1013,46 @@ function parseSaveSnake(value: unknown): SaveSnake | null {
     direction,
     queuedDirection,
     state,
-    score: value.score,
+    score: parsed.score,
     startedAt,
   };
 }
 
 function parseOnlineSnakeState(value: unknown): OnlineSnakeState | null {
-  if (!isRecord(value)) return null;
-  const difficulty = parseDifficulty(value.difficulty);
-  const wallMode = parseWallMode(value.wallMode);
-  const size = typeof value.size === "number" && Number.isInteger(value.size) ? value.size : null;
-  if (!difficulty || !wallMode || size === null || size < 8 || size > 40) return null;
-  const food = parsePoint(value.food, size);
-  const winner = parseOnlineWinner(value.winner);
-  const players = Array.isArray(value.players)
-    ? value.players.map((player) => parseOnlineSnakePlayer(player, size))
+  const parsed = parseWithSchema(onlineSnakeBaseSchema, value);
+  if (!parsed) return null;
+  const difficulty = parseDifficulty(parsed.difficulty);
+  const wallMode = parseWallMode(parsed.wallMode);
+  if (!difficulty || !wallMode) return null;
+  const food = parsePoint(parsed.food, parsed.size);
+  const winner = parseOnlineWinner(parsed.winner);
+  const players = Array.isArray(parsed.players)
+    ? parsed.players.map((player) => parseOnlineSnakePlayer(player, parsed.size))
     : [];
-  const tick = typeof value.tick === "number" && Number.isInteger(value.tick) ? value.tick : 0;
-  const startedAt = parseStartedAt(value.startedAt);
+  const startedAt = parseStartedAt(parsed.startedAt);
   if (!food || winner === undefined || startedAt === undefined) return null;
   if (!players.every((player): player is OnlineSnakePlayer => player !== null)) return null;
-  return { difficulty, wallMode, size, food, players, winner, tick, startedAt };
+  return {
+    difficulty,
+    wallMode,
+    size: parsed.size,
+    food,
+    players,
+    winner,
+    tick: parsed.tick,
+    startedAt,
+  };
 }
 
 function parseOnlineSnakePlayer(value: unknown, size: number): OnlineSnakePlayer | null {
-  if (!isRecord(value)) return null;
-  const seat = parseMultiplayerSeat(value.seat);
-  const snake = parseSnake(value.snake, size);
-  const direction = parseDirection(value.direction);
-  const queuedDirection = parseDirection(value.queuedDirection);
-  const alive = typeof value.alive === "boolean" ? value.alive : null;
-  const score =
-    typeof value.score === "number" && Number.isInteger(value.score) ? value.score : null;
-  if (!seat || !snake || !direction || !queuedDirection || alive === null || score === null) {
-    return null;
-  }
-  return { seat, snake, direction, queuedDirection, alive, score };
+  const parsed = parseWithSchema(onlineSnakePlayerBaseSchema, value);
+  if (!parsed) return null;
+  const seat = parseMultiplayerSeat(parsed.seat);
+  const snake = parseSnake(parsed.snake, size);
+  const direction = parseDirection(parsed.direction);
+  const queuedDirection = parseDirection(parsed.queuedDirection);
+  if (!seat || !snake || !direction || !queuedDirection) return null;
+  return { seat, snake, direction, queuedDirection, alive: parsed.alive, score: parsed.score };
 }
 
 function parseOnlineWinner(value: unknown): MultiplayerSeat | "draw" | null | undefined {
@@ -1018,8 +1061,8 @@ function parseOnlineWinner(value: unknown): MultiplayerSeat | "draw" | null | un
 }
 
 function parseConfig(value: unknown, expected: Config): Config | null {
-  if (!isRecord(value)) return null;
-  return value.size === expected.size && value.speed === expected.speed ? expected : null;
+  const parsed = parseWithSchema(snakeConfigBaseSchema, value);
+  return parsed?.size === expected.size && parsed.speed === expected.speed ? expected : null;
 }
 
 function parseSnake(value: unknown, size: number): SnakePoint[] | null {
@@ -1029,17 +1072,17 @@ function parseSnake(value: unknown, size: number): SnakePoint[] | null {
 }
 
 function parsePoint(value: unknown, size: number): SnakePoint | null {
-  if (!isRecord(value)) return null;
-  const row = value.row;
-  const column = value.column;
-  if (!isIntegerInRange(row, size) || !isIntegerInRange(column, size)) return null;
-  return { row, column };
+  const parsed = parseWithSchema(snakePointBaseSchema, value);
+  if (!parsed) return null;
+  const row = parseWithSchema(integerRangeSchema(0, size), parsed.row);
+  const column = parseWithSchema(integerRangeSchema(0, size), parsed.column);
+  return row === null || column === null ? null : { row, column };
 }
 
 function parseDirection(value: unknown): Direction | null {
-  return parseOneOf(value, ["up", "right", "down", "left"] as const);
+  return parseWithSchema(directionSchema, value);
 }
 
 function parseState(value: unknown): State | null {
-  return parseOneOf(value, ["ready", "playing", "paused", "won", "lost"] as const);
+  return parseWithSchema(snakeStateSchema, value);
 }

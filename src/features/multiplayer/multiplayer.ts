@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import {
   normalizeMultiplayerCode,
   parseMultiplayerRoomStatus,
@@ -11,7 +12,12 @@ import {
   type MultiplayerSpectateResponse,
   type MultiplayerStatusResponse,
 } from "@features/multiplayer/multiplayer-protocol";
-import { isRecord } from "@shared/validation";
+import {
+  finiteNumberSchema,
+  integerSchema,
+  parseWithSchema,
+  unknownRecordSchema,
+} from "@shared/validation";
 
 export type MultiplayerConnectionStatus = "connecting" | "connected" | "reconnecting" | "closed";
 
@@ -28,6 +34,30 @@ export type MultiplayerConnectionHandlers = {
   onError(error: string, room?: MultiplayerRoomSnapshot): void;
   onStatus(status: MultiplayerConnectionStatus): void;
 };
+
+const apiResponseSchema = v.looseObject({ ok: v.boolean(), error: v.optional(v.string()) });
+const serverMessageBaseSchema = v.looseObject({ type: v.string() });
+const roomBaseSchema = v.looseObject({
+  code: v.string(),
+  gameId: v.string(),
+  status: v.unknown(),
+  revision: integerSchema,
+  seats: unknownRecordSchema,
+  state: v.optional(v.unknown()),
+  settings: v.optional(v.unknown()),
+  countdownEndsAt: v.optional(v.unknown()),
+  spectatorCount: v.optional(v.unknown()),
+});
+const seatBaseSchema = v.looseObject({
+  joined: v.optional(v.unknown()),
+  connected: v.optional(v.unknown()),
+  ready: v.optional(v.unknown()),
+});
+const snapshotYouSchema = v.looseObject({
+  playerId: v.optional(v.string(), ""),
+  seat: v.optional(v.unknown()),
+  role: v.optional(v.unknown()),
+});
 
 export async function fetchMultiplayerStatus(): Promise<MultiplayerStatusResponse> {
   return requestJson<MultiplayerStatusResponse>("/api/multiplayer/status");
@@ -179,21 +209,15 @@ async function requestJson<T extends { ok: boolean; error?: string }>(
 function parseServerMessage(value: unknown): MultiplayerServerMessage | null {
   try {
     const parsed = typeof value === "string" ? (JSON.parse(value) as unknown) : value;
-    if (!isRecord(parsed) || typeof parsed.type !== "string") return null;
-    if (parsed.type === "error" && typeof parsed.error === "string") {
-      return { type: "error", error: parsed.error, room: parseRoom(parsed.room) ?? undefined };
+    const message = parseWithSchema(serverMessageBaseSchema, parsed);
+    if (!message) return null;
+    if (message.type === "error" && typeof message.error === "string") {
+      return { type: "error", error: message.error, room: parseRoom(message.room) ?? undefined };
     }
-    if (parsed.type === "snapshot") {
-      const room = parseRoom(parsed.room);
+    if (message.type === "snapshot") {
+      const room = parseRoom(message.room);
       if (!room) return null;
-      const you: MultiplayerSnapshotMessage["you"] | undefined = isRecord(parsed.you)
-        ? {
-            playerId: typeof parsed.you.playerId === "string" ? parsed.you.playerId : "",
-            seat: parseMultiplayerSeat(parsed.you.seat) ?? "p1",
-            role: parsed.you.role === "spectator" ? "spectator" : "player",
-          }
-        : undefined;
-      return { type: "snapshot", room, you: you ?? { playerId: "", seat: "p1" } };
+      return { type: "snapshot", room, you: parseSnapshotYou(message.you) };
     }
     return null;
   } catch {
@@ -201,52 +225,49 @@ function parseServerMessage(value: unknown): MultiplayerServerMessage | null {
   }
 }
 
-function parseRoom(value: unknown): MultiplayerRoomSnapshot | null {
-  if (!isRecord(value)) return null;
-  if (
-    typeof value.code !== "string" ||
-    typeof value.gameId !== "string" ||
-    typeof value.status !== "string" ||
-    typeof value.revision !== "number" ||
-    !isRecord(value.seats)
-  ) {
-    return null;
-  }
-  const p1 = parseSeat(value.seats.p1);
-  const p2 = parseSeat(value.seats.p2);
-  const p3 = parseSeat(value.seats.p3);
-  const p4 = parseSeat(value.seats.p4);
-  if (!p1 || !p2 || !p3 || !p4) return null;
-  const countdownEndsAt =
-    typeof value.countdownEndsAt === "number" && Number.isFinite(value.countdownEndsAt)
-      ? value.countdownEndsAt
-      : undefined;
-  const spectatorCount =
-    typeof value.spectatorCount === "number" && Number.isInteger(value.spectatorCount)
-      ? Math.max(0, value.spectatorCount)
-      : undefined;
+function parseSnapshotYou(value: unknown): MultiplayerSnapshotMessage["you"] {
+  const parsed = parseWithSchema(snapshotYouSchema, value);
+  if (!parsed) return { playerId: "", seat: "p1" };
   return {
-    code: value.code,
-    gameId: value.gameId,
-    status: parseMultiplayerRoomStatus(value.status) ?? "lobby",
-    revision: value.revision,
+    playerId: parsed.playerId,
+    seat: parseMultiplayerSeat(parsed.seat) ?? "p1",
+    role: parsed.role === "spectator" ? "spectator" : "player",
+  };
+}
+
+function parseRoom(value: unknown): MultiplayerRoomSnapshot | null {
+  const parsed = parseWithSchema(roomBaseSchema, value);
+  if (!parsed) return null;
+  const p1 = parseSeat(parsed.seats.p1);
+  const p2 = parseSeat(parsed.seats.p2);
+  const p3 = parseSeat(parsed.seats.p3);
+  const p4 = parseSeat(parsed.seats.p4);
+  if (!p1 || !p2 || !p3 || !p4) return null;
+  const countdownEndsAt = parseWithSchema(finiteNumberSchema, parsed.countdownEndsAt);
+  const spectatorCount = parseWithSchema(integerSchema, parsed.spectatorCount);
+  return {
+    code: parsed.code,
+    gameId: parsed.gameId,
+    status: parseMultiplayerRoomStatus(parsed.status) ?? "lobby",
+    revision: parsed.revision,
     seats: { p1, p2, p3, p4 },
-    state: value.state,
-    ...(Object.hasOwn(value, "settings") ? { settings: value.settings } : {}),
-    ...(countdownEndsAt ? { countdownEndsAt } : {}),
-    ...(spectatorCount !== undefined ? { spectatorCount } : {}),
+    state: parsed.state,
+    ...("settings" in parsed ? { settings: parsed.settings } : {}),
+    ...(countdownEndsAt !== null ? { countdownEndsAt } : {}),
+    ...(spectatorCount !== null ? { spectatorCount: Math.max(0, spectatorCount) } : {}),
   };
 }
 
 function parseSeat(value: unknown): { joined: boolean; connected: boolean; ready: boolean } | null {
-  if (!isRecord(value)) return null;
+  const parsed = parseWithSchema(seatBaseSchema, value);
+  if (!parsed) return null;
   return {
-    joined: value.joined === true,
-    connected: value.connected === true,
-    ready: value.ready === true,
+    joined: parsed.joined === true,
+    connected: parsed.connected === true,
+    ready: parsed.ready === true,
   };
 }
 
 function isApiResponse(value: unknown): value is { ok: boolean; error?: string } {
-  return isRecord(value) && typeof value.ok === "boolean";
+  return parseWithSchema(apiResponseSchema, value) !== null;
 }

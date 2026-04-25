@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import {
   actionButton,
   button,
@@ -5,8 +6,8 @@ import {
   setIconLabel,
   el,
   syncChildren,
-  isFiniteNumber,
-  isRecord,
+  finiteNumberSchema,
+  parseWithSchema,
   uiClass,
   type Direction,
   type MountScope,
@@ -64,6 +65,13 @@ export type Rect = { x: number; y: number; width: number; height: number };
 export type Circle = { x: number; y: number; radius: number };
 export type Vector = { x: number; y: number };
 
+const rectSchema = v.object({
+  x: finiteNumberSchema,
+  y: finiteNumberSchema,
+  width: finiteNumberSchema,
+  height: finiteNumberSchema,
+});
+
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -83,15 +91,7 @@ export function pointInRect(x: number, y: number, rect: Rect): boolean {
 }
 
 export function parseRect(value: unknown): Rect | null {
-  if (!isRecord(value)) return null;
-  if (
-    !isFiniteNumber(value.x) ||
-    !isFiniteNumber(value.y) ||
-    !isFiniteNumber(value.width) ||
-    !isFiniteNumber(value.height)
-  )
-    return null;
-  return { x: value.x, y: value.y, width: value.width, height: value.height };
+  return parseWithSchema(rectSchema, value);
 }
 
 export function circleIntersectsRect(circle: Circle, rect: Rect): boolean {

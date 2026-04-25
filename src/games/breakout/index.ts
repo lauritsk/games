@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import {
   createArcadeModeController,
   createHeldKeyInput,
@@ -19,12 +20,12 @@ import {
   gameLayouts,
   handleStandardGameKey,
   isConfirmOpen,
-  isFiniteNumber,
-  isRecord,
+  finiteNumberSchema,
+  parseWithSchema,
+  picklistSchema,
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
-  parseOneOf,
   parseStartedAt,
   pauseGameOnRequest,
   pauseOnFocusLoss,
@@ -80,6 +81,32 @@ type SaveBreakout = {
   state: BreakoutState;
   startedAt: number | null;
 };
+
+const breakoutModeSchema = picklistSchema(["ready", "playing", "paused", "won", "lost"] as const);
+const saveBreakoutBaseSchema = v.looseObject({
+  difficulty: v.unknown(),
+  mode: v.unknown(),
+  state: v.unknown(),
+  startedAt: v.unknown(),
+});
+const breakoutStateBaseSchema = v.looseObject({
+  width: finiteNumberSchema,
+  height: finiteNumberSchema,
+  ball: v.unknown(),
+  paddle: v.unknown(),
+  bricks: v.unknown(),
+  score: finiteNumberSchema,
+  lives: finiteNumberSchema,
+  level: finiteNumberSchema,
+  won: v.boolean(),
+  lost: v.boolean(),
+});
+const breakoutBallExtrasSchema = v.looseObject({
+  radius: finiteNumberSchema,
+  vx: finiteNumberSchema,
+  vy: finiteNumberSchema,
+});
+const breakoutBrickExtrasSchema = v.looseObject({ alive: v.boolean() });
 
 export const breakout: GameDefinition = {
   id: "breakout",
@@ -426,57 +453,53 @@ export function mountBreakout(target: HTMLElement): () => void {
 }
 
 function parseSaveBreakout(value: unknown): SaveBreakout | null {
-  if (!isRecord(value)) return null;
-  const difficulty = parseDifficulty(value.difficulty);
-  const mode = parseMode(value.mode);
-  const state = parseBreakoutState(value.state);
-  const startedAt = parseStartedAt(value.startedAt);
+  const parsed = parseWithSchema(saveBreakoutBaseSchema, value);
+  if (!parsed) return null;
+  const difficulty = parseDifficulty(parsed.difficulty);
+  const mode = parseMode(parsed.mode);
+  const state = parseBreakoutState(parsed.state);
+  const startedAt = parseStartedAt(parsed.startedAt);
   if (!difficulty || !mode || !state || startedAt === undefined) return null;
   return { difficulty, mode, state, startedAt };
 }
 
 function parseBreakoutState(value: unknown): BreakoutState | null {
-  if (!isRecord(value)) return null;
-  const ball = parseBall(value.ball);
-  const paddle = parseRect(value.paddle);
-  const bricks = parseBricks(value.bricks);
+  const parsed = parseWithSchema(breakoutStateBaseSchema, value);
+  if (!parsed) return null;
+  const ball = parseBall(parsed.ball);
+  const paddle = parseRect(parsed.paddle);
+  const bricks = parseBricks(parsed.bricks);
   if (!ball || !paddle || !bricks) return null;
-  if (!isFiniteNumber(value.width) || !isFiniteNumber(value.height)) return null;
-  if (!isFiniteNumber(value.score) || !isFiniteNumber(value.lives) || !isFiniteNumber(value.level))
-    return null;
-  if (typeof value.won !== "boolean" || typeof value.lost !== "boolean") return null;
   return {
-    width: value.width,
-    height: value.height,
+    width: parsed.width,
+    height: parsed.height,
     ball,
     paddle,
     bricks,
-    score: value.score,
-    lives: value.lives,
-    level: value.level,
-    won: value.won,
-    lost: value.lost,
+    score: parsed.score,
+    lives: parsed.lives,
+    level: parsed.level,
+    won: parsed.won,
+    lost: parsed.lost,
   };
 }
 
 function parseBall(value: unknown): BreakoutBall | null {
   const rect = parseRect(value);
-  if (!rect || !isRecord(value)) return null;
-  if (!isFiniteNumber(value.radius) || !isFiniteNumber(value.vx) || !isFiniteNumber(value.vy))
-    return null;
-  return { ...rect, radius: value.radius, vx: value.vx, vy: value.vy };
+  const extras = parseWithSchema(breakoutBallExtrasSchema, value);
+  return rect && extras ? { ...rect, ...extras } : null;
 }
 
 function parseBricks(value: unknown): BreakoutBrick[] | null {
   if (!Array.isArray(value)) return null;
   const bricks = value.map((brick) => {
     const rect = parseRect(brick);
-    if (!rect || !isRecord(brick) || typeof brick.alive !== "boolean") return null;
-    return { ...rect, alive: brick.alive };
+    const extras = parseWithSchema(breakoutBrickExtrasSchema, brick);
+    return rect && extras ? { ...rect, ...extras } : null;
   });
   return bricks.every((brick): brick is BreakoutBrick => brick !== null) ? bricks : null;
 }
 
 function parseMode(value: unknown): Mode | null {
-  return parseOneOf(value, ["ready", "playing", "paused", "won", "lost"] as const);
+  return parseWithSchema(breakoutModeSchema, value);
 }

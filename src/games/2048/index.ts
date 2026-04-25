@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import {
   addTouchGestureControls,
   createGameShell,
@@ -5,8 +6,9 @@ import {
   el,
   gameLayouts,
   handleStandardGameKey,
-  isFiniteNumber,
-  isRecord,
+  finiteNumberSchema,
+  nonNegativeFiniteNumberSchema,
+  parseWithSchema,
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
@@ -49,6 +51,14 @@ import {
 const sizes: Record<Difficulty, number> = { Easy: 3, Medium: 4, Hard: 5 };
 const gameId = "2048";
 const savePayloadVersion = 1;
+const save2048BaseSchema = v.looseObject({
+  difficulty: v.unknown(),
+  size: finiteNumberSchema,
+  board: v.unknown(),
+  score: finiteNumberSchema,
+  started: v.boolean(),
+  finished: v.boolean(),
+});
 
 type Save2048 = {
   board: Board2048;
@@ -222,22 +232,19 @@ export function mount2048(target: HTMLElement): () => void {
 }
 
 function parseSave2048(value: unknown): Save2048 | null {
-  if (!isRecord(value)) return null;
-  const difficulty = parseDifficulty(value.difficulty);
-  if (!difficulty) return null;
-  const size = value.size;
-  if (typeof size !== "number" || sizes[difficulty] !== size) return null;
-  const board = parseBoard2048(value.board, size);
+  const parsed = parseWithSchema(save2048BaseSchema, value);
+  if (!parsed) return null;
+  const difficulty = parseDifficulty(parsed.difficulty);
+  if (!difficulty || sizes[difficulty] !== parsed.size) return null;
+  const board = parseBoard2048(parsed.board, parsed.size);
   if (!board) return null;
-  if (!isFiniteNumber(value.score)) return null;
-  if (typeof value.started !== "boolean" || typeof value.finished !== "boolean") return null;
   return {
     board,
-    score: value.score,
+    score: parsed.score,
     difficulty,
-    size,
-    started: value.started,
-    finished: value.finished,
+    size: parsed.size,
+    started: parsed.started,
+    finished: parsed.finished,
   };
 }
 
@@ -245,8 +252,9 @@ function parseBoard2048(value: unknown, size: number): Board2048 | null {
   if (!Array.isArray(value) || value.length !== size) return null;
   const board = value.map((row) => {
     if (!Array.isArray(row) || row.length !== size) return null;
-    if (row.some((cell) => !isFiniteNumber(cell) || cell < 0)) return null;
-    return [...row] as number[];
+    const cells = row.map((cell) => parseWithSchema(nonNegativeFiniteNumberSchema, cell));
+    if (cells.some((cell) => cell === null)) return null;
+    return cells as number[];
   });
   return board.every((row): row is number[] => row !== null) ? board : null;
 }

@@ -1,3 +1,5 @@
+import { parseWithSchema, picklistSchema } from "@shared/validation";
+
 export type MultiplayerSeat = "p1" | "p2" | "p3" | "p4";
 export type MultiplayerSessionRole = "player" | "spectator";
 export type MultiplayerRoomStatus = "lobby" | "countdown" | "playing" | "finished";
@@ -10,6 +12,14 @@ export const multiplayerSeats = [
   "p3",
   "p4",
 ] as const satisfies readonly MultiplayerSeat[];
+
+const multiplayerSeatSchema = picklistSchema(multiplayerSeats);
+const multiplayerRoomStatusSchema = picklistSchema([
+  "lobby",
+  "countdown",
+  "playing",
+  "finished",
+] as const);
 
 export type MultiplayerSession = {
   code: string;
@@ -98,7 +108,7 @@ export function normalizeMultiplayerCode(value: string): string {
 }
 
 export function isMultiplayerSeat(value: unknown): value is MultiplayerSeat {
-  return typeof value === "string" && multiplayerSeats.includes(value as MultiplayerSeat);
+  return parseMultiplayerSeat(value) !== null;
 }
 
 export function isMultiplayerSpectatorSession(
@@ -108,15 +118,15 @@ export function isMultiplayerSpectatorSession(
 }
 
 export function parseMultiplayerSeat(value: unknown): MultiplayerSeat | null {
-  return isMultiplayerSeat(value) ? value : null;
+  return parseWithSchema(multiplayerSeatSchema, value);
 }
 
 export function isMultiplayerRoomStatus(value: unknown): value is MultiplayerRoomStatus {
-  return value === "lobby" || value === "countdown" || value === "playing" || value === "finished";
+  return parseMultiplayerRoomStatus(value) !== null;
 }
 
 export function parseMultiplayerRoomStatus(value: unknown): MultiplayerRoomStatus | null {
-  return isMultiplayerRoomStatus(value) ? value : null;
+  return parseWithSchema(multiplayerRoomStatusSchema, value);
 }
 
 export function emptyMultiplayerSeatSnapshots(): Record<MultiplayerSeat, MultiplayerSeatSnapshot> {

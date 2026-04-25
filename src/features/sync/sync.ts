@@ -1,7 +1,11 @@
 import { buildLocalSyncSnapshot, mergeRemoteSyncSnapshot } from "@features/sync/sync-local";
 import { emptySyncSnapshot, parseSyncSnapshot } from "@features/sync/sync-schema";
 import type { SyncPush } from "@features/sync/sync-types";
+import * as v from "valibot";
 import { readStored, storageKey, writeStored } from "@shared/storage";
+import { parseWithSchema, unknownRecordSchema } from "@shared/validation";
+
+const deviceIdSchema = v.string();
 
 const DEVICE_SCHEMA_VERSION = 1;
 const deviceKey = storageKey("sync", "device");
@@ -95,15 +99,14 @@ async function syncNow(options: { keepalive?: boolean } = {}): Promise<void> {
 }
 
 function parseSyncResponse(value: unknown) {
-  if (value && typeof value === "object" && "snapshot" in value) {
-    return parseSyncSnapshot((value as { snapshot: unknown }).snapshot);
-  }
+  const response = parseWithSchema(unknownRecordSchema, value);
+  if (response && "snapshot" in response) return parseSyncSnapshot(response.snapshot);
   return parseSyncSnapshot(value) ?? emptySyncSnapshot();
 }
 
 export function getDeviceId(): string {
   const stored = readStored(deviceKey, DEVICE_SCHEMA_VERSION, (value) =>
-    typeof value === "string" ? value : null,
+    parseWithSchema(deviceIdSchema, value),
   );
   if (stored) return stored;
   const next = createDeviceId();

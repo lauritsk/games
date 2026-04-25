@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import type { Difficulty } from "@shared/types";
 import { readStored, storageKey, writeStored } from "@shared/storage";
 import { parseDifficulty } from "@games/shared/game-preferences";
@@ -7,7 +8,13 @@ import {
   type ResultMetric,
   type MetricDirection,
 } from "@features/results/result-metrics";
-import { isFiniteNumber, isRecord } from "@shared/validation";
+import {
+  finiteNumberSchema,
+  parseWithSchema,
+  picklistSchema,
+  primitiveValueSchema,
+  unknownRecordSchema,
+} from "@shared/validation";
 
 export type GameOutcome = "won" | "lost" | "draw" | "completed";
 export type GameMetadata = Record<string, string | number | boolean>;
@@ -34,9 +41,16 @@ type OptionalResultDetails = Pick<
 
 const RESULTS_SCHEMA_VERSION = 1;
 const resultsKey = storageKey("results");
-const outcomes = new Set<GameOutcome>(["won", "lost", "draw", "completed"]);
+const outcomes = ["won", "lost", "draw", "completed"] as const satisfies readonly GameOutcome[];
 const maxTotalResults = 250;
 const maxResultsPerGame = 50;
+const resultBaseSchema = v.looseObject({
+  id: v.string(),
+  runId: v.string(),
+  gameId: v.string(),
+  finishedAt: v.string(),
+  outcome: picklistSchema(outcomes),
+});
 
 export function recordGameResult(result: Omit<GameResult, "id" | "finishedAt">): void {
   const current = listGameResults();
@@ -95,25 +109,16 @@ function parseResults(value: unknown): GameResult[] | null {
 }
 
 function parseResult(value: unknown): GameResult | null {
-  if (!isRecord(value)) return null;
-  if (
-    typeof value.id !== "string" ||
-    typeof value.runId !== "string" ||
-    typeof value.gameId !== "string" ||
-    typeof value.finishedAt !== "string" ||
-    !outcomes.has(value.outcome as GameOutcome)
-  ) {
-    return null;
-  }
-
+  const base = parseWithSchema(resultBaseSchema, value);
+  if (!base) return null;
   const result: GameResult = {
-    id: value.id,
-    runId: value.runId,
-    gameId: value.gameId,
-    finishedAt: value.finishedAt,
-    outcome: value.outcome as GameOutcome,
+    id: base.id,
+    runId: base.runId,
+    gameId: base.gameId,
+    finishedAt: base.finishedAt,
+    outcome: base.outcome,
   };
-  copyOptionalResultDetails(result, value);
+  copyOptionalResultDetails(result, base as Partial<Record<keyof OptionalResultDetails, unknown>>);
   return result;
 }
 
@@ -152,19 +157,20 @@ function copyOptionalResultDetails(
   const difficulty = parseDifficulty(source.difficulty);
   if (difficulty) target.difficulty = difficulty;
   for (const field of numericResultFields) {
-    if (isFiniteNumber(source[field])) target[field] = source[field];
+    const value = parseWithSchema(finiteNumberSchema, source[field]);
+    if (value !== null) target[field] = value;
   }
   const metadata = parseMetadata(source.metadata);
   if (metadata) target.metadata = metadata;
 }
 
 function parseMetadata(value: unknown): GameMetadata | undefined {
-  if (!isRecord(value)) return undefined;
+  const record = parseWithSchema(unknownRecordSchema, value);
+  if (!record) return undefined;
   const metadata: GameMetadata = {};
-  for (const [key, entry] of Object.entries(value)) {
-    if (typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean") {
-      metadata[key] = entry;
-    }
+  for (const [key, entry] of Object.entries(record)) {
+    const parsed = parseWithSchema(primitiveValueSchema, entry);
+    if (parsed !== null) metadata[key] = parsed;
   }
   return Object.keys(metadata).length ? metadata : undefined;
 }

@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import { parseDifficulty } from "@games/shared/game-preferences";
 import {
   leaderboardConfigForGame,
@@ -5,17 +6,36 @@ import {
 } from "@features/leaderboard/leaderboard-config";
 import { isSyncId } from "@features/sync/sync-schema";
 import type { Difficulty } from "@shared/types";
-import { isInteger, isRecord } from "@shared/validation";
+import {
+  finiteNumberSchema,
+  integerBetweenSchema,
+  parseWithSchema,
+  picklistSchema,
+} from "@shared/validation";
 import { usernameError, validateUsername } from "@server/username";
 
-const outcomes = new Set(["won", "lost", "draw", "completed"]);
+const outcomes = ["won", "lost", "draw", "completed"] as const;
 const maxLimit = 50;
 const defaultLimit = 10;
 const maxMetadataJsonBytes = 2_000;
 const maxMetadataKeys = 20;
 const maxMetadataStringLength = 128;
 
-type Outcome = "won" | "lost" | "draw" | "completed";
+const outcomeSchema = picklistSchema(outcomes);
+const queryLimitSchema = integerBetweenSchema(1, maxLimit);
+const submissionBaseSchema = v.looseObject({ gameId: v.string() });
+const metadataEntrySchema = v.union([
+  v.pipe(v.string(), v.maxLength(maxMetadataStringLength)),
+  finiteNumberSchema,
+  v.boolean(),
+]);
+const metadataSchema = v.pipe(
+  v.record(v.pipe(v.string(), v.minLength(1), v.maxLength(40)), metadataEntrySchema),
+  v.check((metadata) => Object.keys(metadata).length <= maxMetadataKeys),
+  v.check((metadata) => JSON.stringify(metadata).length <= maxMetadataJsonBytes),
+);
+
+type Outcome = (typeof outcomes)[number];
 type OptionalMetricField = "score" | "moves" | "durationMs" | "level" | "streak";
 type OptionalMetricValues = Partial<Record<OptionalMetricField, number>>;
 type IntegerRange = { min: number; max: number };
@@ -64,44 +84,47 @@ export function parseLeaderboardQuery(url: URL): ParseResult<LeaderboardQuery> {
 
   const limitValue = url.searchParams.get("limit");
   const limit = limitValue === null ? defaultLimit : Number(limitValue);
-  if (!Number.isInteger(limit) || limit < 1 || limit > maxLimit) {
-    return invalid("Invalid leaderboard query");
-  }
+  const parsedLimit = parseWithSchema(queryLimitSchema, limit);
+  if (parsedLimit === null) return invalid("Invalid leaderboard query");
 
-  return { ok: true, value: difficulty ? { gameId, difficulty, limit } : { gameId, limit } };
+  return {
+    ok: true,
+    value: difficulty ? { gameId, difficulty, limit: parsedLimit } : { gameId, limit: parsedLimit },
+  };
 }
 
 export function parseLeaderboardSubmission(value: unknown): ParseResult<LeaderboardSubmission> {
-  if (!isRecord(value) || typeof value.gameId !== "string") return invalid("Invalid score");
-  const config = leaderboardConfigForGame(value.gameId);
+  const base = parseWithSchema(submissionBaseSchema, value);
+  if (!base) return invalid("Invalid score");
+  const config = leaderboardConfigForGame(base.gameId);
   if (!config) return invalid("Invalid score");
 
-  const username = validateUsername(value.username);
+  const username = validateUsername(base.username);
   if (!username.ok) return invalid(usernameError);
 
-  const difficulty = value.difficulty === undefined ? undefined : parseDifficulty(value.difficulty);
-  if (value.difficulty !== undefined && !difficulty) return invalid("Invalid score");
+  const difficulty = base.difficulty === undefined ? undefined : parseDifficulty(base.difficulty);
+  if (base.difficulty !== undefined && !difficulty) return invalid("Invalid score");
   if (config.requireDifficulty && !difficulty) return invalid("Invalid score");
 
-  if (typeof value.outcome !== "string" || !outcomes.has(value.outcome))
-    return invalid("Invalid score");
-  if (config.allowedOutcomes && !config.allowedOutcomes.includes(value.outcome)) {
+  const outcome = parseWithSchema(outcomeSchema, base.outcome);
+  if (!outcome) return invalid("Invalid score");
+  if (config.allowedOutcomes && !config.allowedOutcomes.includes(outcome)) {
     return invalid("Invalid score");
   }
 
-  const metricValue = parseIntegerField(value[config.metric], config.maxMetricValue);
+  const metricValue = parseIntegerField(base[config.metric], config.maxMetricValue);
   if (metricValue === null) return invalid("Invalid score");
 
-  const optionalMetrics = parseOptionalMetrics(value);
+  const optionalMetrics = parseOptionalMetrics(base);
   if (!optionalMetrics) return invalid("Invalid score");
 
-  const metadata = parseMetadata(value.metadata);
+  const metadata = parseMetadata(base.metadata);
   if (metadata === null || !hasRequiredMetadata(metadata, config.requiredMetadata)) {
     return invalid("Invalid score");
   }
 
-  const deviceId = value.deviceId === undefined ? undefined : optionalSyncId(value.deviceId);
-  const runId = value.runId === undefined ? undefined : optionalSyncId(value.runId);
+  const deviceId = base.deviceId === undefined ? undefined : optionalSyncId(base.deviceId);
+  const runId = base.runId === undefined ? undefined : optionalSyncId(base.runId);
   if (deviceId === null || runId === null) return invalid("Invalid score");
 
   return {
@@ -109,11 +132,11 @@ export function parseLeaderboardSubmission(value: unknown): ParseResult<Leaderbo
     value: {
       ...(deviceId ? { deviceId } : {}),
       ...(runId ? { runId } : {}),
-      gameId: value.gameId,
+      gameId: base.gameId,
       username: username.username,
       normalizedUsername: username.normalizedUsername,
       ...(difficulty ? { difficulty } : {}),
-      outcome: value.outcome as Outcome,
+      outcome,
       metric: config.metric,
       metricValue,
       ...optionalMetrics,
@@ -131,12 +154,12 @@ function hasRequiredMetadata(
 }
 
 function parseIntegerField(value: unknown, max: number): number | null {
-  return isInteger(value) && value >= 0 && value <= max ? value : null;
+  return parseWithSchema(integerBetweenSchema(0, max), value);
 }
 
 function optionalIntegerField(value: unknown, min: number, max: number): number | undefined | null {
   if (value === undefined) return undefined;
-  return isInteger(value) && value >= min && value <= max ? value : null;
+  return parseWithSchema(integerBetweenSchema(min, max), value);
 }
 
 function parseOptionalMetrics(value: Record<string, unknown>): OptionalMetricValues | null {
@@ -158,22 +181,7 @@ function optionalSyncId(value: unknown): string | undefined | null {
 
 function parseMetadata(value: unknown): Record<string, string | number | boolean> | null {
   if (value === undefined) return {};
-  if (!isRecord(value) || Object.keys(value).length > maxMetadataKeys) return null;
-
-  const metadata: Record<string, string | number | boolean> = {};
-  for (const [key, entry] of Object.entries(value)) {
-    if (key.length < 1 || key.length > 40) return null;
-    if (typeof entry === "string") {
-      if (entry.length > maxMetadataStringLength) return null;
-      metadata[key] = entry;
-    } else if (typeof entry === "number") {
-      if (!Number.isFinite(entry)) return null;
-      metadata[key] = entry;
-    } else if (typeof entry === "boolean") metadata[key] = entry;
-    else return null;
-  }
-
-  return JSON.stringify(metadata).length <= maxMetadataJsonBytes ? metadata : null;
+  return parseWithSchema(metadataSchema, value);
 }
 
 function invalid(error: string): ParseResult<never> {

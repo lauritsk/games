@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import {
   clamp,
   createArcadeModeController,
@@ -22,12 +23,12 @@ import {
   gameLayouts,
   handleStandardGameKey,
   isConfirmOpen,
-  isFiniteNumber,
-  isRecord,
+  finiteNumberSchema,
+  parseWithSchema,
+  picklistSchema,
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
-  parseOneOf,
   parseStartedAt,
   pauseGameOnRequest,
   pauseOnFocusLoss,
@@ -113,6 +114,44 @@ type SaveSpaceInvaders = {
 };
 
 type OnlineInvaderState = InvaderState & { difficulty: Difficulty };
+
+const invaderModeSchema = picklistSchema(["ready", "playing", "paused", "wave", "lost"] as const);
+const invaderPlayerIdSchema = picklistSchema(["p1", "p2"] as const);
+const alienDirectionSchema = picklistSchema([-1, 1] as const);
+const shotOwnerSchema = picklistSchema(["player", "alien"] as const);
+const saveSpaceInvadersBaseSchema = v.looseObject({
+  difficulty: v.unknown(),
+  mode: v.unknown(),
+  state: v.unknown(),
+  startedAt: v.unknown(),
+});
+const invaderStateBaseSchema = v.looseObject({
+  width: finiteNumberSchema,
+  height: finiteNumberSchema,
+  player: v.unknown(),
+  players: v.optional(v.unknown()),
+  aliens: v.unknown(),
+  barriers: v.unknown(),
+  shots: v.unknown(),
+  alienDirection: alienDirectionSchema,
+  tick: finiteNumberSchema,
+  score: finiteNumberSchema,
+  lives: finiteNumberSchema,
+  wave: finiteNumberSchema,
+  won: v.boolean(),
+  lost: v.boolean(),
+});
+const invaderAlienExtrasSchema = v.looseObject({ alive: v.boolean() });
+const invaderBarrierExtrasSchema = v.looseObject({ hp: finiteNumberSchema });
+const invaderPlayerExtrasSchema = v.looseObject({ id: v.unknown() });
+const invaderShotSchema = v.looseObject({
+  x: finiteNumberSchema,
+  y: finiteNumberSchema,
+  vy: finiteNumberSchema,
+  owner: shotOwnerSchema,
+  playerId: v.optional(v.unknown()),
+});
+const onlineInvaderBaseSchema = v.looseObject({ difficulty: v.unknown() });
 
 const configs: Record<Difficulty, InvaderConfig> = invaderConfigs;
 
@@ -881,48 +920,40 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
 }
 
 function parseSaveSpaceInvaders(value: unknown): SaveSpaceInvaders | null {
-  if (!isRecord(value)) return null;
-  const difficulty = parseDifficulty(value.difficulty);
-  const mode = parseMode(value.mode);
-  const state = parseInvaderState(value.state);
-  const startedAt = parseStartedAt(value.startedAt);
+  const parsed = parseWithSchema(saveSpaceInvadersBaseSchema, value);
+  if (!parsed) return null;
+  const difficulty = parseDifficulty(parsed.difficulty);
+  const mode = parseMode(parsed.mode);
+  const state = parseInvaderState(parsed.state);
+  const startedAt = parseStartedAt(parsed.startedAt);
   if (!difficulty || !mode || !state || startedAt === undefined) return null;
   return { difficulty, mode, state, startedAt };
 }
 
 function parseInvaderState(value: unknown): InvaderState | null {
-  if (!isRecord(value)) return null;
-  const player = parseRect(value.player);
-  const aliens = parseAliens(value.aliens);
-  const barriers = parseBarriers(value.barriers);
-  const shots = parseShots(value.shots);
-  const players = parsePlayers(value.players, player);
+  const parsed = parseWithSchema(invaderStateBaseSchema, value);
+  if (!parsed) return null;
+  const player = parseRect(parsed.player);
+  const aliens = parseAliens(parsed.aliens);
+  const barriers = parseBarriers(parsed.barriers);
+  const shots = parseShots(parsed.shots);
+  const players = parsePlayers(parsed.players, player);
   if (!player || !players || !aliens || !barriers || !shots) return null;
-  if (!isFiniteNumber(value.width) || !isFiniteNumber(value.height)) return null;
-  if (value.alienDirection !== -1 && value.alienDirection !== 1) return null;
-  if (
-    !isFiniteNumber(value.tick) ||
-    !isFiniteNumber(value.score) ||
-    !isFiniteNumber(value.lives) ||
-    !isFiniteNumber(value.wave)
-  )
-    return null;
-  if (typeof value.won !== "boolean" || typeof value.lost !== "boolean") return null;
   return {
-    width: value.width,
-    height: value.height,
+    width: parsed.width,
+    height: parsed.height,
     player,
     players,
     aliens,
     barriers,
     shots,
-    alienDirection: value.alienDirection,
-    tick: value.tick,
-    score: value.score,
-    lives: value.lives,
-    wave: value.wave,
-    won: value.won,
-    lost: value.lost,
+    alienDirection: parsed.alienDirection,
+    tick: parsed.tick,
+    score: parsed.score,
+    lives: parsed.lives,
+    wave: parsed.wave,
+    won: parsed.won,
+    lost: parsed.lost,
   };
 }
 
@@ -930,8 +961,8 @@ function parseAliens(value: unknown): InvaderAlien[] | null {
   if (!Array.isArray(value)) return null;
   const aliens = value.map((alien) => {
     const rect = parseRect(alien);
-    if (!rect || !isRecord(alien) || typeof alien.alive !== "boolean") return null;
-    return { ...rect, alive: alien.alive };
+    const extras = parseWithSchema(invaderAlienExtrasSchema, alien);
+    return rect && extras ? { ...rect, ...extras } : null;
   });
   return aliens.every((alien): alien is InvaderAlien => alien !== null) ? aliens : null;
 }
@@ -940,8 +971,8 @@ function parseBarriers(value: unknown): InvaderBarrier[] | null {
   if (!Array.isArray(value)) return null;
   const barriers = value.map((barrier) => {
     const rect = parseRect(barrier);
-    if (!rect || !isRecord(barrier) || !isFiniteNumber(barrier.hp)) return null;
-    return { ...rect, hp: barrier.hp };
+    const extras = parseWithSchema(invaderBarrierExtrasSchema, barrier);
+    return rect && extras ? { ...rect, ...extras } : null;
   });
   return barriers.every((barrier): barrier is InvaderBarrier => barrier !== null) ? barriers : null;
 }
@@ -953,8 +984,9 @@ function parsePlayers(
   if (!Array.isArray(value)) return fallback ? [{ ...fallback, id: "p1" }] : null;
   const players = value.map((player) => {
     const rect = parseRect(player);
-    if (!rect || !isRecord(player)) return null;
-    const id = parseInvaderPlayerId(player.id);
+    const extras = parseWithSchema(invaderPlayerExtrasSchema, player);
+    if (!rect || !extras) return null;
+    const id = parseInvaderPlayerId(extras.id);
     return id ? { ...rect, id } : null;
   });
   return players.every((player): player is InvaderPlayer => player !== null) ? players : null;
@@ -963,15 +995,14 @@ function parsePlayers(
 function parseShots(value: unknown): InvaderShot[] | null {
   if (!Array.isArray(value)) return null;
   const shots = value.map((shot) => {
-    if (!isRecord(shot)) return null;
-    if (!isFiniteNumber(shot.x) || !isFiniteNumber(shot.y) || !isFiniteNumber(shot.vy)) return null;
-    if (shot.owner !== "player" && shot.owner !== "alien") return null;
-    const playerId = parseInvaderPlayerId(shot.playerId);
+    const parsed = parseWithSchema(invaderShotSchema, shot);
+    if (!parsed) return null;
+    const playerId = parseInvaderPlayerId(parsed.playerId);
     return {
-      x: shot.x,
-      y: shot.y,
-      vy: shot.vy,
-      owner: shot.owner,
+      x: parsed.x,
+      y: parsed.y,
+      vy: parsed.vy,
+      owner: parsed.owner,
       ...(playerId ? { playerId } : {}),
     };
   });
@@ -979,16 +1010,17 @@ function parseShots(value: unknown): InvaderShot[] | null {
 }
 
 function parseOnlineInvaderState(value: unknown): OnlineInvaderState | null {
-  if (!isRecord(value)) return null;
+  const parsed = parseWithSchema(onlineInvaderBaseSchema, value);
+  if (!parsed) return null;
   const state = parseInvaderState(value);
-  const difficulty = parseDifficulty(value.difficulty);
+  const difficulty = parseDifficulty(parsed.difficulty);
   return state && difficulty ? { ...state, difficulty } : null;
 }
 
 function parseInvaderPlayerId(value: unknown): InvaderPlayerId | null {
-  return parseOneOf(value, ["p1", "p2"] as const);
+  return parseWithSchema(invaderPlayerIdSchema, value);
 }
 
 function parseMode(value: unknown): Mode | null {
-  return parseOneOf(value, ["ready", "playing", "paused", "wave", "lost"] as const);
+  return parseWithSchema(invaderModeSchema, value);
 }

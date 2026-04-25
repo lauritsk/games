@@ -2,7 +2,10 @@
 
 ## Maintenance
 
+- [ ] Review Bun v1.3.13 feature opportunities. (in progress)
 - [x] Refactor maintainability hot spots.
+- [x] Integrate Valibot runtime schemas.
+- [ ] Add shared Valibot helpers for fixed arrays/grids and safe JSON parsing if parser duplication grows.
 
 ## Online multiplayer
 

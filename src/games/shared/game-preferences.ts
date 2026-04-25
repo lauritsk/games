@@ -1,7 +1,13 @@
+import * as v from "valibot";
 import type { Difficulty } from "@shared/types";
 import { readStored, storageKey, writeStored } from "@shared/storage";
 import { notifySyncChanged } from "@features/sync/sync-local";
-import { isRecord, parseOneOf } from "@shared/validation";
+import {
+  parseWithSchema,
+  picklistSchema,
+  primitiveValueSchema,
+  unknownRecordSchema,
+} from "@shared/validation";
 
 export type GamePreferences = {
   difficulty?: Difficulty;
@@ -13,6 +19,11 @@ type PreferencesByGame = Record<string, GamePreferences>;
 const PREFERENCES_SCHEMA_VERSION = 1;
 const preferencesKey = storageKey("preferences");
 const difficulties = ["Easy", "Medium", "Hard"] as const satisfies readonly Difficulty[];
+const difficultySchema = picklistSchema(difficulties);
+const preferenceBaseSchema = v.looseObject({
+  difficulty: v.optional(v.unknown()),
+  options: v.optional(v.unknown()),
+});
 
 export function loadGamePreferences(gameId: string): GamePreferences {
   return loadPreferences()[gameId] ?? {};
@@ -32,7 +43,7 @@ export function updateGamePreferences(
 }
 
 export function parseDifficulty(value: unknown): Difficulty | null {
-  return parseOneOf(value, difficulties);
+  return parseWithSchema(difficultySchema, value);
 }
 
 function loadPreferences(): PreferencesByGame {
@@ -40,32 +51,34 @@ function loadPreferences(): PreferencesByGame {
 }
 
 function parsePreferencesByGame(value: unknown): PreferencesByGame | null {
-  if (!isRecord(value)) return null;
+  const record = parseWithSchema(unknownRecordSchema, value);
+  if (!record) return null;
   const next: PreferencesByGame = {};
-  for (const [gameId, preferences] of Object.entries(value)) {
-    if (!isRecord(preferences)) continue;
-    next[gameId] = sanitizePreferences(preferences);
+  for (const [gameId, preferences] of Object.entries(record)) {
+    const sanitized = sanitizePreferences(preferences);
+    if (Object.keys(sanitized).length > 0) next[gameId] = sanitized;
   }
   return next;
 }
 
 function sanitizePreferences(value: unknown): GamePreferences {
-  if (!isRecord(value)) return {};
+  const base = parseWithSchema(preferenceBaseSchema, value);
+  if (!base) return {};
   const preferences: GamePreferences = {};
-  const difficulty = parseDifficulty(value.difficulty);
+  const difficulty = parseDifficulty(base.difficulty);
   if (difficulty) preferences.difficulty = difficulty;
-  const options = parseOptions(value.options);
+  const options = parseOptions(base.options);
   if (options) preferences.options = options;
   return preferences;
 }
 
 function parseOptions(value: unknown): Record<string, string | number | boolean> | undefined {
-  if (!isRecord(value)) return undefined;
+  const record = parseWithSchema(unknownRecordSchema, value);
+  if (!record) return undefined;
   const options: Record<string, string | number | boolean> = {};
-  for (const [key, option] of Object.entries(value)) {
-    if (typeof option === "string" || typeof option === "number" || typeof option === "boolean") {
-      options[key] = option;
-    }
+  for (const [key, option] of Object.entries(record)) {
+    const parsed = parseWithSchema(primitiveValueSchema, option);
+    if (parsed !== null) options[key] = parsed;
   }
   return Object.keys(options).length ? options : undefined;
 }

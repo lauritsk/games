@@ -1,4 +1,10 @@
-import { isRecord, parseOneOf } from "@shared/validation";
+import * as v from "valibot";
+import {
+  finiteNumberSchema,
+  integerRangeSchema,
+  parseWithSchema,
+  picklistSchema,
+} from "@shared/validation";
 import {
   dropConnect4DiscInPlace,
   findConnect4Win,
@@ -52,7 +58,6 @@ import {
   oppositeMultiplayerSeat,
   type MultiplayerSeat,
 } from "@features/multiplayer/multiplayer-protocol";
-import { parseDifficulty } from "@games/shared/game-preferences";
 import type { Difficulty, Direction } from "@shared/types";
 
 export type MultiplayerFinish = { winner: MultiplayerSeat | "draw" };
@@ -98,6 +103,36 @@ type TicTacToeOnlineState = {
 type TicTacToeAction = { type: "place"; index: number };
 
 const ticTacToeCellCount = ticTacToeSize * ticTacToeSize;
+const difficultySchema = picklistSchema(["Easy", "Medium", "Hard"] as const);
+const directionSchema = picklistSchema(["up", "right", "down", "left"] as const);
+const wallModeSchema = picklistSchema(["fatal", "teleport"] as const);
+const invaderMoveSchema = picklistSchema([-1, 0, 1] as const);
+const invaderMoveStepSchema = picklistSchema([-1, 1] as const);
+const ticTacToeActionSchema = v.object({
+  type: v.literal("place"),
+  index: integerRangeSchema(0, ticTacToeCellCount),
+});
+const connect4ActionSchema = v.object({
+  type: v.literal("drop"),
+  column: integerRangeSchema(0, connect4Columns),
+});
+const snakeActionSchema = v.object({ type: v.literal("direction"), direction: directionSchema });
+const snakeOnlineSettingsSchema = v.object({
+  difficulty: difficultySchema,
+  wallMode: wallModeSchema,
+});
+const memoryActionSchema = v.object({
+  type: v.literal("flip"),
+  index: integerRangeSchema(0, memoryConfigs.Hard.pairs * 2),
+});
+const memoryOnlineSettingsSchema = v.object({ difficulty: difficultySchema });
+const spaceInvadersOnlineSettingsSchema = v.object({ difficulty: difficultySchema });
+const spaceInvadersActionSchema = v.variant("type", [
+  v.object({ type: v.literal("fire") }),
+  v.object({ type: v.literal("move"), move: invaderMoveSchema }),
+  v.object({ type: v.literal("step"), move: invaderMoveStepSchema }),
+  v.object({ type: v.literal("aim"), x: finiteNumberSchema }),
+]);
 const marks: Record<MultiplayerSeat, Mark> = {
   p1: humanMark,
   p2: botMark,
@@ -120,9 +155,7 @@ export const ticTacToeMultiplayerAdapter: MultiplayerAdapter<
     moves: 0,
   }),
   parseAction(value) {
-    if (!isRecord(value) || value.type !== "place") return null;
-    const index = parseIntegerInRange(value.index, 0, ticTacToeCellCount);
-    return index === null ? null : { type: "place", index };
+    return parseWithSchema(ticTacToeActionSchema, value);
   },
   applyAction(state, seat, action) {
     if (state.winner) return { ok: false, error: "Game already finished" };
@@ -184,9 +217,7 @@ export const connect4MultiplayerAdapter: MultiplayerAdapter<Connect4OnlineState,
     moves: 0,
   }),
   parseAction(value) {
-    if (!isRecord(value) || value.type !== "drop") return null;
-    const column = parseIntegerInRange(value.column, 0, connect4Columns);
-    return column === null ? null : { type: "drop", column };
+    return parseWithSchema(connect4ActionSchema, value);
   },
   applyAction(state, seat, action) {
     if (state.winner) return { ok: false, error: "Game already finished" };
@@ -307,9 +338,7 @@ export const snakeMultiplayerAdapter: MultiplayerAdapter<
     };
   },
   parseAction(value) {
-    if (!isRecord(value) || value.type !== "direction") return null;
-    const direction = parseDirection(value.direction);
-    return direction ? { type: "direction", direction } : null;
+    return parseWithSchema(snakeActionSchema, value);
   },
   applyAction(state, seat, action) {
     return queueSnakeOnlineDirection(state, seat, action.direction);
@@ -545,9 +574,7 @@ export const memoryMultiplayerAdapter: MultiplayerAdapter<
   parseSettings: parseMemoryOnlineSettings,
   newState: (settings = defaultMemoryOnlineSettings) => newMemoryOnlineState(settings),
   parseAction(value) {
-    if (!isRecord(value) || value.type !== "flip") return null;
-    const index = parseIntegerInRange(value.index, 0, memoryConfigs.Hard.pairs * 2);
-    return index === null ? null : { type: "flip", index };
+    return parseWithSchema(memoryActionSchema, value);
   },
   applyAction(state, seat, action) {
     if (state.winner) return { ok: false, error: "Game already finished" };
@@ -641,21 +668,7 @@ export const spaceInvadersMultiplayerAdapter: MultiplayerAdapter<
     return { ok: true, state: newSpaceInvadersOnlineState(settings) };
   },
   parseAction(value) {
-    if (!isRecord(value) || typeof value.type !== "string") return null;
-    if (value.type === "fire") return { type: "fire" };
-    if (value.type === "move") {
-      const move = parseInvaderMove(value.move);
-      return move === null ? null : { type: "move", move };
-    }
-    if (value.type === "step") {
-      const move = parseInvaderMoveStep(value.move);
-      return move === null ? null : { type: "step", move };
-    }
-    if (value.type === "aim") {
-      const x = typeof value.x === "number" && Number.isFinite(value.x) ? value.x : null;
-      return x === null ? null : { type: "aim", x };
-    }
-    return null;
+    return parseWithSchema(spaceInvadersActionSchema, value);
   },
   applyAction(state, seat, action) {
     if (state.lost) return { ok: false, error: "Game already finished" };
@@ -799,22 +812,15 @@ function startSnakeBodyForSeat(size: number, seat: MultiplayerSeat): SnakePoint[
 }
 
 function parseSnakeOnlineSettings(value: unknown): SnakeOnlineSettings | null {
-  if (!isRecord(value)) return null;
-  const difficulty = parseDifficulty(value.difficulty);
-  const wallMode = parseOneOf(value.wallMode, ["fatal", "teleport"] as const);
-  return difficulty && wallMode ? { difficulty, wallMode } : null;
+  return parseWithSchema(snakeOnlineSettingsSchema, value);
 }
 
 function parseMemoryOnlineSettings(value: unknown): MemoryOnlineSettings | null {
-  if (!isRecord(value)) return null;
-  const difficulty = parseDifficulty(value.difficulty);
-  return difficulty ? { difficulty } : null;
+  return parseWithSchema(memoryOnlineSettingsSchema, value);
 }
 
 function parseSpaceInvadersOnlineSettings(value: unknown): SpaceInvadersOnlineSettings | null {
-  if (!isRecord(value)) return null;
-  const difficulty = parseDifficulty(value.difficulty);
-  return difficulty ? { difficulty } : null;
+  return parseWithSchema(spaceInvadersOnlineSettingsSchema, value);
 }
 
 function newSpaceInvadersOnlineState(
@@ -831,24 +837,7 @@ function spaceInvadersOnlineConfig(difficulty: Difficulty) {
   return scaleInvaderConfigForPlayers(invaderConfigs[difficulty], 2);
 }
 
-function parseInvaderMove(value: unknown): -1 | 0 | 1 | null {
-  return value === -1 || value === 0 || value === 1 ? value : null;
-}
-
-function parseInvaderMoveStep(value: unknown): -1 | 1 | null {
-  return value === -1 || value === 1 ? value : null;
-}
-
 function invaderPlayerIdForSeat(seat: MultiplayerSeat): "p1" | "p2" | null {
   if (seat === "p1" || seat === "p2") return seat;
   return null;
-}
-
-function parseIntegerInRange(value: unknown, min: number, maxExclusive: number): number | null {
-  if (typeof value !== "number" || !Number.isInteger(value)) return null;
-  return value >= min && value < maxExclusive ? value : null;
-}
-
-function parseDirection(value: unknown): Direction | null {
-  return parseOneOf(value, ["up", "right", "down", "left"] as const);
 }

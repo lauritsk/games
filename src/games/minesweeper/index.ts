@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import {
   addTouchGestureControls,
   applyGameLayout,
@@ -8,13 +9,14 @@ import {
   gameLayouts,
   handleStandardGameKey,
   isConfirmOpen,
-  isIntegerInRange,
-  isRecord,
+  integerBetweenSchema,
+  integerRangeSchema,
+  parseWithSchema,
+  picklistSchema,
   markGameFinished,
   markGameStarted,
   moveGridPoint,
   onDocumentKeyDown,
-  parseOneOf,
   parseStartedAt,
   resetGameProgress,
   setBoardGrid,
@@ -75,6 +77,30 @@ type SaveMinesweeper = {
   selectedColumn: number;
   startedAt: number | null;
 };
+
+const minesweeperStateSchema = picklistSchema(["playing", "won", "lost"] as const);
+const minesweeperCellSchema = v.object({
+  mine: v.boolean(),
+  open: v.boolean(),
+  flag: v.boolean(),
+  nearby: integerBetweenSchema(0, 8),
+});
+const saveMinesweeperBaseSchema = v.looseObject({
+  difficulty: v.unknown(),
+  config: v.unknown(),
+  board: v.unknown(),
+  state: v.unknown(),
+  firstMove: v.boolean(),
+  selectedRow: v.unknown(),
+  selectedColumn: v.unknown(),
+  startedAt: v.unknown(),
+});
+const minesweeperConfigBaseSchema = v.looseObject({
+  rows: v.unknown(),
+  columns: v.unknown(),
+  mines: v.unknown(),
+  layout: v.unknown(),
+});
 
 export const minesweeper: GameDefinition = {
   id: "minesweeper",
@@ -409,41 +435,43 @@ export function mountMinesweeper(target: HTMLElement): () => void {
 }
 
 function parseSaveMinesweeper(value: unknown): SaveMinesweeper | null {
-  if (!isRecord(value)) return null;
-  const difficulty = parseDifficulty(value.difficulty);
+  const parsed = parseWithSchema(saveMinesweeperBaseSchema, value);
+  if (!parsed) return null;
+  const difficulty = parseDifficulty(parsed.difficulty);
   if (!difficulty) return null;
-  const config = parseConfig(value.config, configs[difficulty]);
+  const config = parseConfig(parsed.config, configs[difficulty]);
   if (!config) return null;
   const shape = minesweeperShape(config);
-  const board = parseBoard(value.board, shape.rows, shape.columns);
+  const board = parseBoard(parsed.board, shape.rows, shape.columns);
   if (!board) return null;
-  const state = parseState(value.state);
+  const state = parseState(parsed.state);
   if (!state) return null;
-  if (typeof value.firstMove !== "boolean") return null;
-  if (
-    !isIntegerInRange(value.selectedRow, shape.rows) ||
-    !isIntegerInRange(value.selectedColumn, shape.columns)
-  )
-    return null;
-  const startedAt = parseStartedAt(value.startedAt);
+  const selectedRow = parseWithSchema(integerRangeSchema(0, shape.rows), parsed.selectedRow);
+  const selectedColumn = parseWithSchema(
+    integerRangeSchema(0, shape.columns),
+    parsed.selectedColumn,
+  );
+  if (selectedRow === null || selectedColumn === null) return null;
+  const startedAt = parseStartedAt(parsed.startedAt);
   if (startedAt === undefined) return null;
   return {
     difficulty,
     config,
     board,
     state,
-    firstMove: value.firstMove,
-    selectedRow: value.selectedRow,
-    selectedColumn: value.selectedColumn,
+    firstMove: parsed.firstMove,
+    selectedRow,
+    selectedColumn,
     startedAt,
   };
 }
 
 function parseConfig(value: unknown, expected: MinesweeperConfig): MinesweeperConfig | null {
-  if (!isRecord(value)) return null;
-  if (value.mines !== expected.mines || value.layout !== expected.layout) return null;
+  const parsed = parseWithSchema(minesweeperConfigBaseSchema, value);
+  if (!parsed) return null;
+  if (parsed.mines !== expected.mines || parsed.layout !== expected.layout) return null;
   const expectedShape = minesweeperShape(expected);
-  if (value.rows !== expectedShape.rows || value.columns !== expectedShape.columns) return null;
+  if (parsed.rows !== expectedShape.rows || parsed.columns !== expectedShape.columns) return null;
   return expected;
 }
 
@@ -458,22 +486,11 @@ function parseBoard(value: unknown, rows: number, columns: number): MinesweeperC
 }
 
 function parseCell(value: unknown): MinesweeperCell | null {
-  if (!isRecord(value)) return null;
-  if (
-    typeof value.mine !== "boolean" ||
-    typeof value.open !== "boolean" ||
-    typeof value.flag !== "boolean" ||
-    typeof value.nearby !== "number" ||
-    !Number.isInteger(value.nearby) ||
-    value.nearby < 0 ||
-    value.nearby > 8
-  )
-    return null;
-  return { mine: value.mine, open: value.open, flag: value.flag, nearby: value.nearby };
+  return parseWithSchema(minesweeperCellSchema, value);
 }
 
 function parseState(value: unknown): State | null {
-  return parseOneOf(value, ["playing", "won", "lost"] as const);
+  return parseWithSchema(minesweeperStateSchema, value);
 }
 
 function cellText(cell: MinesweeperCell): string {

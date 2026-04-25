@@ -1,4 +1,5 @@
-import { isRecord } from "@shared/validation";
+import * as v from "valibot";
+import { integerSchema, parseWithSchema } from "@shared/validation";
 
 export type StoredEnvelope<T> = {
   schemaVersion: number;
@@ -9,6 +10,11 @@ export type StoredEnvelope<T> = {
 export type StoredParser<T> = (value: unknown) => T | null;
 
 const STORAGE_NAMESPACE = "games:v1";
+const storedEnvelopeSchema = v.looseObject({
+  schemaVersion: integerSchema,
+  updatedAt: v.string(),
+  data: v.unknown(),
+});
 
 export function storageKey(...parts: string[]): string {
   return [STORAGE_NAMESPACE, ...parts].join(":");
@@ -39,9 +45,8 @@ export function readStoredEnvelope<T>(
   if (raw === null) return null;
 
   try {
-    const envelope = JSON.parse(raw) as Partial<StoredEnvelope<unknown>>;
-    if (!isRecord(envelope) || envelope.schemaVersion !== schemaVersion) return null;
-    if (typeof envelope.updatedAt !== "string" || !("data" in envelope)) return null;
+    const envelope = parseWithSchema(storedEnvelopeSchema, JSON.parse(raw) as unknown);
+    if (!envelope || envelope.schemaVersion !== schemaVersion) return null;
     const data = parse(envelope.data);
     if (data === null) return null;
     return { schemaVersion, updatedAt: envelope.updatedAt, data };

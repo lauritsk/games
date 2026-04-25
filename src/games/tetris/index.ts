@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import {
   createArcadeModeController,
   createPauseButton,
@@ -12,13 +13,14 @@ import {
   gameLayouts,
   handleStandardGameKey,
   isConfirmOpen,
-  isNonNegativeInteger,
-  isPositiveInteger,
-  isRecord,
+  integerSchema,
+  nonNegativeIntegerSchema,
+  parseWithSchema,
+  picklistSchema,
+  positiveIntegerSchema,
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
-  parseOneOf,
   parseStartedAt,
   pauseGameOnRequest,
   pauseOnFocusLoss,
@@ -61,7 +63,6 @@ import {
   tetrisHardDrop,
   tetrisPieceCells,
   tetrisRows,
-  tetrominoes,
   type Tetromino,
   type TetrisBoard,
   type TetrisCell,
@@ -86,6 +87,31 @@ const configs: Record<Difficulty, Config> = {
   Hard: { speed: 340 },
 };
 const savePayloadVersion = 1;
+
+const tetrisModeSchema = picklistSchema(["ready", "playing", "paused", "over"] as const);
+const tetrominoSchema = picklistSchema(["I", "J", "L", "O", "S", "T", "Z"] as const);
+const saveTetrisBaseSchema = v.looseObject({
+  difficulty: v.unknown(),
+  mode: v.unknown(),
+  state: v.unknown(),
+  startedAt: v.unknown(),
+});
+const tetrisStateBaseSchema = v.looseObject({
+  board: v.unknown(),
+  piece: v.unknown(),
+  next: v.unknown(),
+  bag: v.unknown(),
+  score: nonNegativeIntegerSchema,
+  lines: nonNegativeIntegerSchema,
+  level: positiveIntegerSchema,
+  over: v.boolean(),
+});
+const tetrisPieceBaseSchema = v.looseObject({
+  type: v.unknown(),
+  origin: v.unknown(),
+  rotation: nonNegativeIntegerSchema,
+});
+const tetrisPointSchema = v.object({ row: integerSchema, column: integerSchema });
 
 export const tetris: GameDefinition = {
   id: "tetris",
@@ -369,35 +395,33 @@ export function mountTetris(target: HTMLElement): () => void {
 }
 
 function parseSaveTetris(value: unknown): SaveTetris | null {
-  if (!isRecord(value)) return null;
-  const difficulty = parseDifficulty(value.difficulty);
-  const mode = parseMode(value.mode);
-  const state = parseTetrisState(value.state);
-  const startedAt = parseStartedAt(value.startedAt);
+  const parsed = parseWithSchema(saveTetrisBaseSchema, value);
+  if (!parsed) return null;
+  const difficulty = parseDifficulty(parsed.difficulty);
+  const mode = parseMode(parsed.mode);
+  const state = parseTetrisState(parsed.state);
+  const startedAt = parseStartedAt(parsed.startedAt);
   if (!difficulty || !mode || !state || startedAt === undefined) return null;
   return { difficulty, mode, state, startedAt };
 }
 
 function parseTetrisState(value: unknown): TetrisState | null {
-  if (!isRecord(value)) return null;
-  const board = parseBoard(value.board);
-  const piece = parsePiece(value.piece);
-  const next = parseTetromino(value.next);
-  const bag = parseBag(value.bag);
+  const parsed = parseWithSchema(tetrisStateBaseSchema, value);
+  if (!parsed) return null;
+  const board = parseBoard(parsed.board);
+  const piece = parsePiece(parsed.piece);
+  const next = parseTetromino(parsed.next);
+  const bag = parseBag(parsed.bag);
   if (!board || !piece || !next || !bag) return null;
-  if (!isNonNegativeInteger(value.score)) return null;
-  if (!isNonNegativeInteger(value.lines)) return null;
-  if (!isPositiveInteger(value.level)) return null;
-  if (typeof value.over !== "boolean") return null;
   return {
     board,
     piece,
     next,
     bag,
-    score: value.score,
-    lines: value.lines,
-    level: value.level,
-    over: value.over,
+    score: parsed.score,
+    lines: parsed.lines,
+    level: parsed.level,
+    over: parsed.over,
   };
 }
 
@@ -417,22 +441,20 @@ function parseCell(value: unknown): TetrisCell | null {
 }
 
 function parsePiece(value: unknown): TetrisPiece | null {
-  if (!isRecord(value)) return null;
-  const type = parseTetromino(value.type);
-  const origin = parsePoint(value.origin);
-  if (!type || !origin || !isNonNegativeInteger(value.rotation)) return null;
-  return { type, origin, rotation: value.rotation };
+  const parsed = parseWithSchema(tetrisPieceBaseSchema, value);
+  if (!parsed) return null;
+  const type = parseTetromino(parsed.type);
+  const origin = parsePoint(parsed.origin);
+  if (!type || !origin) return null;
+  return { type, origin, rotation: parsed.rotation };
 }
 
 function parsePoint(value: unknown): TetrisPoint | null {
-  if (!isRecord(value)) return null;
-  if (typeof value.row !== "number" || !Number.isInteger(value.row)) return null;
-  if (typeof value.column !== "number" || !Number.isInteger(value.column)) return null;
-  return { row: value.row, column: value.column };
+  return parseWithSchema(tetrisPointSchema, value);
 }
 
 function parseTetromino(value: unknown): Tetromino | null {
-  return parseOneOf(value, tetrominoes);
+  return parseWithSchema(tetrominoSchema, value);
 }
 
 function parseBag(value: unknown): Tetromino[] | null {
@@ -442,5 +464,5 @@ function parseBag(value: unknown): Tetromino[] | null {
 }
 
 function parseMode(value: unknown): Mode | null {
-  return parseOneOf(value, ["ready", "playing", "paused", "over"] as const);
+  return parseWithSchema(tetrisModeSchema, value);
 }

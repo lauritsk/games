@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import {
   createDelayedAction,
   addTouchGestureControls,
@@ -8,12 +9,16 @@ import {
   gameLayouts,
   handleStandardGameKey,
   isConfirmOpen,
-  isRecord,
+  finiteNumberSchema,
+  integerRangeSchema,
+  integerSchema,
+  nonNegativeIntegerSchema,
+  parseWithSchema,
+  picklistSchema,
   markGameFinished,
   markGameStarted,
   moveGridIndex,
   onDocumentKeyDown,
-  parseOneOf,
   parseStartedAt,
   resetGameProgress,
   setBoardGrid,
@@ -110,6 +115,45 @@ type OnlineMemoryState = {
 };
 
 const savePayloadVersion = 2;
+
+const memoryModeSchema = picklistSchema(["solo", "local"] as const);
+const memoryPlayerSchema = picklistSchema([1, 2] as const);
+const memoryCardSchema = v.object({
+  id: integerSchema,
+  symbol: v.string(),
+  open: v.boolean(),
+  matched: v.boolean(),
+});
+const memoryScoresSchema = v.object({
+  1: nonNegativeIntegerSchema,
+  2: nonNegativeIntegerSchema,
+});
+const saveMemoryBaseSchema = v.looseObject({
+  difficulty: v.unknown(),
+  cards: v.unknown(),
+  selected: v.unknown(),
+  moves: nonNegativeIntegerSchema,
+  mode: v.unknown(),
+  currentPlayer: v.unknown(),
+  scores: v.unknown(),
+  winner: v.unknown(),
+  startedAt: v.unknown(),
+});
+const onlineMemoryBaseSchema = v.looseObject({
+  difficulty: v.unknown(),
+  cards: v.unknown(),
+  current: v.unknown(),
+  scores: v.unknown(),
+  winner: v.unknown(),
+  moves: v.optional(nonNegativeIntegerSchema, 0),
+  pendingCloseAt: v.optional(v.unknown()),
+});
+const onlineScoresSchema = v.object({
+  p1: nonNegativeIntegerSchema,
+  p2: nonNegativeIntegerSchema,
+  p3: nonNegativeIntegerSchema,
+  p4: nonNegativeIntegerSchema,
+});
 
 export const memory: GameDefinition = {
   id: "memory",
@@ -746,7 +790,7 @@ function memoryModeLabel(mode: MemoryMode): string {
 }
 
 function parseMemoryMode(value: unknown): MemoryMode | null {
-  return parseOneOf(value, ["solo", "local"] as const);
+  return parseWithSchema(memoryModeSchema, value);
 }
 
 function newScores(): MemoryScores {
@@ -778,30 +822,29 @@ function configForCardCount(length: number): MemoryConfig | null {
 }
 
 function parseSaveMemory(value: unknown): SaveMemory | null {
-  if (!isRecord(value)) return null;
-  const difficulty = parseDifficulty(value.difficulty);
+  const parsed = parseWithSchema(saveMemoryBaseSchema, value);
+  if (!parsed) return null;
+  const difficulty = parseDifficulty(parsed.difficulty);
   if (!difficulty) return null;
   const config = memoryConfigs[difficulty];
-  const cards = parseCards(value.cards, config.pairs * 2);
+  const cards = parseCards(parsed.cards, config.pairs * 2);
   if (!cards) return null;
-  if (typeof value.selected !== "number" || value.selected < 0 || value.selected >= cards.length)
-    return null;
-  if (typeof value.moves !== "number" || !Number.isInteger(value.moves) || value.moves < 0)
-    return null;
-  const mode = parseMemoryMode(value.mode);
+  const selected = parseWithSchema(integerRangeSchema(0, cards.length), parsed.selected);
+  if (selected === null) return null;
+  const mode = parseMemoryMode(parsed.mode);
   if (!mode) return null;
-  const currentPlayer = parseMemoryPlayer(value.currentPlayer);
-  const scores = parseMemoryScores(value.scores);
-  const winner = parseMemoryWinner(value.winner);
+  const currentPlayer = parseMemoryPlayer(parsed.currentPlayer);
+  const scores = parseMemoryScores(parsed.scores);
+  const winner = parseMemoryWinner(parsed.winner);
   if (!currentPlayer || !scores || winner === undefined) return null;
-  const startedAt = parseStartedAt(value.startedAt);
+  const startedAt = parseStartedAt(parsed.startedAt);
   if (startedAt === undefined) return null;
   return {
     difficulty,
     mode,
     cards,
-    selected: value.selected,
-    moves: value.moves,
+    selected,
+    moves: parsed.moves,
     currentPlayer,
     scores,
     winner,
@@ -816,24 +859,16 @@ function parseCards(value: unknown, length: number): MemoryCard[] | null {
 }
 
 function parseCard(value: unknown): MemoryCard | null {
-  if (!isRecord(value)) return null;
-  if (typeof value.id !== "number" || !Number.isInteger(value.id)) return null;
-  if (typeof value.symbol !== "string") return null;
-  if (typeof value.open !== "boolean" || typeof value.matched !== "boolean") return null;
-  return { id: value.id, symbol: value.symbol, open: value.open, matched: value.matched };
+  return parseWithSchema(memoryCardSchema, value);
 }
 
 function parseMemoryPlayer(value: unknown): MemoryPlayer | null {
-  return parseOneOf(value, [1, 2] as const);
+  return parseWithSchema(memoryPlayerSchema, value);
 }
 
 function parseMemoryScores(value: unknown): MemoryScores | null {
-  if (!isRecord(value)) return null;
-  const p1 = value[1];
-  const p2 = value[2];
-  if (typeof p1 !== "number" || !Number.isInteger(p1) || p1 < 0) return null;
-  if (typeof p2 !== "number" || !Number.isInteger(p2) || p2 < 0) return null;
-  return { 1: p1, 2: p2 };
+  const scores = parseWithSchema(memoryScoresSchema, value);
+  return scores ? { 1: scores[1], 2: scores[2] } : null;
 }
 
 function parseMemoryWinner(value: unknown): MemoryPlayer | "draw" | null | undefined {
@@ -842,33 +877,30 @@ function parseMemoryWinner(value: unknown): MemoryPlayer | "draw" | null | undef
 }
 
 function parseOnlineMemoryState(value: unknown): OnlineMemoryState | null {
-  if (!isRecord(value) || !Array.isArray(value.cards)) return null;
-  const difficulty = parseDifficulty(value.difficulty);
+  const parsed = parseWithSchema(onlineMemoryBaseSchema, value);
+  if (!parsed) return null;
+  const difficulty = parseDifficulty(parsed.difficulty);
   if (!difficulty) return null;
   const config = memoryConfigs[difficulty];
-  if (value.cards.length !== config.pairs * 2) return null;
-  const cards = parseCards(value.cards, config.pairs * 2);
-  const current = parseMultiplayerSeat(value.current);
-  const scores = parseOnlineScores(value.scores);
-  const winner = parseOnlineWinner(value.winner);
+  const cards = parseCards(parsed.cards, config.pairs * 2);
+  const current = parseMultiplayerSeat(parsed.current);
+  const scores = parseOnlineScores(parsed.scores);
+  const winner = parseOnlineWinner(parsed.winner);
   if (!cards || !current || !scores || winner === undefined) return null;
-  const moves = typeof value.moves === "number" && Number.isInteger(value.moves) ? value.moves : 0;
-  const pendingCloseAt =
-    typeof value.pendingCloseAt === "number" && Number.isFinite(value.pendingCloseAt)
-      ? value.pendingCloseAt
-      : null;
-  return { difficulty, cards, current, scores, moves, winner, pendingCloseAt };
+  const pendingCloseAt = parseWithSchema(finiteNumberSchema, parsed.pendingCloseAt);
+  return {
+    difficulty,
+    cards,
+    current,
+    scores,
+    moves: parsed.moves,
+    winner,
+    pendingCloseAt,
+  };
 }
 
 function parseOnlineScores(value: unknown): Record<MultiplayerSeat, number> | null {
-  if (!isRecord(value)) return null;
-  const scores = { p1: 0, p2: 0, p3: 0, p4: 0 } satisfies Record<MultiplayerSeat, number>;
-  for (const seat of ["p1", "p2", "p3", "p4"] as const) {
-    const score = value[seat];
-    if (typeof score !== "number" || !Number.isInteger(score) || score < 0) return null;
-    scores[seat] = score;
-  }
-  return scores;
+  return parseWithSchema(onlineScoresSchema, value);
 }
 
 function parseOnlineWinner(value: unknown): MultiplayerSeat | "draw" | null | undefined {

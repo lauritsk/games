@@ -12,6 +12,9 @@
     "test:watch": "bun --watch test/*.test.ts",
     "check": "bun run typecheck && bun run test && bun run build && bun run test:e2e"
   },
+  "dependencies": {
+    "valibot": "^1.3.1"
+  },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
     "@types/bun": "latest",

@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import {
   leaderboardConfigForGame,
   type LeaderboardMetric,
@@ -6,6 +7,7 @@ import { formatMetric } from "@features/results/game-result-format";
 import type { GameResult } from "@features/results/game-results";
 import type { Difficulty } from "@shared/types";
 import { getDeviceId } from "@features/sync/sync";
+import { integerBetweenSchema, parseWithSchema } from "@shared/validation";
 
 export type LeaderboardEntry = {
   id: string;
@@ -32,6 +34,8 @@ export type LeaderboardSubmitResponse =
 
 type ApiError = { ok: false; error: string };
 
+const apiResponseSchema = v.looseObject({ ok: v.boolean(), error: v.optional(v.string()) });
+
 export function hasLeaderboard(gameId: string): boolean {
   return leaderboardConfigForGame(gameId) !== null;
 }
@@ -40,8 +44,7 @@ export function isLeaderboardEligible(result: GameResult): boolean {
   const config = leaderboardConfigForGame(result.gameId);
   if (!config) return false;
   const value = result[config.metric];
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) return false;
-  if (value > config.maxMetricValue) return false;
+  if (parseWithSchema(integerBetweenSchema(0, config.maxMetricValue), value) === null) return false;
   if (config.requireDifficulty && !result.difficulty) return false;
   if (config.allowedOutcomes && !config.allowedOutcomes.includes(result.outcome)) return false;
   return hasRequiredMetadata(result.metadata, config.requiredMetadata);
@@ -120,5 +123,5 @@ async function requestJson<T extends { ok: boolean; error?: string }>(
 }
 
 function isApiResponse(value: unknown): value is { ok: boolean; error?: string } {
-  return typeof value === "object" && value !== null && "ok" in value;
+  return parseWithSchema(apiResponseSchema, value) !== null;
 }

@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import type { MountScope } from "@shared/lifecycle";
 import { readStored, removeStored, storageKey, writeStored } from "@shared/storage";
 import {
@@ -5,7 +6,7 @@ import {
   recordSaveDeletedForSync,
   recordSaveWrittenForSync,
 } from "@features/sync/sync-local";
-import { isRecord } from "@shared/validation";
+import { integerSchema, parseWithSchema, picklistSchema } from "@shared/validation";
 
 export type SaveStatus = "ready" | "playing" | "paused";
 
@@ -19,7 +20,17 @@ export type GameSave<T> = {
 };
 
 const SAVE_SCHEMA_VERSION = 1;
-const saveStatuses = new Set<SaveStatus>(["ready", "playing", "paused"]);
+const saveStatuses = ["ready", "playing", "paused"] as const satisfies readonly SaveStatus[];
+const saveStatusSchema = picklistSchema(saveStatuses);
+const gameSaveEnvelopeSchema = v.looseObject({
+  gameId: v.string(),
+  payloadVersion: integerSchema,
+  runId: v.string(),
+  savedAt: v.string(),
+  status: saveStatusSchema,
+  payload: v.unknown(),
+});
+const gameSaveIdentitySchema = v.looseObject({ gameId: v.string() });
 
 export function loadGameSave<T>(
   gameId: string,
@@ -59,7 +70,7 @@ export function clearGameSave(gameId: string): void {
 export function hasGameSave(gameId: string): boolean {
   return (
     readStored(saveKey(gameId), SAVE_SCHEMA_VERSION, (value) =>
-      isRecord(value) && value.gameId === gameId ? true : null,
+      parseWithSchema(gameSaveIdentitySchema, value)?.gameId === gameId ? true : null,
     ) === true
   );
 }
@@ -122,18 +133,17 @@ function parseGameSave<T>(
   payloadVersion: number,
   parse: (value: unknown) => T | null,
 ): GameSave<T> | null {
-  if (!isRecord(value)) return null;
-  if (value.gameId !== gameId || value.payloadVersion !== payloadVersion) return null;
-  if (typeof value.runId !== "string" || typeof value.savedAt !== "string") return null;
-  if (!saveStatuses.has(value.status as SaveStatus)) return null;
-  const payload = parse(value.payload);
+  const envelope = parseWithSchema(gameSaveEnvelopeSchema, value);
+  if (!envelope) return null;
+  if (envelope.gameId !== gameId || envelope.payloadVersion !== payloadVersion) return null;
+  const payload = parse(envelope.payload);
   if (payload === null) return null;
   return {
     gameId,
     payloadVersion,
-    runId: value.runId,
-    savedAt: value.savedAt,
-    status: value.status as SaveStatus,
+    runId: envelope.runId,
+    savedAt: envelope.savedAt,
+    status: envelope.status,
     payload,
   };
 }
