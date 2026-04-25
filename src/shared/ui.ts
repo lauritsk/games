@@ -87,6 +87,11 @@ const svgIconShapes: Record<string, readonly SvgShape[]> = {
     fillShape("circle", { cx: "15", cy: "12", r: "2" }),
     fillShape("circle", { cx: "11", cy: "17", r: "2" }),
   ],
+  "🖥": [
+    strokeShape("rect", { x: "4", y: "5", width: "16", height: "11", rx: "2" }),
+    strokeShape("path", { d: "M12 16v3" }),
+    strokeShape("path", { d: "M8 20h8" }),
+  ],
   "☀": [
     strokeShape("circle", { cx: "12", cy: "12", r: "4" }),
     strokeShape("line", { x1: "12", y1: "2.5", x2: "12", y2: "5" }),

@@ -10,7 +10,7 @@ const appearanceModes = ["system", "light", "dark"] as const satisfies Appearanc
 
 export function createAppearanceControl(): HTMLButtonElement {
   const control = el("button", {
-    className: "appearance-toggle surface interactive",
+    className: "appearance-toggle top-bar__action",
     type: "button",
   });
   control.addEventListener("click", () =>
@@ -46,7 +46,7 @@ function labelAppearanceMode(mode: AppearanceMode): string {
 }
 
 function iconAppearanceMode(mode: AppearanceMode): string {
-  if (mode === "system") return "⚙";
+  if (mode === "system") return "🖥";
   if (mode === "light") return "☀";
   return "☾";
 }

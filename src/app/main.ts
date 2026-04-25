@@ -52,9 +52,10 @@ let unmountGame: (() => void) | null = null;
 let dashboardScope: MountScope | null = null;
 let gameScope: MountScope | null = null;
 let confirmCleanup: (() => void) | null = null;
+let topBarGame: GameDefinition | null = null;
+let topBarMode: TopBarMode = "dashboard";
 
 const page = el("main", { className: "app-shell center-screen" });
-const appearanceControl = createAppearanceControl();
 const workspace = el("section", { className: "workspace center-screen" });
 const leaderboardDialog = createLeaderboardDialog();
 const historyDialog = createGameHistoryDialog({
@@ -68,8 +69,9 @@ const historyDialog = createGameHistoryDialog({
     return [submit];
   },
 });
+const topBar = createTopBar();
 
-page.append(appearanceControl, workspace);
+page.append(topBar.element, workspace);
 app.append(page);
 
 window.addEventListener("hashchange", renderRoute);
@@ -81,10 +83,71 @@ initializeAppearance();
 initializePwa();
 initializeSync();
 onAppearanceChange(() => {
-  updateAppearanceControl(appearanceControl);
+  updateAppearanceControl(topBar.appearance);
   updateThemeColor();
 });
 renderRoute();
+
+type TopBarMode = "dashboard" | "game";
+
+type TopBar = {
+  element: HTMLElement;
+  back: HTMLAnchorElement;
+  title: HTMLElement;
+  history: HTMLButtonElement;
+  leaderboard: HTMLButtonElement;
+  appearance: HTMLButtonElement;
+};
+
+function createTopBar(): TopBar {
+  const element = el("header", { className: "app-top-bar" });
+  const back = el("a", { className: "top-bar__back" });
+  const title = el("strong", { className: "top-bar__title" });
+  const actions = el("div", { className: "top-bar__actions" });
+  const history = button("", "top-bar__action");
+  const leaderboard = button("", "top-bar__action");
+  const appearance = createAppearanceControl();
+
+  back.href = "#/";
+  setIconLabel(back, "←", "Games dashboard");
+  setIconLabel(history, "⏱", "History");
+  setIconLabel(leaderboard, "🏆", "Leaderboard");
+
+  back.addEventListener("click", (event) => {
+    if (topBarMode !== "dashboard") return;
+    event.preventDefault();
+  });
+  history.addEventListener("click", () => {
+    if (topBarGame) historyDialog.show(topBarGame);
+  });
+  leaderboard.addEventListener("click", () => {
+    if (topBarGame && hasLeaderboard(topBarGame.id)) leaderboardDialog.show(topBarGame);
+  });
+
+  actions.append(history, leaderboard, appearance);
+  element.append(back, title, actions);
+  return { element, back, title, history, leaderboard, appearance };
+}
+
+function updateTopBar(game: GameDefinition, mode: TopBarMode): void {
+  const leaderboardAvailable = hasLeaderboard(game.id);
+  topBarGame = game;
+  topBarMode = mode;
+  topBar.element.dataset.mode = mode;
+  topBar.title.textContent = game.name;
+  topBar.back.tabIndex = mode === "game" ? 0 : -1;
+  topBar.back.dataset.disabled = String(mode === "dashboard");
+  topBar.back.setAttribute("aria-disabled", String(mode === "dashboard"));
+  setIconLabel(topBar.back, "←", mode === "game" ? "Back to games" : "Games dashboard");
+  setIconLabel(topBar.history, "⏱", `${game.name} history`);
+  setIconLabel(
+    topBar.leaderboard,
+    "🏆",
+    leaderboardAvailable ? `${game.name} leaderboard` : `${game.name} has no leaderboard`,
+  );
+  topBar.history.disabled = false;
+  topBar.leaderboard.disabled = !leaderboardAvailable;
+}
 
 function updateThemeColor(): void {
   const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
@@ -170,6 +233,7 @@ function renderDashboard(): void {
       });
       return card;
     });
+    updateTopBar(required(games[selectedIndex]), "dashboard");
     games.forEach((game, index) => {
       const card = required(cards[index]);
       card.href = `#/${game.id}`;
@@ -227,27 +291,11 @@ function updateGameCard(card: HTMLAnchorElement, game: GameDefinition): void {
 function renderGame(game: GameDefinition): void {
   cleanupGame();
   clearNode(workspace);
+  updateTopBar(game, "game");
 
   const screen = el("section", { className: "game-screen" });
-  const nav = el("header", { className: "game-screen__nav" });
-  const back = el("a", { className: "back-button", ariaLabel: "← Selection" });
-  back.href = "#/";
-  setIconLabel(back, "←", "← Selection");
-  const title = el("strong", { className: "game-screen__title", text: game.name });
-  const navActions = el("div", { className: "game-screen__nav-actions" });
-  const history = button("", "nav-action");
-  setIconLabel(history, "⏱", "History");
-  history.addEventListener("click", () => historyDialog.show(game));
-  navActions.append(history);
-  if (hasLeaderboard(game.id)) {
-    const leaderboard = button("", "nav-action");
-    setIconLabel(leaderboard, "🏆", "Leaderboard");
-    leaderboard.addEventListener("click", () => leaderboardDialog.show(game));
-    navActions.append(leaderboard);
-  }
-  nav.append(back, title, navActions);
   const gameHost = el("div", { className: "game-host center-screen" });
-  screen.append(nav, gameHost);
+  screen.append(gameHost);
   workspace.append(screen);
   unmountGame = game.mount(gameHost);
   gameScope = createMountScope();

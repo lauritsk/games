@@ -1,5 +1,7 @@
 # TODO
 
+- [x] Use computer icon for system appearance mode, then commit and push.
+- [x] Unify dashboard and game top bar actions with appearance toggle.
 - [x] Standardize duplicated CSS values and hierarchy.
 - [x] Add icon controls for obvious actions/settings.
 - [x] Normalize UI corner radiuses.
