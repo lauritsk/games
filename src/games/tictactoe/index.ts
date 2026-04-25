@@ -238,14 +238,9 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     modeButton.disabled = Boolean(onlineSession);
     setDifficultyControlIconLabel(difficultyButton, onlineSession ? "Online" : difficulty);
     difficultyButton.disabled = Boolean(onlineSession);
-    setIconLabel(
-      onlineButton,
-      onlineSession ? `#${onlineSession.code}` : "🌐",
-      onlineSession ? `Room ${onlineSession.code}` : "Play online",
-    );
+    setIconLabel(onlineButton, "🌐", onlineSession ? "Online" : "Play online");
     onlineButton.disabled = Boolean(onlineSession);
-    startOnlineButton.hidden =
-      !onlineSession || onlineRoomStatus !== "lobby" || onlineSeat !== "p1";
+    startOnlineButton.hidden = !onlineSession || onlineRoomStatus !== "lobby";
     startOnlineButton.disabled = !canOnlineStart();
     rematchButton.hidden = !isOnlineFinished() || !onlineSeat;
     setIconLabel(
@@ -554,8 +549,8 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
     if (onlineRoomStatus === "lobby") {
       const joined = multiplayerJoinedSeatCount(onlineSeats);
-      if (onlineSeat === "p1") return `Room ${onlineSession.code} · ${joined}/2 · Start at 2`;
-      return `Room ${onlineSession.code} · Waiting host`;
+      if (onlineSeat === "p1") return `${joined}/2 · Start at 2`;
+      return "Waiting host";
     }
     return current === markForSeat(onlineSeat) ? "Your turn" : "Opponent turn";
   }
@@ -566,7 +561,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     if (winner) return `Spectating · ${winner} wins`;
     if (onlineRoomStatus === "countdown")
       return `Spectating · Starting in ${onlineCountdownText()}`;
-    if (onlineRoomStatus === "lobby") return `Room ${onlineSession.code} · Spectating`;
+    if (onlineRoomStatus === "lobby") return "Spectating";
     return `Spectating · ${current} turn`;
   }
 

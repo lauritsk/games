@@ -130,7 +130,7 @@ test("plays a live Tic-Tac-Toe room across two browsers", async ({ page, browser
   await openGame(page, "Tic-Tac-Toe");
   await page.getByRole("button", { name: "Play online" }).click();
   await page.getByRole("button", { name: "Create room" }).click();
-  const code = (await page.locator(".multiplayer-dialog__code").textContent())?.trim();
+  const code = (await page.locator(".online-presence__room-code").textContent())?.trim();
   expect(code).toMatch(/^[2-9A-HJKMNP-Z]{6}$/);
 
   const guestContext = await browser.newContext();
@@ -140,7 +140,6 @@ test("plays a live Tic-Tac-Toe room across two browsers", async ({ page, browser
   await guest.getByRole("button", { name: "Play online" }).click();
   await guest.getByLabel("Room code").fill(code!);
   await guest.getByRole("button", { name: "Join room" }).click();
-  await page.getByRole("button", { name: "Close" }).click();
   await page.getByRole("button", { name: "Start", exact: true }).click();
 
   await expect(page.getByText("Your turn")).toBeVisible({ timeout: 7000 });
@@ -164,7 +163,7 @@ test("syncs a live Connect 4 room across two browsers", async ({ page, browser }
   await openGame(page, "Connect 4");
   await page.getByRole("button", { name: "Play online" }).click();
   await page.getByRole("button", { name: "Create room" }).click();
-  const code = (await page.locator(".multiplayer-dialog__code").textContent())?.trim();
+  const code = (await page.locator(".online-presence__room-code").textContent())?.trim();
   expect(code).toMatch(/^[2-9A-HJKMNP-Z]{6}$/);
 
   const guestContext = await browser.newContext();
@@ -174,7 +173,6 @@ test("syncs a live Connect 4 room across two browsers", async ({ page, browser }
   await guest.getByRole("button", { name: "Play online" }).click();
   await guest.getByLabel("Room code").fill(code!);
   await guest.getByRole("button", { name: "Join room" }).click();
-  await page.getByRole("button", { name: "Close" }).click();
   await page.getByRole("button", { name: "Start", exact: true }).click();
 
   await expect(page.getByText("Your turn")).toBeVisible({ timeout: 7000 });

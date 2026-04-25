@@ -216,16 +216,17 @@ export function mountSnake(target: HTMLElement): () => void {
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
   const onlineCountdown = createMultiplayerCountdown(render);
-  const wallModeButton = createModeControl(actions, {
+  const wallModeControl = {
     get: () => wallMode,
-    set: (next) => {
+    set: (next: WallMode) => {
       wallMode = next;
       savePreferences();
     },
-    next: (current) => (current === "fatal" ? "teleport" : "fatal"),
+    next: (current: WallMode) => (current === "fatal" ? "teleport" : "fatal"),
     label: wallModeLabel,
     reset: resetAfterSettingChange,
-  });
+  };
+  const wallModeButton = createModeControl(actions, wallModeControl);
   const difficultyControl = {
     get: () => difficulty,
     set: (next: Difficulty) => {
@@ -309,11 +310,7 @@ export function mountSnake(target: HTMLElement): () => void {
     difficultyButton.disabled = Boolean(onlineSession && !canAdjustOnlineSettings());
     setPlayerModeIconLabel(wallModeButton, wallModeLabel(wallMode));
     wallModeButton.disabled = Boolean(onlineSession && !canAdjustOnlineSettings());
-    setIconLabel(
-      onlineButton,
-      onlineSession ? `#${onlineSession.code}` : "🌐",
-      onlineSession ? `Room ${onlineSession.code}` : "Play online",
-    );
+    setIconLabel(onlineButton, "🌐", onlineSession ? "Online" : "Play online");
     onlineButton.disabled = Boolean(onlineSession);
     startOnlineButton.hidden = !onlineSession || onlineRoomStatus !== "lobby";
     startOnlineButton.disabled = !canOnlineStart();
@@ -837,9 +834,9 @@ export function mountSnake(target: HTMLElement): () => void {
     if (!onlineSession) return "Online";
     const joined = multiplayerJoinedSeatCount(onlineSeats);
     if (onlineRoomStatus === "lobby") {
-      if (!onlineSeat) return `Room ${onlineSession.code} · ${joined}/4 · Spectating`;
-      if (onlineSeat === "p1") return `Room ${onlineSession.code} · ${joined}/4 · Start at 2`;
-      return `Room ${onlineSession.code} · ${joined}/4 · Waiting host`;
+      if (!onlineSeat) return `${joined}/4 · Spectating`;
+      if (onlineSeat === "p1") return `${joined}/4 · Start at 2`;
+      return `${joined}/4 · Waiting host`;
     }
     if (onlineRoomStatus === "countdown") {
       return onlineSeat
@@ -863,7 +860,7 @@ export function mountSnake(target: HTMLElement): () => void {
       });
     }
     const player = onlineSeat ? onlinePlayerFor(onlineSeat) : null;
-    if (!player) return `Room ${onlineSession.code} · Watching`;
+    if (!player) return "Watching";
     const alive = onlineState?.players.filter((entry) => entry.alive).length ?? 0;
     if (!player.alive) return `Crashed · ${alive} alive`;
     return `Length ${player.snake.length} · ${alive}/${onlineState?.players.length ?? joined} alive`;

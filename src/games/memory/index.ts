@@ -266,14 +266,9 @@ export function mountMemory(target: HTMLElement): () => void {
     modeButton.disabled = Boolean(onlineSession);
     setDifficultyControlIconLabel(difficultyButton, difficulty);
     difficultyButton.disabled = Boolean(onlineSession && !canAdjustOnlineSettings());
-    setIconLabel(
-      onlineButton,
-      onlineSession ? `#${onlineSession.code}` : "🌐",
-      onlineSession ? `Room ${onlineSession.code}` : "Play online",
-    );
+    setIconLabel(onlineButton, "🌐", onlineSession ? "Online" : "Play online");
     onlineButton.disabled = Boolean(onlineSession);
-    startOnlineButton.hidden =
-      !onlineSession || onlineRoomStatus !== "lobby" || onlineSeat !== "p1";
+    startOnlineButton.hidden = !onlineSession || onlineRoomStatus !== "lobby";
     startOnlineButton.disabled = !canOnlineStart();
     rematchButton.hidden = !isOnlineFinished() || !onlineSeat;
     setIconLabel(
@@ -657,8 +652,8 @@ export function mountMemory(target: HTMLElement): () => void {
     if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
     if (onlineRoomStatus === "lobby") {
       const joined = multiplayerJoinedSeatCount(onlineSeats);
-      if (onlineSeat === "p1") return `Room ${onlineSession.code} · ${joined}/2 · Start at 2`;
-      return `Room ${onlineSession.code} · Waiting host`;
+      if (onlineSeat === "p1") return `${joined}/2 · Start at 2`;
+      return "Waiting host";
     }
     if (winner === "draw") {
       return multiplayerRematchStatusText({
@@ -675,7 +670,7 @@ export function mountMemory(target: HTMLElement): () => void {
         seats: onlineSeats,
       });
     }
-    if (onlineRevision === 0) return `Room ${onlineSession.code} · Waiting`;
+    if (onlineRevision === 0) return "Waiting";
     if (lock) return `Settling · ${scoreText()}`;
     return currentPlayer === playerForSeat(onlineSeat)
       ? `Your turn · ${scoreText()}`
@@ -686,10 +681,10 @@ export function mountMemory(target: HTMLElement): () => void {
     if (!onlineSession) return "Spectating";
     if (onlineRoomStatus === "countdown")
       return `Spectating · Starting in ${onlineCountdownText()}`;
-    if (onlineRoomStatus === "lobby") return `Room ${onlineSession.code} · Spectating`;
+    if (onlineRoomStatus === "lobby") return "Spectating";
     if (winner === "draw") return `Spectating · Draw · ${scoreText()}`;
     if (winner) return `Spectating · P${winner} wins · ${scoreText()}`;
-    if (onlineRevision === 0) return `Room ${onlineSession.code} · Spectating`;
+    if (onlineRevision === 0) return "Spectating";
     if (lock) return `Spectating · Settling · ${scoreText()}`;
     return `Spectating · P${currentPlayer} turn · ${scoreText()}`;
   }

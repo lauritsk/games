@@ -443,14 +443,9 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
       mode === "paused" ? "Resume" : "Pause",
     );
     pauseButton.hidden = Boolean(onlineSession);
-    setIconLabel(
-      onlineButton,
-      onlineSession ? `#${onlineSession.code}` : "🌐",
-      onlineSession ? `Room ${onlineSession.code}` : "Play online",
-    );
+    setIconLabel(onlineButton, "🌐", onlineSession ? "Online" : "Play online");
     onlineButton.disabled = Boolean(onlineSession);
-    startOnlineButton.hidden =
-      !onlineSession || onlineRoomStatus !== "lobby" || onlineSeat !== "p1";
+    startOnlineButton.hidden = !onlineSession || onlineRoomStatus !== "lobby";
     startOnlineButton.disabled = !canOnlineStart();
     rematchButton.hidden = !isOnlineFinished() || !onlineSeat;
     setIconLabel(
@@ -828,12 +823,12 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     }
     if (onlineRoomStatus === "lobby") {
       const joined = multiplayerJoinedSeatCount(onlineSeats);
-      if (!onlineSeat) return `Room ${onlineSession.code} · Spectating`;
-      if (onlineSeat === "p1") return `Room ${onlineSession.code} · ${joined}/2 · Start at 2`;
-      return `Room ${onlineSession.code} · Waiting host`;
+      if (!onlineSeat) return "Spectating";
+      if (onlineSeat === "p1") return `${joined}/2 · Start at 2`;
+      return "Waiting host";
     }
     const snapshot = onlineState;
-    if (!snapshot) return `Room ${onlineSession.code} · Waiting`;
+    if (!snapshot) return "Waiting";
     if (snapshot.lost) {
       const result = `Over · ${snapshot.score}`;
       if (!onlineSeat) return `Spectating · ${result}`;

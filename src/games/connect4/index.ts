@@ -250,14 +250,9 @@ export function mountConnect4(target: HTMLElement): () => void {
     modeButton.disabled = Boolean(onlineSession);
     setDifficultyControlIconLabel(difficultyButton, onlineSession ? "Online" : difficulty);
     difficultyButton.disabled = Boolean(onlineSession);
-    setIconLabel(
-      onlineButton,
-      onlineSession ? `#${onlineSession.code}` : "🌐",
-      onlineSession ? `Room ${onlineSession.code}` : "Play online",
-    );
+    setIconLabel(onlineButton, "🌐", onlineSession ? "Online" : "Play online");
     onlineButton.disabled = Boolean(onlineSession);
-    startOnlineButton.hidden =
-      !onlineSession || onlineRoomStatus !== "lobby" || onlineSeat !== "p1";
+    startOnlineButton.hidden = !onlineSession || onlineRoomStatus !== "lobby";
     startOnlineButton.disabled = !canOnlineStart();
     rematchButton.hidden = !isOnlineFinished() || !onlineSeat;
     setIconLabel(
@@ -574,8 +569,8 @@ export function mountConnect4(target: HTMLElement): () => void {
     if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
     if (onlineRoomStatus === "lobby") {
       const joined = multiplayerJoinedSeatCount(onlineSeats);
-      if (onlineSeat === "p1") return `Room ${onlineSession.code} · ${joined}/2 · Start at 2`;
-      return `Room ${onlineSession.code} · Waiting host`;
+      if (onlineSeat === "p1") return `${joined}/2 · Start at 2`;
+      return "Waiting host";
     }
     if (moves === connect4Rows * connect4Columns && !winner) {
       return multiplayerRematchStatusText({
@@ -588,7 +583,7 @@ export function mountConnect4(target: HTMLElement): () => void {
       const result = winner === playerForSeat(onlineSeat) ? "You win" : "Opponent wins";
       return multiplayerRematchStatusText({ result, localSeat: onlineSeat, seats: onlineSeats });
     }
-    if (onlineRevision === 0) return `Room ${onlineSession.code} · Waiting`;
+    if (onlineRevision === 0) return "Waiting";
     return current === playerForSeat(onlineSeat) ? "Your turn" : "Opponent turn";
   }
 
@@ -596,10 +591,10 @@ export function mountConnect4(target: HTMLElement): () => void {
     if (!onlineSession) return "Spectating";
     if (onlineRoomStatus === "countdown")
       return `Spectating · Starting in ${onlineCountdownText()}`;
-    if (onlineRoomStatus === "lobby") return `Room ${onlineSession.code} · Spectating`;
+    if (onlineRoomStatus === "lobby") return "Spectating";
     if (moves === connect4Rows * connect4Columns && !winner) return "Spectating · Draw";
     if (winner) return `Spectating · ${names[winner]} wins`;
-    if (onlineRevision === 0) return `Room ${onlineSession.code} · Spectating`;
+    if (onlineRevision === 0) return "Spectating";
     return `Spectating · ${names[current]} turn`;
   }
 

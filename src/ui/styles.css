@@ -716,104 +716,49 @@
   }
 
   .multiplayer-dialog__panel {
+    gap: var(--space-xl);
+  }
+
+  .multiplayer-dialog__body {
+    display: grid;
     gap: var(--space-2xl);
   }
 
-  :is(.multiplayer-dialog__body, .multiplayer-dialog__choices, .multiplayer-dialog__room) {
-    display: grid;
-    gap: var(--space-lg);
+  .multiplayer-dialog__create,
+  .multiplayer-dialog__join button {
+    min-height: var(--touch-target);
   }
 
-  .multiplayer-dialog__option {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: var(--space-xs) var(--space-lg);
-  }
-
-  .multiplayer-dialog__option-title {
-    margin: 0;
-    color: var(--ink);
-    font-size: 1rem;
-    font-weight: var(--font-weight-heavy);
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-  }
-
-  .multiplayer-dialog__option-copy {
-    grid-column: 1;
-    margin: 0;
-    font-size: var(--font-size-xs);
-    line-height: 1.35;
-  }
-
-  .multiplayer-dialog__option-action {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    align-self: center;
+  .multiplayer-dialog__divider {
+    block-size: 1px;
+    margin-block: var(--space-sm);
+    background: var(--line);
   }
 
   .multiplayer-dialog__join {
-    grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: var(--space-md);
-    align-items: center;
-  }
-
-  .multiplayer-dialog__join input,
-  .multiplayer-dialog__join button,
-  .multiplayer-dialog__option-action,
-  .multiplayer-dialog__code-header button {
-    min-height: var(--touch-target);
+    gap: var(--space-xl);
   }
 
   .multiplayer-dialog__join input {
     inline-size: 100%;
+    min-height: var(--touch-target);
+  }
+
+  .multiplayer-dialog__join-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-lg);
+  }
+
+  .multiplayer-dialog__status {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    text-align: center;
   }
 
   .multiplayer-dialog__status:empty {
     display: none;
-  }
-
-  .multiplayer-dialog__code-card {
-    --section-card-bg: color-mix(in srgb, var(--accent), transparent 88%);
-    display: grid;
-    gap: var(--space-lg);
-  }
-
-  .multiplayer-dialog__code-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-lg);
-    color: var(--muted);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-heavy);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .multiplayer-dialog__code {
-    --room-code-size: clamp(1.65rem, 9vw, 2.6rem);
-    --room-code-tracking: 0.13em;
-  }
-
-  .multiplayer-dialog__assignment {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-md);
-    width: max-content;
-    max-width: 100%;
-    color: var(--ink);
-    font-weight: var(--font-weight-heavy);
-    line-height: 1.1;
-  }
-
-  .multiplayer-dialog__room-copy {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    line-height: 1.35;
   }
 }
 
@@ -828,14 +773,6 @@
     .game[data-board-mode="scroll"] .board-viewport {
       place-items: start;
     }
-    .multiplayer-dialog__option {
-      grid-template-columns: 1fr;
-    }
-    .multiplayer-dialog__option-action {
-      grid-column: 1;
-      grid-row: auto;
-      justify-self: start;
-    }
     .touch-controls {
       display: flex;
     }
@@ -846,15 +783,6 @@
       place-items: start center;
       align-content: start;
       padding-block: var(--gap);
-    }
-  }
-
-  @media (max-width: 370px) {
-    .multiplayer-dialog__join {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .multiplayer-dialog__join input {
-      grid-column: 1 / -1;
     }
   }
 

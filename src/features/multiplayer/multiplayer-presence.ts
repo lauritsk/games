@@ -86,20 +86,7 @@ export function renderMultiplayerPresence(
       ariaLabel: `Room code ${session.code}`,
       text: session.code,
     }),
-    el("span", {
-      className: "online-presence__mode",
-      text: isSpectator ? "Spectating" : "Playing",
-    }),
   );
-  const spectatorCount = options.spectatorCount ?? (isSpectator ? 1 : 0);
-  if (spectatorCount > 0) {
-    summary.append(
-      el("span", {
-        className: "online-presence__mode",
-        text: `${spectatorCount} spectator${spectatorCount === 1 ? "" : "s"}`,
-      }),
-    );
-  }
   headline.append(summary);
 
   const list = el("div", { className: "online-presence__seats" });
@@ -120,7 +107,7 @@ export function renderMultiplayerPresence(
       el("span", { className: "online-presence__seat-main", text: descriptor.label }),
       el("span", {
         className: "online-presence__seat-meta",
-        text: seatMeta(seatState.joined, seat, localSeat),
+        text: seatMeta(seatState, seat, localSeat),
       }),
     );
     list.append(item);
@@ -159,12 +146,11 @@ export function multiplayerPlayerDescriptor(
 }
 
 function seatMeta(
-  joined: boolean,
+  seatState: MultiplayerSeatSnapshot,
   seat: MultiplayerSeat,
   localSeat: MultiplayerSeat | null,
 ): string {
-  if (!joined) return "Waiting";
-  if (seat === localSeat) return "You";
-  if (seat === "p1") return "Host";
-  return "Joined";
+  if (!seatState.joined) return "Waiting";
+  if (seat === localSeat) return seatState.ready ? "You · Ready" : "You";
+  return seatState.ready || seatState.connected ? "Ready" : "Joined";
 }
