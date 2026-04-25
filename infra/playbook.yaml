@@ -28,7 +28,8 @@
         dest: /etc/caddy/Caddyfile
         mode: '0644'
         backup: true
-      notify: Restart caddy
+        validate: /usr/bin/caddy validate --config %s
+      notify: Reload caddy
 
     - name: Ensure games service is enabled and restarted
       ansible.builtin.systemd:
@@ -38,9 +39,9 @@
         daemon_reload: true
 
   handlers:
-    - name: Restart caddy
+    - name: Reload caddy
       ansible.builtin.systemd:
         name: caddy.service
-        state: restarted
+        state: reloaded
         enabled: true
         daemon_reload: true
