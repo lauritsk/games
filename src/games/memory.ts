@@ -17,6 +17,14 @@ import {
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
+import { recordGameResult } from "../game-results";
+import {
+  clearGameSave,
+  createAutosave,
+  createRunId,
+  loadGameSave,
+  saveGameSave,
+} from "../game-state";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import {
@@ -31,6 +39,15 @@ const configs: Record<Difficulty, Config> = {
   Easy: { pairs: 6, columns: 4, rows: 3 },
   Medium: { pairs: 8, columns: 4, rows: 4 },
   Hard: { pairs: 12, columns: 6, rows: 4 },
+};
+const savePayloadVersion = 1;
+
+type SaveMemory = {
+  difficulty: Difficulty;
+  cards: MemoryCard[];
+  selected: number;
+  moves: number;
+  startedAt: number | null;
 };
 
 export const memory: GameDefinition = {
@@ -50,6 +67,19 @@ export function mountMemory(target: HTMLElement): () => void {
   let selected = 0;
   let moves = 0;
   let lock = false;
+  let startedAt: number | null = null;
+  let runId = createRunId();
+
+  const saved = loadGameSave(memory.id, savePayloadVersion, parseSaveMemory);
+  if (saved) {
+    runId = saved.runId;
+    difficulty = saved.payload.difficulty;
+    config = configs[difficulty];
+    cards = saved.payload.cards;
+    selected = saved.payload.selected;
+    moves = saved.payload.moves;
+    startedAt = saved.payload.startedAt;
+  }
 
   const {
     shell,
@@ -79,15 +109,19 @@ export function mountMemory(target: HTMLElement): () => void {
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
+  const autosave = createAutosave({ gameId: memory.id, scope, save: saveCurrentGame });
 
   function resetGame(): void {
     pendingFlip.clear();
+    clearGameSave(memory.id);
     resetGameProgress(shell);
+    runId = createRunId();
     config = configs[difficulty];
     cards = newMemoryDeck(config.pairs);
     selected = 0;
     moves = 0;
     lock = false;
+    startedAt = null;
     savePreferences();
     render();
   }
@@ -145,7 +179,7 @@ export function mountMemory(target: HTMLElement): () => void {
       return;
     }
 
-    markGameStarted(shell);
+    ensureStarted();
     card.open = true;
     const open = openUnmatchedMemoryCards(cards);
 
@@ -160,8 +194,20 @@ export function mountMemory(target: HTMLElement): () => void {
         b.open = false;
         if (allMemoryMatched(cards)) {
           markGameFinished(shell);
+          recordGameResult({
+            runId,
+            gameId: memory.id,
+            difficulty,
+            outcome: "completed",
+            moves,
+            durationMs: durationMs(),
+          });
+          clearGameSave(memory.id);
           playSound("gameWin");
-        } else playSound("gameGood");
+        } else {
+          saveCurrentGame();
+          playSound("gameGood");
+        }
       } else {
         playSound("gameBad");
         lock = true;
@@ -169,10 +215,14 @@ export function mountMemory(target: HTMLElement): () => void {
           a.open = false;
           b.open = false;
           lock = false;
+          saveCurrentGame();
           render();
         }, 650);
       }
-    } else playSound("gameMove");
+    } else {
+      saveCurrentGame();
+      playSound("gameMove");
+    }
 
     render();
   }
@@ -185,15 +235,91 @@ export function mountMemory(target: HTMLElement): () => void {
     return `Row ${row}, column ${column}, hidden card`;
   }
 
+  function ensureStarted(): void {
+    if (startedAt === null) startedAt = Date.now();
+    markGameStarted(shell);
+  }
+
+  function saveCurrentGame(): void {
+    if (startedAt === null) return;
+    if (allMemoryMatched(cards)) {
+      clearGameSave(memory.id);
+      return;
+    }
+    saveGameSave(memory.id, savePayloadVersion, {
+      runId,
+      status: "playing",
+      payload: { difficulty, cards: cardsForSave(), selected, moves, startedAt },
+    });
+  }
+
+  function cardsForSave(): MemoryCard[] {
+    const open = openUnmatchedMemoryCards(cards);
+    const closePendingMismatch = lock && open.length === 2 && open[0]?.symbol !== open[1]?.symbol;
+    return cards.map((card) => ({
+      ...card,
+      open: closePendingMismatch && card.open && !card.matched ? false : card.open,
+    }));
+  }
+
+  function durationMs(): number | undefined {
+    return startedAt === null ? undefined : Math.max(0, Date.now() - startedAt);
+  }
+
   function savePreferences(): void {
     saveGamePreferences(memory.id, { difficulty });
   }
 
+  if (startedAt !== null) markGameStarted(shell);
   render();
   return () => {
+    autosave.flush();
     pendingFlip.clear();
     invalidMove.cleanup();
     scope.cleanup();
     remove();
   };
+}
+
+function parseSaveMemory(value: unknown): SaveMemory | null {
+  if (!isRecord(value)) return null;
+  const difficulty = parseDifficulty(value.difficulty);
+  if (!difficulty) return null;
+  const config = configs[difficulty];
+  const cards = parseCards(value.cards, config.pairs * 2);
+  if (!cards) return null;
+  if (typeof value.selected !== "number" || value.selected < 0 || value.selected >= cards.length)
+    return null;
+  if (typeof value.moves !== "number" || !Number.isInteger(value.moves) || value.moves < 0)
+    return null;
+  if (
+    value.startedAt !== null &&
+    (typeof value.startedAt !== "number" || !Number.isFinite(value.startedAt))
+  )
+    return null;
+  return {
+    difficulty,
+    cards,
+    selected: value.selected,
+    moves: value.moves,
+    startedAt: value.startedAt,
+  };
+}
+
+function parseCards(value: unknown, length: number): MemoryCard[] | null {
+  if (!Array.isArray(value) || value.length !== length) return null;
+  const cards = value.map(parseCard);
+  return cards.every((card): card is MemoryCard => card !== null) ? cards : null;
+}
+
+function parseCard(value: unknown): MemoryCard | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.id !== "number" || !Number.isInteger(value.id)) return null;
+  if (typeof value.symbol !== "string") return null;
+  if (typeof value.open !== "boolean" || typeof value.matched !== "boolean") return null;
+  return { id: value.id, symbol: value.symbol, open: value.open, matched: value.matched };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

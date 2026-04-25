@@ -18,6 +18,14 @@ import {
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
 import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
+import { recordGameResult } from "../game-results";
+import {
+  clearGameSave,
+  createAutosave,
+  createRunId,
+  loadGameSave,
+  saveGameSave,
+} from "../game-state";
 import { playSound } from "../sound";
 import { changeDifficulty, createDifficultyControl, createResetControl } from "./controls";
 import {
@@ -39,6 +47,18 @@ const configs: Record<Difficulty, MinesweeperConfig> = {
   Medium: { rows: 12, columns: 12, mines: 24, layout: "fit" },
   Hard: { rows: 16, columns: 16, mines: 56, layout: "fit" },
 };
+const savePayloadVersion = 1;
+
+type SaveMinesweeper = {
+  difficulty: Difficulty;
+  config: MinesweeperConfig;
+  board: MinesweeperCell[][];
+  state: State;
+  firstMove: boolean;
+  selectedRow: number;
+  selectedColumn: number;
+  startedAt: number | null;
+};
 
 export const minesweeper: GameDefinition = {
   id: "minesweeper",
@@ -58,6 +78,21 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   let firstMove = true;
   let selectedRow = 0;
   let selectedColumn = 0;
+  let startedAt: number | null = null;
+  let runId = createRunId();
+
+  const saved = loadGameSave(minesweeper.id, savePayloadVersion, parseSaveMinesweeper);
+  if (saved) {
+    runId = saved.runId;
+    difficulty = saved.payload.difficulty;
+    config = saved.payload.config;
+    board = saved.payload.board;
+    state = saved.payload.state;
+    firstMove = saved.payload.firstMove;
+    selectedRow = saved.payload.selectedRow;
+    selectedColumn = saved.payload.selectedColumn;
+    startedAt = saved.payload.startedAt;
+  }
 
   const {
     shell,
@@ -75,6 +110,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
   onDocumentKeyDown(onKeyDown, scope);
+  const autosave = createAutosave({ gameId: minesweeper.id, scope, save: saveCurrentGame });
 
   const difficultyControl = {
     get: () => difficulty,
@@ -88,13 +124,16 @@ export function mountMinesweeper(target: HTMLElement): () => void {
   const requestReset = createResetControl(actions, shell, resetGame);
 
   function resetGame(): void {
+    clearGameSave(minesweeper.id);
     resetGameProgress(shell);
+    runId = createRunId();
     config = configs[difficulty];
     board = newMinesweeperBoard(config);
     state = "playing";
     firstMove = true;
     selectedRow = 0;
     selectedColumn = 0;
+    startedAt = null;
     savePreferences();
     render();
   }
@@ -201,7 +240,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       return;
     }
 
-    markGameStarted(shell);
+    ensureStarted();
 
     if (firstMove) {
       board = seededMinesweeperBoard(config, row, column);
@@ -219,10 +258,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       if (openSafeMinesweeperCount(board) === shape.rows * shape.columns - config.mines)
         state = "won";
     }
-    if (state !== "playing") markGameFinished(shell);
-    if (state === "won") playSound("gameWin");
-    else if (state === "lost") playSound("gameLose");
-    else playSound("gameMove");
+    afterMove();
     render();
   }
 
@@ -244,7 +280,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       return;
     }
 
-    markGameStarted(shell);
+    ensureStarted();
     for (const [r, c] of around) {
       const next = board[r]?.[c];
       if (!next || next.open || next.flag) continue;
@@ -261,10 +297,7 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       openSafeMinesweeperCount(board) === shape.rows * shape.columns - config.mines
     )
       state = "won";
-    if (state !== "playing") markGameFinished(shell);
-    if (state === "won") playSound("gameWin");
-    else if (state === "lost") playSound("gameLose");
-    else playSound("gameMove");
+    afterMove();
     render();
   }
 
@@ -278,22 +311,159 @@ export function mountMinesweeper(target: HTMLElement): () => void {
       invalidMove.trigger();
       return;
     }
-    markGameStarted(shell);
+    ensureStarted();
     cell.flag = !cell.flag;
+    saveCurrentGame();
     playSound("gameMove");
     render();
+  }
+
+  function ensureStarted(): void {
+    if (startedAt === null) startedAt = Date.now();
+    markGameStarted(shell);
+  }
+
+  function afterMove(): void {
+    if (state !== "playing") {
+      markGameFinished(shell);
+      recordGameResult({
+        runId,
+        gameId: minesweeper.id,
+        difficulty,
+        outcome: state === "won" ? "won" : "lost",
+        durationMs: durationMs(),
+        metadata: {
+          flags: flagMinesweeperCount(board),
+          revealed: openSafeMinesweeperCount(board),
+        },
+      });
+      clearGameSave(minesweeper.id);
+    } else saveCurrentGame();
+    if (state === "won") playSound("gameWin");
+    else if (state === "lost") playSound("gameLose");
+    else playSound("gameMove");
+  }
+
+  function saveCurrentGame(): void {
+    if (startedAt === null) return;
+    if (state !== "playing") {
+      clearGameSave(minesweeper.id);
+      return;
+    }
+    saveGameSave(minesweeper.id, savePayloadVersion, {
+      runId,
+      status: "playing",
+      payload: {
+        difficulty,
+        config,
+        board,
+        state,
+        firstMove,
+        selectedRow,
+        selectedColumn,
+        startedAt,
+      },
+    });
+  }
+
+  function durationMs(): number | undefined {
+    return startedAt === null ? undefined : Math.max(0, Date.now() - startedAt);
   }
 
   function savePreferences(): void {
     saveGamePreferences(minesweeper.id, { difficulty });
   }
 
+  if (startedAt !== null) markGameStarted(shell);
+  if (state !== "playing") markGameFinished(shell);
   render();
   return () => {
+    autosave.flush();
     scope.cleanup();
     invalidMove.cleanup();
     remove();
   };
+}
+
+function parseSaveMinesweeper(value: unknown): SaveMinesweeper | null {
+  if (!isRecord(value)) return null;
+  const difficulty = parseDifficulty(value.difficulty);
+  if (!difficulty) return null;
+  const config = parseConfig(value.config, configs[difficulty]);
+  if (!config) return null;
+  const shape = minesweeperShape(config);
+  const board = parseBoard(value.board, shape.rows, shape.columns);
+  if (!board) return null;
+  const state = parseState(value.state);
+  if (!state) return null;
+  if (typeof value.firstMove !== "boolean") return null;
+  if (
+    !isValidIndex(value.selectedRow, shape.rows) ||
+    !isValidIndex(value.selectedColumn, shape.columns)
+  )
+    return null;
+  const startedAt = parseStartedAt(value.startedAt);
+  if (startedAt === undefined) return null;
+  return {
+    difficulty,
+    config,
+    board,
+    state,
+    firstMove: value.firstMove,
+    selectedRow: value.selectedRow,
+    selectedColumn: value.selectedColumn,
+    startedAt,
+  };
+}
+
+function parseConfig(value: unknown, expected: MinesweeperConfig): MinesweeperConfig | null {
+  if (!isRecord(value)) return null;
+  if (value.mines !== expected.mines || value.layout !== expected.layout) return null;
+  const expectedShape = minesweeperShape(expected);
+  if (value.rows !== expectedShape.rows || value.columns !== expectedShape.columns) return null;
+  return expected;
+}
+
+function parseBoard(value: unknown, rows: number, columns: number): MinesweeperCell[][] | null {
+  if (!Array.isArray(value) || value.length !== rows) return null;
+  const board = value.map((row) => {
+    if (!Array.isArray(row) || row.length !== columns) return null;
+    const cells = row.map(parseCell);
+    return cells.every((cell): cell is MinesweeperCell => cell !== null) ? cells : null;
+  });
+  return board.every((row): row is MinesweeperCell[] => row !== null) ? board : null;
+}
+
+function parseCell(value: unknown): MinesweeperCell | null {
+  if (!isRecord(value)) return null;
+  if (
+    typeof value.mine !== "boolean" ||
+    typeof value.open !== "boolean" ||
+    typeof value.flag !== "boolean" ||
+    typeof value.nearby !== "number" ||
+    !Number.isInteger(value.nearby) ||
+    value.nearby < 0 ||
+    value.nearby > 8
+  )
+    return null;
+  return { mine: value.mine, open: value.open, flag: value.flag, nearby: value.nearby };
+}
+
+function parseState(value: unknown): State | null {
+  return value === "playing" || value === "won" || value === "lost" ? value : null;
+}
+
+function parseStartedAt(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function isValidIndex(value: unknown, length: number): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value < length;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function cellText(cell: MinesweeperCell): string {
