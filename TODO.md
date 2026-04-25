@@ -2,6 +2,7 @@
 
 ## Maintenance
 
+- [x] Pin Dockerfile Bun images to current digests.
 - [x] Review Bun v1.3.13 feature opportunities.
 - [x] Adopt Bun v1.3.13 opportunities.
 - [x] Refactor maintainability hot spots.
