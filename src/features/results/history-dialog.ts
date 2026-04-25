@@ -1,4 +1,5 @@
-import { el, pillButton, type GameDefinition } from "@shared/core";
+import { el, pillButton } from "@shared/core";
+import type { GameSummary } from "@games";
 import {
   bestSummaryText,
   formatDate,
@@ -10,17 +11,17 @@ import { openModal, type ModalController } from "@shared/modal";
 import { playSound } from "@ui/sound";
 
 export type GameHistoryDialog = {
-  show(game: GameDefinition, highlight?: GameResult): void;
+  show(game: GameSummary, highlight?: GameResult): void;
   close(): void;
 };
 
 export type GameHistoryDialogOptions = {
   resultActions?: (
-    game: GameDefinition,
+    game: GameSummary,
     result: GameResult,
     closeCurrent: () => void,
   ) => HTMLElement[];
-  onNewGameShortcut?: (game: GameDefinition, result: GameResult, closeCurrent: () => void) => void;
+  onNewGameShortcut?: (game: GameSummary, result: GameResult, closeCurrent: () => void) => void;
 };
 
 export function createGameHistoryDialog(options: GameHistoryDialogOptions = {}): GameHistoryDialog {
@@ -30,7 +31,7 @@ export function createGameHistoryDialog(options: GameHistoryDialogOptions = {}):
     cleanup?.();
   }
 
-  function show(game: GameDefinition, highlight?: GameResult): void {
+  function show(game: GameSummary, highlight?: GameResult): void {
     close();
     let clearArmed = false;
     let modal: ModalController | null = null;

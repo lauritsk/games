@@ -20,7 +20,7 @@ import {
 } from "@shared/core";
 import { getResolvedAppearance, initializeAppearance, onAppearanceChange } from "@ui/appearance";
 import { createAppearanceControl, updateAppearanceControl } from "@ui/appearance-control";
-import { games } from "@games";
+import { gameById, games, type GameEntry, type GameSummary } from "@games";
 import { bestSummaryText } from "@features/results/game-result-format";
 import { type GameResult } from "@features/results/game-results";
 import { hasGameSave } from "@games/shared/game-state";
@@ -54,8 +54,9 @@ let unmountGame: (() => void) | null = null;
 let dashboardScope: MountScope | null = null;
 let gameScope: MountScope | null = null;
 let confirmCleanup: (() => void) | null = null;
-let topBarGame: GameDefinition | null = null;
+let topBarGame: GameSummary | null = null;
 let topBarMode: TopBarMode = "dashboard";
+let routeLoadId = 0;
 
 const page = el("main", { className: "app-shell center-screen" });
 const workspace = el("section", { className: "workspace center-screen" });
@@ -136,7 +137,7 @@ function createTopBar(): TopBar {
   return { element, back, title, history, leaderboard, appearance };
 }
 
-function updateTopBar(game: GameDefinition, mode: TopBarMode): void {
+function updateTopBar(game: GameSummary, mode: TopBarMode): void {
   const leaderboardAvailable = hasLeaderboard(game.id);
   topBarGame = game;
   topBarMode = mode;
@@ -177,9 +178,9 @@ function renderRoute(): void {
   else renderDashboard();
 }
 
-function getRouteGame(): GameDefinition | null {
+function getRouteGame(): GameEntry | null {
   const id = window.location.hash.replace(/^#\/?/, "");
-  return id ? (games.find((game) => game.id === id) ?? null) : null;
+  return id ? gameById(id) : null;
 }
 
 function renderDashboard(): void {
@@ -274,7 +275,7 @@ function moveDashboardVertical(
   return required(verticalOrder[wrapIndex(orderIndex + step, length)]);
 }
 
-function gameCard(game: GameDefinition): HTMLAnchorElement {
+function gameCard(game: GameSummary): HTMLAnchorElement {
   const link = el("a", { className: `game-card surface interactive theme-${game.theme}` });
   link.href = `#/${game.id}`;
   updateGameCard(link, game);
@@ -283,7 +284,7 @@ function gameCard(game: GameDefinition): HTMLAnchorElement {
   return link;
 }
 
-function updateGameCard(card: HTMLAnchorElement, game: GameDefinition): void {
+function updateGameCard(card: HTMLAnchorElement, game: GameSummary): void {
   clearNode(card);
   const title = el("span", { className: "game-card__title", text: game.name });
   const meta = el("span", { className: "game-card__meta" });
@@ -295,18 +296,34 @@ function updateGameCard(card: HTMLAnchorElement, game: GameDefinition): void {
   if (meta.children.length) card.append(meta);
 }
 
-function renderGame(game: GameDefinition): void {
+function renderGame(entry: GameEntry): void {
   cleanupGame();
+  const loadId = (routeLoadId += 1);
   clearNode(workspace);
-  updateTopBar(game, "game");
+  updateTopBar(entry, "game");
 
   const screen = el("section", { className: "game-screen" });
   const gameHost = el("div", { className: "game-host center-screen" });
+  gameHost.append(el("p", { className: "muted", text: `Loading ${entry.name}…` }));
   screen.append(gameHost);
   workspace.append(screen);
-  unmountGame = game.mount(gameHost);
   gameScope = createMountScope();
   onDocumentKeyDown(onGameKeyDown, gameScope);
+  void mountLoadedGame();
+
+  async function mountLoadedGame(): Promise<void> {
+    try {
+      const game = await entry.load();
+      if (loadId !== routeLoadId || getRouteGame()?.id !== entry.id) return;
+      clearNode(gameHost);
+      unmountGame = game.mount(gameHost);
+    } catch (error) {
+      console.error(error);
+      if (loadId !== routeLoadId) return;
+      clearNode(gameHost);
+      gameHost.append(el("p", { className: "muted", text: `Could not load ${entry.name}.` }));
+    }
+  }
 
   function onGameKeyDown(event: KeyboardEvent): void {
     if (event.key !== "Escape" || confirmCleanup) return;
@@ -349,4 +366,5 @@ function cleanupGame(): void {
   dashboardScope = null;
   unmountGame?.();
   unmountGame = null;
+  routeLoadId += 1;
 }

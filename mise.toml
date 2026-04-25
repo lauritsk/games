@@ -16,6 +16,10 @@ postinstall = "hk install --mise"
 description = "Run the web app dev server"
 run = "bun run dev"
 
+[tasks.ci]
+description = "Install dependencies with Bun's frozen CI installer"
+run = "bun ci"
+
 [tasks."db:migrate"]
 description = "Create or migrate the Bun SQLite sync database"
 run = "bun run src/server/migrate.ts"
@@ -28,13 +32,21 @@ run = "bunx --bun drizzle-kit generate"
 description = "Build the web app"
 run = "bun run build"
 
+[tasks."build:analyze"]
+description = "Build the web app and write Bun metafile reports"
+run = "bun run build:analyze"
+
+[tasks."build:production"]
+description = "Build the fullstack Bun production bundle"
+run = "bun run build:production"
+
 [tasks."build:single"]
 description = "Build the web app as one standalone HTML file"
 run = "bun run build:single"
 
 [tasks."build:server"]
 description = "Build the Bun server bundle into a temporary directory"
-run = "rm -rf /tmp/games-server-build && bun build ./src/server/index.ts --outdir /tmp/games-server-build --target bun --root . --entry-naming='server.[ext]' && cp -R migrations /tmp/games-server-build/migrations"
+run = "bun run build:server"
 
 [tasks.lint]
 description = "Run hk-managed checks across the repository"
@@ -51,6 +63,18 @@ run = "bun run typecheck"
 [tasks.test]
 description = "Run tests"
 run = "bun run test"
+
+[tasks."test:changed"]
+description = "Run Bun tests affected by changed files"
+run = "bun run test:changed"
+
+[tasks."test:coverage"]
+description = "Run Bun tests with coverage reports"
+run = "bun run test:coverage"
+
+[tasks.audit]
+description = "Run Bun package audit"
+run = "bun run audit"
 
 [tasks."test:e2e"]
 description = "Run Playwright browser tests"

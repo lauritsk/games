@@ -1,0 +1,32 @@
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      # jdx/mise-action v4.0.1
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151
+      - name: Install dependencies
+        run: mise run ci
+      - name: Check
+        run: mise run check
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      # jdx/mise-action v4.0.1
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151
+      - name: Install dependencies
+        run: mise run ci
+      - name: Bun audit
+        run: mise run audit
+        continue-on-error: true

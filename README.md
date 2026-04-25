@@ -53,14 +53,20 @@ Open <http://localhost:3000>.
 | `mise run dev` | Start the Bun dev server with HMR at <http://localhost:3000>. |
 | `mise run db:migrate` | Create or migrate the Bun SQLite sync database. |
 | `mise run db:generate` | Generate Drizzle SQLite migrations from the typed schema. |
-| `mise run build` | Build the static app into `dist/`. |
+| `mise run build` | Build the static app into `dist/` with Bun code splitting. |
+| `mise run build:analyze` | Build and write Bun metafile reports into `reports/build/`. |
+| `mise run build:production` | Build the fullstack Bun production bundle used by Docker. |
 | `mise run build:server` | Build the Bun server bundle into a temporary directory. |
-| `mise run build:single` | Build a standalone single-file browser artifact into `dist-single/`. |
-| `mise run test` | Run Bun unit tests. |
+| `mise run build:single` | Build a standalone single-file browser artifact into `dist-single/` with PWA disabled. |
+| `mise run test` | Run Bun unit tests in parallel. |
+| `mise run test:changed` | Run Bun tests affected by changed files. |
+| `mise run test:coverage` | Run Bun unit tests with text and LCOV coverage output. |
 | `mise run test:e2e` | Build and run Playwright browser tests. |
 | `mise run test:watch` | Run unit tests in watch mode. |
 | `mise run lint` | Run hk-managed format/lint checks. |
 | `mise run fix` | Run hk-managed fixers. |
+| `mise run audit` | Run Bun package audit. |
+| `mise run ci` | Install dependencies with Bun's frozen CI installer. |
 | `mise run check` | Run lint, unit tests, build, and e2e tests. |
 | `mise run docker:push` | Build and push the multi-arch Docker image as `docker.io/lauritsk/games:latest`. |
 | `mise run docker:up` | Run the app with Docker Compose on port 3000. |
@@ -86,7 +92,7 @@ Open <http://localhost:3000>.
 └── mise.toml               # Tool versions and tasks
 ```
 
-See `docs/architecture.md` for a quick "where do I edit?" map.
+See `docs/architecture.md` for a quick "where do I edit?" map. See `docs/bun.md` for Bun build variants, bundle flags, coverage, audit, and profiling helpers.
 
 ## Add a game
 

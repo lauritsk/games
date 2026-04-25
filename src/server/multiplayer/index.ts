@@ -417,10 +417,12 @@ export class MultiplayerHub {
     };
   }
 
-  private snapshotMessage(room: Room, data: MultiplayerSocketData) {
+  private snapshotMessage(room: Room, data?: MultiplayerSocketData) {
     return {
       type: "snapshot" as const,
-      you: { playerId: data.playerId, seat: data.seat, role: data.role ?? "player" },
+      ...(data
+        ? { you: { playerId: data.playerId, seat: data.seat, role: data.role ?? "player" } }
+        : {}),
       room: this.publicRoom(room),
     };
   }
@@ -430,6 +432,12 @@ export class MultiplayerHub {
   }
 
   private broadcastRoom(room: Room, fallback?: ServerWebSocket<MultiplayerSocketData>): void {
+    const publisher = fallback ?? room.sockets.values().next().value;
+    if (publisher && canPublishTopic(publisher)) {
+      publisher.publishText(roomTopic(room.code), JSON.stringify(this.snapshotMessage(room)));
+      return;
+    }
+
     const sent = new Set<ServerWebSocket<MultiplayerSocketData>>();
     for (const socket of room.sockets) {
       socket.send(JSON.stringify(this.snapshotMessage(room, socket.data)));
@@ -731,6 +739,10 @@ function seatSnapshot(player: PlayerState | undefined, ready = false) {
 
 function roomTopic(code: string): string {
   return `multiplayer:${code}`;
+}
+
+function canPublishTopic(ws: ServerWebSocket<MultiplayerSocketData>): boolean {
+  return Array.isArray(ws.subscriptions) && ws.isSubscribed(roomTopic(ws.data.code));
 }
 
 function randomCode(): string {

@@ -1,0 +1,7 @@
+[install]
+minimumReleaseAge = 604800
+linker = "isolated"
+
+[test]
+coverageReporter = ["text", "lcov"]
+coverageDir = "coverage"

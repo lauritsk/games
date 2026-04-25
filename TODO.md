@@ -2,7 +2,8 @@
 
 ## Maintenance
 
-- [ ] Review Bun v1.3.13 feature opportunities.
+- [x] Review Bun v1.3.13 feature opportunities.
+- [x] Adopt Bun v1.3.13 opportunities.
 - [x] Refactor maintainability hot spots.
 - [x] Integrate Valibot runtime schemas.
 - [x] Integrate Drizzle ORM for SQLite.

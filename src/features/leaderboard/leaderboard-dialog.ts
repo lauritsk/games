@@ -1,12 +1,5 @@
-import {
-  button,
-  clearNode,
-  difficultyIcon,
-  el,
-  pillButton,
-  setSelected,
-  type GameDefinition,
-} from "@shared/core";
+import { button, clearNode, difficultyIcon, el, pillButton, setSelected } from "@shared/core";
+import type { GameSummary } from "@games";
 import { formatDate } from "@features/results/game-result-format";
 import type { GameResult } from "@features/results/game-results";
 import { loadGamePreferences } from "@games/shared/game-preferences";
@@ -23,7 +16,7 @@ import { playSound } from "@ui/sound";
 import type { Difficulty } from "@shared/types";
 
 export type LeaderboardDialog = {
-  show(game: GameDefinition, highlight?: GameResult): void;
+  show(game: GameSummary, highlight?: GameResult): void;
   close(): void;
 };
 
@@ -36,7 +29,7 @@ export function createLeaderboardDialog(): LeaderboardDialog {
     cleanup?.();
   }
 
-  function show(game: GameDefinition, highlight?: GameResult): void {
+  function show(game: GameSummary, highlight?: GameResult): void {
     close();
     let modal: ModalController | null = null;
     const title = el("h2", {
@@ -123,7 +116,7 @@ export function createLeaderboardDialog(): LeaderboardDialog {
 }
 
 function createSubmitForm(
-  game: GameDefinition,
+  game: GameSummary,
   result: GameResult,
   list: HTMLElement,
   onSubmitted: (entry: LeaderboardEntry) => void,

@@ -1,5 +1,8 @@
+import { pwaFeaturesEnabled } from "@shared/bundle-flags";
+
 export function initializePwa(): void {
-  if (!("serviceWorker" in navigator) || !shouldRegisterServiceWorker()) return;
+  if (!pwaFeaturesEnabled() || !("serviceWorker" in navigator) || !shouldRegisterServiceWorker())
+    return;
   window.addEventListener("load", () => {
     void registerServiceWorker();
   });

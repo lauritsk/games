@@ -3,6 +3,7 @@ import { emptySyncSnapshot, parseSyncSnapshot } from "@features/sync/sync-schema
 import type { SyncPush } from "@features/sync/sync-types";
 import * as v from "valibot";
 import { readStored, storageKey, writeStored } from "@shared/storage";
+import { onlineFeaturesEnabled } from "@shared/bundle-flags";
 import { parseWithSchema, unknownRecordSchema } from "@shared/validation";
 
 const deviceIdSchema = v.string();
@@ -19,7 +20,7 @@ let pending = false;
 let disabled = false;
 
 export function initializeSync(): void {
-  if (typeof window === "undefined") return;
+  if (!onlineFeaturesEnabled() || typeof window === "undefined") return;
 
   window.addEventListener("games:sync-requested", () => scheduleSync());
   window.addEventListener("games:result-recorded", () => scheduleSync());

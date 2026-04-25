@@ -12,6 +12,7 @@ import {
   type MultiplayerSpectateResponse,
   type MultiplayerStatusResponse,
 } from "@features/multiplayer/multiplayer-protocol";
+import { onlineFeaturesEnabled } from "@shared/bundle-flags";
 import {
   finiteNumberSchema,
   integerSchema,
@@ -60,6 +61,8 @@ const snapshotYouSchema = v.looseObject({
 });
 
 export async function fetchMultiplayerStatus(): Promise<MultiplayerStatusResponse> {
+  if (!onlineFeaturesEnabled())
+    return { ok: false, error: "Online features disabled in this build." };
   return requestJson<MultiplayerStatusResponse>("/api/multiplayer/status");
 }
 
@@ -67,6 +70,8 @@ export async function createMultiplayerRoom(
   gameId: string,
   settings?: unknown,
 ): Promise<MultiplayerCreateResponse> {
+  if (!onlineFeaturesEnabled())
+    return { ok: false, error: "Online features disabled in this build." };
   return requestJson<MultiplayerCreateResponse>("/api/multiplayer/rooms", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -75,10 +80,14 @@ export async function createMultiplayerRoom(
 }
 
 export async function joinMultiplayerRoom(code: string): Promise<MultiplayerJoinResponse> {
+  if (!onlineFeaturesEnabled())
+    return { ok: false, error: "Online features disabled in this build." };
   return requestRoomCode<MultiplayerJoinResponse>("/api/multiplayer/rooms/join", code);
 }
 
 export async function spectateMultiplayerRoom(code: string): Promise<MultiplayerSpectateResponse> {
+  if (!onlineFeaturesEnabled())
+    return { ok: false, error: "Online features disabled in this build." };
   return requestRoomCode<MultiplayerSpectateResponse>("/api/multiplayer/rooms/spectate", code);
 }
 
@@ -86,6 +95,19 @@ export function connectMultiplayerSession(
   session: MultiplayerSession,
   handlers: MultiplayerConnectionHandlers,
 ): MultiplayerConnection {
+  if (!onlineFeaturesEnabled()) {
+    handlers.onError("Online features disabled in this build.");
+    handlers.onStatus("closed");
+    const noop = (): void => undefined;
+    return {
+      sendAction: noop,
+      requestStart: noop,
+      requestRematch: noop,
+      updateSettings: noop,
+      close: noop,
+    };
+  }
+
   let socket: WebSocket | null = null;
   let closed = false;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
