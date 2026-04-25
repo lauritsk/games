@@ -4,6 +4,7 @@ import { parseDifficulty } from "./game-preferences";
 import { isFiniteNumber, isRecord } from "./validation";
 
 export type GameOutcome = "won" | "lost" | "draw" | "completed";
+export type GameMetadata = Record<string, string | number | boolean>;
 
 export type GameResult = {
   id: string;
@@ -16,12 +17,18 @@ export type GameResult = {
   score?: number;
   moves?: number;
   level?: number;
-  metadata?: Record<string, string | number | boolean>;
+  metadata?: GameMetadata;
 };
+
+type OptionalResultDetails = Pick<
+  GameResult,
+  "difficulty" | "durationMs" | "score" | "moves" | "level" | "metadata"
+>;
 
 const RESULTS_SCHEMA_VERSION = 1;
 const resultsKey = storageKey("results");
 const outcomes = new Set<GameOutcome>(["won", "lost", "draw", "completed"]);
+const numericResultFields = ["durationMs", "score", "moves", "level"] as const;
 const maxTotalResults = 250;
 const maxResultsPerGame = 50;
 
@@ -98,14 +105,7 @@ function parseResult(value: unknown): GameResult | null {
     finishedAt: value.finishedAt,
     outcome: value.outcome as GameOutcome,
   };
-  const difficulty = parseDifficulty(value.difficulty);
-  if (difficulty) result.difficulty = difficulty;
-  if (isFiniteNumber(value.durationMs)) result.durationMs = value.durationMs;
-  if (isFiniteNumber(value.score)) result.score = value.score;
-  if (isFiniteNumber(value.moves)) result.moves = value.moves;
-  if (isFiniteNumber(value.level)) result.level = value.level;
-  const metadata = parseMetadata(value.metadata);
-  if (metadata) result.metadata = metadata;
+  copyOptionalResultDetails(result, value);
   return result;
 }
 
@@ -117,14 +117,7 @@ function sanitizeResult(
     gameId: result.gameId,
     outcome: result.outcome,
   };
-  const difficulty = parseDifficulty(result.difficulty);
-  if (difficulty) next.difficulty = difficulty;
-  if (isFiniteNumber(result.durationMs)) next.durationMs = result.durationMs;
-  if (isFiniteNumber(result.score)) next.score = result.score;
-  if (isFiniteNumber(result.moves)) next.moves = result.moves;
-  if (isFiniteNumber(result.level)) next.level = result.level;
-  const metadata = parseMetadata(result.metadata);
-  if (metadata) next.metadata = metadata;
+  copyOptionalResultDetails(next, result);
   return next;
 }
 
@@ -144,9 +137,22 @@ function pruneResults(results: GameResult[]): GameResult[] {
   return pruned;
 }
 
-function parseMetadata(value: unknown): Record<string, string | number | boolean> | undefined {
+function copyOptionalResultDetails(
+  target: Partial<OptionalResultDetails>,
+  source: { [Key in keyof OptionalResultDetails]?: unknown },
+): void {
+  const difficulty = parseDifficulty(source.difficulty);
+  if (difficulty) target.difficulty = difficulty;
+  for (const field of numericResultFields) {
+    if (isFiniteNumber(source[field])) target[field] = source[field];
+  }
+  const metadata = parseMetadata(source.metadata);
+  if (metadata) target.metadata = metadata;
+}
+
+function parseMetadata(value: unknown): GameMetadata | undefined {
   if (!isRecord(value)) return undefined;
-  const metadata: Record<string, string | number | boolean> = {};
+  const metadata: GameMetadata = {};
   for (const [key, entry] of Object.entries(value)) {
     if (typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean") {
       metadata[key] = entry;
