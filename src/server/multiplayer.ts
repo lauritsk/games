@@ -1,5 +1,7 @@
 import type { ServerWebSocket } from "bun";
 import {
+  multiplayerCodeAlphabet,
+  multiplayerCodeLength,
   normalizeMultiplayerCode,
   type MultiplayerActionMessage,
   type MultiplayerRoomSnapshot,
@@ -38,8 +40,6 @@ type UpgradePreparation =
   | { ok: true; data: MultiplayerSocketData }
   | { ok: false; response: Response };
 
-const codeAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
-const codeLength = 6;
 const maxRooms = 500;
 const lobbyTtlMs = 10 * 60_000;
 const disconnectedTtlMs = 2 * 60_000;
@@ -69,36 +69,10 @@ export class MultiplayerHub {
         return json({ ok: true });
       }
       if (url.pathname === "/api/multiplayer/rooms" && request.method === "POST") {
-        if (
-          !checkRateLimit(rateLimitKey(request, "multiplayer-create"), {
-            windowMs: 60_000,
-            max: 12,
-          })
-        ) {
-          return json({ ok: false, error: "Too many requests" }, 429);
-        }
-        const body = await readSmallJson(request);
-        const gameId = isRecord(body) && typeof body.gameId === "string" ? body.gameId : null;
-        if (!gameId) return json({ ok: false, error: "Invalid room request" }, 400);
-        const result = await this.createRoom(gameId);
-        if (!result.ok) return json(result, 400);
-        return json(result);
+        return this.handleCreateRoomRequest(request);
       }
       if (url.pathname === "/api/multiplayer/rooms/join" && request.method === "POST") {
-        const body = await readSmallJson(request);
-        const code = isRecord(body) && typeof body.code === "string" ? body.code : "";
-        const normalized = normalizeMultiplayerCode(code);
-        if (
-          !checkRateLimit(rateLimitKey(request, `multiplayer-join:${normalized}`), {
-            windowMs: 60_000,
-            max: 20,
-          })
-        ) {
-          return json({ ok: false, error: "Too many requests" }, 429);
-        }
-        const result = await this.joinRoom(normalized);
-        if (!result.ok) return json(result, 400);
-        return json(result);
+        return this.handleJoinRoomRequest(request);
       }
       if (url.pathname === "/api/multiplayer/socket") {
         return json({ ok: false, error: "Upgrade required" }, 426);
@@ -107,6 +81,38 @@ export class MultiplayerHub {
     } catch {
       return json({ ok: false, error: "Request failed" }, 500);
     }
+  }
+
+  private async handleCreateRoomRequest(request: Request): Promise<Response> {
+    if (
+      !checkRateLimit(rateLimitKey(request, "multiplayer-create"), {
+        windowMs: 60_000,
+        max: 12,
+      })
+    ) {
+      return json({ ok: false, error: "Too many requests" }, 429);
+    }
+    const body = await readSmallJson(request);
+    const gameId = isRecord(body) && typeof body.gameId === "string" ? body.gameId : null;
+    if (!gameId) return json({ ok: false, error: "Invalid room request" }, 400);
+    const result = await this.createRoom(gameId);
+    return json(result, result.ok ? 200 : 400);
+  }
+
+  private async handleJoinRoomRequest(request: Request): Promise<Response> {
+    const body = await readSmallJson(request);
+    const code = isRecord(body) && typeof body.code === "string" ? body.code : "";
+    const normalized = normalizeMultiplayerCode(code);
+    if (
+      !checkRateLimit(rateLimitKey(request, `multiplayer-join:${normalized}`), {
+        windowMs: 60_000,
+        max: 20,
+      })
+    ) {
+      return json({ ok: false, error: "Too many requests" }, 429);
+    }
+    const result = await this.joinRoom(normalized);
+    return json(result, result.ok ? 200 : 400);
   }
 
   async createRoom(
@@ -211,38 +217,30 @@ export class MultiplayerHub {
         max: 50,
       })
     ) {
-      ws.send(JSON.stringify({ type: "error", error: "Too many actions" }));
+      this.sendError(ws, "Too many actions");
       return;
     }
     const parsed = parseClientMessage(message);
     if (!parsed) {
-      ws.send(
-        JSON.stringify({ type: "error", error: "Invalid message", room: this.publicRoom(room) }),
-      );
+      this.sendError(ws, "Invalid message", room);
       return;
     }
     if (parsed.revision !== room.revision) {
-      ws.send(
-        JSON.stringify({ type: "error", error: "Stale game state", room: this.publicRoom(room) }),
-      );
+      this.sendError(ws, "Stale game state", room);
       return;
     }
     if (room.status !== "playing") {
-      ws.send(
-        JSON.stringify({ type: "error", error: "Room is not ready", room: this.publicRoom(room) }),
-      );
+      this.sendError(ws, "Room is not ready", room);
       return;
     }
     const action = room.adapter.parseAction(parsed.action);
     if (!action) {
-      ws.send(
-        JSON.stringify({ type: "error", error: "Invalid action", room: this.publicRoom(room) }),
-      );
+      this.sendError(ws, "Invalid action", room);
       return;
     }
     const result = room.adapter.applyAction(room.state, ws.data.seat, action);
     if (!result.ok) {
-      ws.send(JSON.stringify({ type: "error", error: result.error, room: this.publicRoom(room) }));
+      this.sendError(ws, result.error, room);
       return;
     }
     room.state = result.state;
@@ -313,6 +311,12 @@ export class MultiplayerHub {
     ws.send(JSON.stringify(this.snapshotMessage(room, ws.data)));
   }
 
+  private sendError(ws: ServerWebSocket<MultiplayerSocketData>, error: string, room?: Room): void {
+    ws.send(
+      JSON.stringify({ type: "error", error, ...(room ? { room: this.publicRoom(room) } : {}) }),
+    );
+  }
+
   private cleanup(now = Date.now()): void {
     for (const [code, room] of this.rooms) {
       const age = now - room.createdAt;
@@ -353,9 +357,12 @@ function roomTopic(code: string): string {
 }
 
 function randomCode(): string {
-  const bytes = new Uint8Array(codeLength);
+  const bytes = new Uint8Array(multiplayerCodeLength);
   crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => codeAlphabet[byte % codeAlphabet.length]).join("");
+  return Array.from(
+    bytes,
+    (byte) => multiplayerCodeAlphabet[byte % multiplayerCodeAlphabet.length],
+  ).join("");
 }
 
 function randomToken(): string {

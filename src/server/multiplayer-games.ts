@@ -16,10 +16,11 @@ import {
   newTicTacToeBoard,
   humanMark,
   botMark,
+  ticTacToeSize,
   type Mark,
   type TicTacToeCell,
 } from "../games/tictactoe.logic";
-import type { MultiplayerSeat } from "../multiplayer-protocol";
+import { oppositeMultiplayerSeat, type MultiplayerSeat } from "../multiplayer-protocol";
 
 export type MultiplayerFinish = { winner: MultiplayerSeat | "draw" };
 
@@ -49,6 +50,7 @@ type TicTacToeOnlineState = {
 
 type TicTacToeAction = { type: "place"; index: number };
 
+const ticTacToeCellCount = ticTacToeSize * ticTacToeSize;
 const marks: Record<MultiplayerSeat, Mark> = { p1: humanMark, p2: botMark };
 const seatsByMark: Record<Mark, MultiplayerSeat> = { X: "p1", O: "p2" };
 
@@ -66,9 +68,8 @@ export const ticTacToeMultiplayerAdapter: MultiplayerAdapter<
   }),
   parseAction(value) {
     if (!isRecord(value) || value.type !== "place") return null;
-    if (typeof value.index !== "number" || !Number.isInteger(value.index)) return null;
-    if (value.index < 0 || value.index >= 9) return null;
-    return { type: "place", index: value.index };
+    const index = parseIntegerInRange(value.index, 0, ticTacToeCellCount);
+    return index === null ? null : { type: "place", index };
   },
   applyAction(state, seat, action) {
     if (state.winner) return { ok: false, error: "Game already finished" };
@@ -95,7 +96,7 @@ export const ticTacToeMultiplayerAdapter: MultiplayerAdapter<
     }
     return {
       ok: true,
-      state: { board, current: seat === "p1" ? "p2" : "p1", winner: null, winLine: [], moves },
+      state: { board, current: oppositeMultiplayerSeat(seat), winner: null, winLine: [], moves },
     };
   },
   publicSnapshot: (state) => ({ ...state }),
@@ -128,9 +129,8 @@ export const connect4MultiplayerAdapter: MultiplayerAdapter<Connect4OnlineState,
   }),
   parseAction(value) {
     if (!isRecord(value) || value.type !== "drop") return null;
-    if (typeof value.column !== "number" || !Number.isInteger(value.column)) return null;
-    if (value.column < 0 || value.column >= connect4Columns) return null;
-    return { type: "drop", column: value.column };
+    const column = parseIntegerInRange(value.column, 0, connect4Columns);
+    return column === null ? null : { type: "drop", column };
   },
   applyAction(state, seat, action) {
     if (state.winner) return { ok: false, error: "Game already finished" };
@@ -161,7 +161,7 @@ export const connect4MultiplayerAdapter: MultiplayerAdapter<Connect4OnlineState,
       ok: true,
       state: {
         board,
-        current: seat === "p1" ? "p2" : "p1",
+        current: oppositeMultiplayerSeat(seat),
         winner: null,
         winningLine: [],
         moves,
@@ -187,5 +187,10 @@ export function supportedMultiplayerGameIds(): string[] {
 }
 
 export function oppositeSeat(seat: MultiplayerSeat): MultiplayerSeat {
-  return seat === "p1" ? "p2" : "p1";
+  return oppositeMultiplayerSeat(seat);
+}
+
+function parseIntegerInRange(value: unknown, min: number, maxExclusive: number): number | null {
+  if (typeof value !== "number" || !Number.isInteger(value)) return null;
+  return value >= min && value < maxExclusive ? value : null;
 }

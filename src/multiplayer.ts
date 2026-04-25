@@ -1,5 +1,7 @@
 import {
   normalizeMultiplayerCode,
+  parseMultiplayerRoomStatus,
+  parseMultiplayerSeat,
   type MultiplayerCreateResponse,
   type MultiplayerJoinResponse,
   type MultiplayerRoomSnapshot,
@@ -156,7 +158,7 @@ function parseServerMessage(value: unknown): MultiplayerServerMessage | null {
       const you = isRecord(parsed.you)
         ? {
             playerId: typeof parsed.you.playerId === "string" ? parsed.you.playerId : "",
-            seat: (parsed.you.seat === "p2" ? "p2" : "p1") as "p1" | "p2",
+            seat: parseMultiplayerSeat(parsed.you.seat) ?? "p1",
           }
         : undefined;
       return { type: "snapshot", room, you: you ?? { playerId: "", seat: "p1" } };
@@ -184,10 +186,7 @@ function parseRoom(value: unknown): MultiplayerRoomSnapshot | null {
   return {
     code: value.code,
     gameId: value.gameId,
-    status:
-      value.status === "playing" || value.status === "finished" || value.status === "lobby"
-        ? value.status
-        : "lobby",
+    status: parseMultiplayerRoomStatus(value.status) ?? "lobby",
     revision: value.revision,
     seats: { p1, p2 },
     state: value.state,
@@ -200,5 +199,5 @@ function parseSeat(value: unknown): { joined: boolean; connected: boolean } | nu
 }
 
 function isApiResponse(value: unknown): value is { ok: boolean; error?: string } {
-  return typeof value === "object" && value !== null && "ok" in value;
+  return isRecord(value) && typeof value.ok === "boolean";
 }

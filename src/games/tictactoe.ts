@@ -32,10 +32,11 @@ import {
   type MultiplayerConnectionStatus,
 } from "../multiplayer";
 import { createMultiplayerDialog } from "../multiplayer-dialog";
-import type {
-  MultiplayerRoomSnapshot,
-  MultiplayerSeat,
-  MultiplayerSession,
+import {
+  parseMultiplayerSeat,
+  type MultiplayerRoomSnapshot,
+  type MultiplayerSeat,
+  type MultiplayerSession,
 } from "../multiplayer-protocol";
 import { playSound } from "../sound";
 import {
@@ -489,7 +490,7 @@ function parseWinner(value: unknown): Mark | "draw" | null | undefined {
 function parseOnlineTicTacToeState(value: unknown): OnlineTicTacToeState | null {
   if (!isRecord(value)) return null;
   const board = parseBoard(value.board);
-  const current = parseSeat(value.current);
+  const current = parseMultiplayerSeat(value.current);
   const winner = parseOnlineWinner(value.winner);
   if (!board || !current || winner === undefined) return null;
   const winLine = Array.isArray(value.winLine)
@@ -499,13 +500,9 @@ function parseOnlineTicTacToeState(value: unknown): OnlineTicTacToeState | null 
   return { board, current, winner, winLine, moves };
 }
 
-function parseSeat(value: unknown): MultiplayerSeat | null {
-  return parseOneOf(value, ["p1", "p2"] as const);
-}
-
 function parseOnlineWinner(value: unknown): MultiplayerSeat | "draw" | null | undefined {
   if (value === null || value === "draw") return value;
-  return parseSeat(value) ?? undefined;
+  return parseMultiplayerSeat(value) ?? undefined;
 }
 
 function markForSeat(seat: MultiplayerSeat): Mark {
