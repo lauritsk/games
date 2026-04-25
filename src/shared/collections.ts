@@ -21,3 +21,26 @@ export function shuffleInPlace<T>(items: T[], rng: RandomSource = Math.random): 
   }
   return items;
 }
+
+type GroupLimitOptions<T> = {
+  maxTotal: number;
+  maxPerGroup: number;
+  groupKey: (item: T) => string;
+};
+
+export function takeGroupedItems<T>(items: Iterable<T>, options: GroupLimitOptions<T>): T[] {
+  if (options.maxTotal <= 0 || options.maxPerGroup <= 0) return [];
+  const counts = new Map<string, number>();
+  const selected: T[] = [];
+
+  for (const item of items) {
+    const key = options.groupKey(item);
+    const count = counts.get(key) ?? 0;
+    if (count >= options.maxPerGroup) continue;
+    counts.set(key, count + 1);
+    selected.push(item);
+    if (selected.length >= options.maxTotal) break;
+  }
+
+  return selected;
+}

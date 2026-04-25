@@ -19,6 +19,7 @@ import {
 } from "drizzle-orm";
 import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import { takeGroupedItems } from "@shared/collections";
 import { parseJsonSafely } from "@shared/json";
 import {
   createLeaderboardId,
@@ -362,16 +363,13 @@ export class GameDatabase {
       .where(eq(results.device_id, deviceId))
       .orderBy(desc(results.finished_at))
       .all();
-    const keep = new Set<string>();
-    const perGameCounts = new Map<string, number>();
-
-    for (const row of rows) {
-      const gameCount = perGameCounts.get(row.game_id) ?? 0;
-      if (keep.size < maxTotalResults && gameCount < maxResultsPerGame) {
-        keep.add(row.id);
-        perGameCounts.set(row.game_id, gameCount + 1);
-      }
-    }
+    const keep = new Set(
+      takeGroupedItems(rows, {
+        maxTotal: maxTotalResults,
+        maxPerGroup: maxResultsPerGame,
+        groupKey: (row) => row.game_id,
+      }).map((row) => row.id),
+    );
 
     const deleteIds = rows.filter((row) => !keep.has(row.id)).map((row) => row.id);
     if (deleteIds.length === 0) return;

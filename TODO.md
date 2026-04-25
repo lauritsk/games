@@ -2,6 +2,7 @@
 
 ## Maintenance
 
+- [x] Refactor shared result-pruning maintainability hot spot.
 - [x] Refactor current maintainability hot spots.
 - [x] Extract shared array/grid parsing helpers for save-state parsers.
 - [x] Pin Dockerfile Bun images to current digests.

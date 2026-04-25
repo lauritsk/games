@@ -1,3 +1,4 @@
+import { takeGroupedItems } from "@shared/collections";
 import {
   readStored,
   readStoredEnvelope,
@@ -262,18 +263,11 @@ function saveResults(results: SyncResult[]): void {
 
 function pruneResults(results: SyncResult[]): SyncResult[] {
   const sorted = [...results].sort((a, b) => b.finishedAt.localeCompare(a.finishedAt));
-  const perGameCounts = new Map<string, number>();
-  const pruned: SyncResult[] = [];
-
-  for (const result of sorted) {
-    const gameCount = perGameCounts.get(result.gameId) ?? 0;
-    if (gameCount >= maxResultsPerGame) continue;
-    perGameCounts.set(result.gameId, gameCount + 1);
-    pruned.push(result);
-    if (pruned.length >= maxTotalResults) break;
-  }
-
-  return pruned;
+  return takeGroupedItems(sorted, {
+    maxTotal: maxTotalResults,
+    maxPerGroup: maxResultsPerGame,
+    groupKey: (result) => result.gameId,
+  });
 }
 
 function parseResults(value: unknown): SyncResult[] | null {

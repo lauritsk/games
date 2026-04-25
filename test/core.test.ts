@@ -21,6 +21,7 @@ import {
   previousDifficulty,
   requestGamePause,
   shuffleInPlace,
+  takeGroupedItems,
 } from "@shared/core";
 
 describe("difficulty cycling", () => {
@@ -128,6 +129,24 @@ describe("shared guards and clocks", () => {
 test("shuffleInPlace preserves items", () => {
   const items = [1, 2, 3, 4];
   expect(shuffleInPlace([...items]).sort()).toEqual(items);
+});
+
+test("takeGroupedItems preserves order while enforcing total and per-group limits", () => {
+  const items = [
+    { id: "a1", gameId: "a" },
+    { id: "a2", gameId: "a" },
+    { id: "a3", gameId: "a" },
+    { id: "b1", gameId: "b" },
+    { id: "c1", gameId: "c" },
+  ];
+
+  expect(
+    takeGroupedItems(items, {
+      maxTotal: 3,
+      maxPerGroup: 2,
+      groupKey: (item) => item.gameId,
+    }).map((item) => item.id),
+  ).toEqual(["a1", "a2", "b1"]);
 });
 
 test("pauses active games on focus loss and tab hide", () => {

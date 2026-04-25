@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import type { Difficulty } from "@shared/types";
+import { takeGroupedItems } from "@shared/collections";
 import { readStored, storageKey, writeStored } from "@shared/storage";
 import { parseDifficulty } from "@games/shared/game-preferences";
 import { notifySyncChanged, recordResultsClearedForSync } from "@features/sync/sync-local";
@@ -136,18 +137,11 @@ function sanitizeResult(
 
 function pruneResults(results: GameResult[]): GameResult[] {
   const sorted = [...results].sort((a, b) => b.finishedAt.localeCompare(a.finishedAt));
-  const perGameCounts = new Map<string, number>();
-  const pruned: GameResult[] = [];
-
-  for (const result of sorted) {
-    const gameCount = perGameCounts.get(result.gameId) ?? 0;
-    if (gameCount >= maxResultsPerGame) continue;
-    perGameCounts.set(result.gameId, gameCount + 1);
-    pruned.push(result);
-    if (pruned.length >= maxTotalResults) break;
-  }
-
-  return pruned;
+  return takeGroupedItems(sorted, {
+    maxTotal: maxTotalResults,
+    maxPerGroup: maxResultsPerGame,
+    groupKey: (result) => result.gameId,
+  });
 }
 
 function copyOptionalResultDetails(
