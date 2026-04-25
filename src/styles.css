@@ -259,9 +259,13 @@
     gap: var(--gap);
   }
 
-  .back-button {
+  .game-screen__nav {
     position: relative;
     z-index: 3;
+    justify-content: space-between;
+  }
+
+  .back-button {
     width: max-content;
     font-size: 0.92rem;
   }
@@ -285,12 +289,39 @@
   .game-card {
     display: grid;
     place-items: center;
+    gap: 8px;
     min-height: 72px;
     padding: 14px;
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     font-weight: 900;
     text-align: center;
+  }
+
+  .game-card__title {
+    line-height: 1.05;
+  }
+
+  .game-card__meta {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 0.7rem;
+    line-height: 1;
+  }
+
+  .game-card__badge,
+  .game-card__stat {
+    border: 1px solid color-mix(in srgb, var(--accent), transparent 55%);
+    border-radius: var(--round);
+    padding: 4px 7px;
+    background: color-mix(in srgb, var(--accent), transparent 84%);
+    color: var(--ink);
+  }
+
+  .game-card__stat {
+    color: var(--muted);
   }
 
   .game-card[data-selected="true"],
@@ -334,6 +365,101 @@
 
   .confirm__actions {
     justify-content: center;
+  }
+
+  .history-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: 11;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    margin: 0;
+    padding: 16px;
+    border: 0;
+    background: var(--confirm-backdrop);
+    color: inherit;
+  }
+
+  .history-dialog::backdrop {
+    background: transparent;
+  }
+
+  .history-dialog__panel {
+    display: grid;
+    gap: var(--gap);
+    width: min(520px, calc(100vw - 32px));
+    max-height: min(680px, calc(100svh - 32px));
+    overflow: auto;
+    padding: 18px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .history-dialog__title {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+
+  .history-dialog__body {
+    display: grid;
+    gap: 10px;
+  }
+
+  .history-dialog__summary,
+  .history-dialog__best {
+    display: grid;
+    gap: 3px;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--accent), transparent 68%);
+    border-radius: calc(var(--radius) - 6px);
+    background: color-mix(in srgb, var(--accent), transparent 88%);
+  }
+
+  .history-list {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .history-list__item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3px 10px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: calc(var(--radius) - 8px);
+    background: color-mix(in srgb, var(--surface), transparent 22%);
+  }
+
+  .history-list__main {
+    font-weight: 850;
+  }
+
+  .history-list__detail,
+  .history-list__time {
+    color: var(--muted);
+    font-size: 0.82rem;
+  }
+
+  .history-list__time {
+    grid-row: span 2;
+    align-self: center;
+  }
+
+  .history-dialog__actions {
+    justify-content: end;
+  }
+
+  .history-dialog__actions button[data-danger="true"] {
+    border-color: color-mix(in srgb, #ff6b6b, transparent 35%);
+    background: color-mix(in srgb, #ff6b6b, transparent 82%);
   }
 }
 

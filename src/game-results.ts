@@ -33,6 +33,7 @@ export function recordGameResult(result: Omit<GameResult, "id" | "finishedAt">):
     finishedAt: new Date().toISOString(),
   };
   writeStored(resultsKey, RESULTS_SCHEMA_VERSION, pruneResults([next, ...current]));
+  dispatchResultRecorded(next);
 }
 
 export function listGameResults(gameId?: string): GameResult[] {
@@ -157,6 +158,11 @@ function createResultId(): string {
   const crypto = globalThis.crypto;
   if (crypto?.randomUUID) return `result-${crypto.randomUUID()}`;
   return `result-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function dispatchResultRecorded(result: GameResult): void {
+  if (typeof window === "undefined" || typeof CustomEvent === "undefined") return;
+  window.dispatchEvent(new CustomEvent<GameResult>("games:result-recorded", { detail: result }));
 }
 
 function isFiniteNumber(value: unknown): value is number {
