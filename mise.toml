@@ -45,14 +45,9 @@ run = "bun run test:e2e"
 description = "Run tests in watch mode"
 run = "bun run test:watch"
 
-[tasks."docker:build"]
-description = "Build latest Docker Hub image"
-run = "docker build --build-arg BUN_VERSION=$(mise current bun) -t docker.io/lauritsk/games:latest ."
-
 [tasks."docker:push"]
-description = "Push latest Docker image to Docker Hub"
-depends = ["docker:build"]
-run = "docker push docker.io/lauritsk/games:latest"
+description = "Build and push latest multi-arch Docker image to Docker Hub"
+run = "docker buildx build --platform linux/amd64,linux/arm64 --build-arg BUN_VERSION=$(mise current bun) -t docker.io/lauritsk/games:latest --push ."
 
 [tasks."docker:up"]
 description = "Run Docker Compose with Bun version from mise"
