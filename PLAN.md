@@ -1,713 +1,225 @@
-# Statefulness Plan
+# Shared Arcade Leaderboard Plan
 
 ## Goal
 
-Add statefulness without turning small static game collection into heavy backend app.
+Add old-arcade-cabinet style public leaderboards.
 
-Primary user stories:
+Players can finish a game, optionally enter a simple display name, and submit a score to a shared leaderboard. No accounts, no passwords, no complicated auth.
 
-- Remember difficulty and game options after browser reload.
-- Save in-progress games and resume after reload/navigation.
-- Store game score/result history.
-- Leave room for future offline support, IndexedDB, or server SQLite without rewrites.
+## Current baseline
 
-## Recommendation
+Previous statefulness plan is complete enough to replace:
 
-Use local-first persistence.
+- Browser `localStorage` stores preferences, saves, results, sync metadata.
+- Bun server exposes `/api/sync`.
+- Server mirrors local state into SQLite through `bun:sqlite`.
+- Static hosting still works without sync.
+- Service worker caches app assets only, not game data or API responses.
 
-| Need | Best first storage | Why |
-| --- | --- | --- |
-| Difficulty/options | `localStorage` | Tiny, sync, already used for appearance. |
-| Current game save | `localStorage` | Snapshots are small and JSON-friendly. |
-| Score/result history | bounded `localStorage` array | Simple, enough for first version. |
-| Large history/replays/multiple slots | IndexedDB later | Better for lots of records or large payloads. |
-| Cross-device sync/leaderboards | server SQLite later | Requires backend/API/auth/deployment storage. |
-| Offline asset caching | Cache API/service worker later | Cache app files only, not game state. |
+## Direction
 
-Do not start with server SQLite. Current app is static-first. Backend persistence adds complexity not needed for local reload/resume/history.
+Stay as Bun-native as possible:
 
-## Current app notes
+- Use `bun:sqlite` for server storage.
+- Use Bun `Bun.serve` routes already in `src/server.ts`.
+- Use `mise run <task>` for workflows.
+- Avoid npm packages unless they solve real non-trivial work.
+- Prefer small local modules over framework/runtime additions.
+- Keep app local-first; leaderboards are optional public submissions.
 
-Relevant files:
+## Product behavior
 
-- `src/main.ts`: app shell, hash routing, mounts/unmounts games.
-- `src/types.ts`: `GameDefinition`, `Difficulty`, shared types.
-- `src/appearance.ts`: existing `localStorage` pattern for appearance.
-- `src/progress.ts`: `started`/`finished` dataset helpers.
-- `src/games/controls.ts`: shared difficulty/mode/reset controls.
-- `src/games/*.ts`: game UI/state modules.
-- `src/games/*.logic.ts`: serializable pure logic for many games.
-- `src/server.ts`: static Bun server, no DB/API today.
+### Username model
 
-## Design principles
+Allow repeated usernames.
 
-1. Local-first: app works offline-ish and without account.
-2. Version every stored object.
-3. Never store DOM nodes, timers, RAF IDs, listeners, `AbortController`, media queries, or held-key state.
-4. Store only serializable game model state.
-5. Restore realtime games paused, never auto-running.
-6. Clear saves when game finishes or new game starts.
-7. Throttle autosave for realtime games.
-8. Treat stored data as untrusted: validate enough, ignore corrupt data.
-9. Keep per-game save shape owned by each game.
-10. Add server sync later as optional mirror, not source of truth.
-11. If a save exists, save payload wins over preferences for difficulty/mode.
-12. Multiple browser tabs use last-writer-wins; no cross-tab locking in first version.
-13. Track each playable run with `runId` so saves/results can dedupe safely.
+Reason:
 
-## New modules
+- No auth means no real username ownership.
+- Unique names would create squatting problems.
+- Arcade machines used initials/display names, not accounts.
+- A score belongs to a submission, not a user identity.
 
-### `src/storage.ts`
+Users may submit as the same name many times. If multiple people use the same name, that is acceptable arcade behavior.
 
-Safe JSON wrapper around `localStorage`.
+### Submission flow
 
-Responsibilities:
+After a result is recorded:
 
-- Namespace keys.
-- Read/write/remove JSON.
-- Handle unavailable storage/private mode/quota errors.
-- Validate version.
-- Return fallback on parse error.
+1. Result history modal shows saved local result.
+2. If result has a leaderboard metric, show `Submit to leaderboard` action.
+3. User enters display name.
+4. Client posts result to server.
+5. Server validates username and score payload.
+6. Server stores public leaderboard row.
+7. UI shows rank/top scores.
 
-Suggested API:
+If server unavailable, hide or disable leaderboard submission and keep local result behavior unchanged.
 
-```ts
-export type StoredEnvelope<T> = {
-  schemaVersion: number;
-  updatedAt: string;
-  data: T;
-};
+## Security and trust model
 
-export type StoredParser<T> = (value: unknown) => T | null;
+No auth and client-side games mean scores are not tamper-proof.
 
-export function readStored<T>(
-  key: string,
-  schemaVersion: number,
-  parse: StoredParser<T>,
-): T | null;
-export function writeStored<T>(key: string, schemaVersion: number, data: T): boolean;
-export function removeStored(key: string): void;
-export function storageKey(...parts: string[]): string;
-```
+Accept this for MVP. Make it casual, not competitive-money secure.
 
-Key format:
+Mitigations:
+
+- Server validates shape and ranges.
+- Reject impossible or absurd values per game where easy.
+- Rate limit by IP/device where simple.
+- Deduplicate optional `runId` submissions.
+- Keep admin/manual cleanup possible through SQLite.
+- Never trust username or metadata as HTML; render with `textContent` only.
+
+## Username validation
+
+Rules:
+
+- Trim whitespace.
+- Normalize Unicode with `NFKC`.
+- Collapse repeated spaces.
+- Length: 3-16 visible chars.
+- Allowed chars first pass: letters, numbers, spaces, `_`, `-`.
+- Reject URLs/emails.
+- Reject control chars.
+- Reject reserved names.
+- Reject profanity/offensive names.
+
+Reserved names:
 
 ```text
-games:v1:preferences
-games:v1:saves:<gameId>
-games:v1:results
+admin
+administrator
+mod
+moderator
+system
+null
+undefined
+anonymous
+leaderboard
+games
+support
+root
 ```
 
-Version naming:
+Error message should stay generic:
 
-- `games:v1` is storage namespace, not per-object schema.
-- `schemaVersion` belongs to collection/envelope shape.
-- `payloadVersion` belongs to per-game save payload shape.
-
-### `src/game-preferences.ts`
-
-Persist game settings.
-
-Suggested types:
-
-```ts
-export type GamePreferences = {
-  difficulty?: Difficulty;
-  options?: Record<string, string | number | boolean>;
-};
-
-export function loadGamePreferences(gameId: string): GamePreferences;
-export function saveGamePreferences(gameId: string, preferences: GamePreferences): void;
-export function updateGamePreferences(
-  gameId: string,
-  updater: (current: GamePreferences) => GamePreferences,
-): void;
+```text
+Choose another name.
 ```
 
-Possible stored object:
+Do not reveal which word/rule failed.
+
+## Profanity/offensive-name filtering
+
+Recommended MVP: offline denylist.
+
+Why:
+
+- No API key.
+- No latency.
+- No third-party privacy issue.
+- Works in Docker/offline.
+- Simple and Bun-native-friendly.
+
+Possible sources:
+
+- Vendored small word list under `src/server/moderation/`.
+- LDNOOBW-style list if license is acceptable.
+- Small hand-curated English list if dependency/license uncertain.
+
+Avoid external moderation API for MVP.
+
+External APIs can be considered later if public use grows, but they add rate limits, privacy questions, and deployment config.
+
+## Leaderboard metrics
+
+Each game needs one leaderboard metric and sort direction.
+
+Suggested first pass:
+
+| Game | Metric | Direction | Notes |
+| --- | --- | --- | --- |
+| 2048 | score | max | Include max tile metadata. |
+| Tetris | score | max | Include lines and level. |
+| Snake | score | max | Food/length score. |
+| Breakout | score | max | Include level/lives. |
+| Space Invaders | score | max | Include wave. |
+| Memory | moves | min | Tie-break by duration. |
+| Minesweeper | durationMs | min | Only winning games. |
+| Tic-Tac-Toe | moves | min | Only wins? Maybe skip public leaderboard. |
+| Connect 4 | moves | min | Only wins? Maybe skip public leaderboard. |
+
+Suggestion: implement score-based arcade games first:
+
+1. Tetris
+2. Snake
+3. 2048
+4. Breakout
+5. Space Invaders
+
+Then add puzzle/board games once ranking rules feel good.
+
+## Database schema
+
+Add migration:
+
+```text
+migrations/002_leaderboard.sql
+```
+
+Proposed table:
+
+```sql
+CREATE TABLE leaderboard_scores (
+  id TEXT PRIMARY KEY,
+  run_id TEXT,
+  device_id TEXT,
+  game_id TEXT NOT NULL,
+  username TEXT NOT NULL,
+  normalized_username TEXT NOT NULL,
+  difficulty TEXT,
+  outcome TEXT NOT NULL,
+  metric TEXT NOT NULL,
+  metric_value INTEGER NOT NULL,
+  score INTEGER,
+  moves INTEGER,
+  duration_ms INTEGER,
+  level INTEGER,
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX leaderboard_scores_game_metric_idx
+  ON leaderboard_scores (game_id, metric, metric_value DESC, created_at ASC);
+
+CREATE INDEX leaderboard_scores_game_created_idx
+  ON leaderboard_scores (game_id, created_at DESC);
+
+CREATE UNIQUE INDEX leaderboard_scores_device_run_idx
+  ON leaderboard_scores (device_id, run_id)
+  WHERE device_id IS NOT NULL AND run_id IS NOT NULL;
+```
+
+Note: sort direction differs by metric. Query code should choose `ASC` or `DESC` safely from server-side config, never from raw user input.
+
+## API
+
+Add routes under existing Bun server API.
+
+```text
+GET  /api/leaderboard?gameId=tetris&difficulty=Hard&limit=10
+POST /api/leaderboard
+```
+
+Submit body:
 
 ```json
 {
-  "schemaVersion": 1,
-  "updatedAt": "2026-04-25T00:00:00.000Z",
-  "data": {
-    "snake": {
-      "difficulty": "Medium",
-      "options": { "wallMode": "fatal" }
-    },
-    "tetris": {
-      "difficulty": "Hard"
-    }
-  }
-}
-```
-
-### `src/game-state.ts`
-
-Persist one current save per game.
-
-Suggested types:
-
-```ts
-export type SaveStatus = "ready" | "playing" | "paused";
-
-export type GameSave<T> = {
-  gameId: string;
-  payloadVersion: number;
-  runId: string;
-  savedAt: string;
-  status: SaveStatus;
-  payload: T;
-};
-
-export function loadGameSave<T>(
-  gameId: string,
-  payloadVersion: number,
-  parse: (value: unknown) => T | null,
-): GameSave<T> | null;
-export function saveGameSave<T>(
-  gameId: string,
-  payloadVersion: number,
-  save: Omit<GameSave<T>, "gameId" | "payloadVersion" | "savedAt">,
-): void;
-export function clearGameSave(gameId: string): void;
-export function hasGameSave(gameId: string): boolean;
-```
-
-Autosave helper for realtime games:
-
-```ts
-export function createAutosave(options: {
-  gameId: string;
-  intervalMs?: number;
-  save(): void;
-  scope: MountScope;
-}): { request(): void; flush(): void };
-```
-
-Autosave events:
-
-- `pagehide`: flush.
-- `visibilitychange` when hidden: flush.
-- game pause: save immediately.
-- game move/drop/tick: throttled save only.
-
-Autosave listeners must be registered with the game `MountScope`/`AbortSignal` so unmount cleans them.
-
-### `src/game-results.ts`
-
-Persist score/result history.
-
-Suggested types:
-
-```ts
-export type GameOutcome = "won" | "lost" | "draw" | "completed";
-
-export type GameResult = {
-  id: string;
-  runId: string;
-  gameId: string;
-  finishedAt: string;
-  durationMs?: number;
-  difficulty?: Difficulty;
-  outcome: GameOutcome;
-  score?: number;
-  moves?: number;
-  level?: number;
-  metadata?: Record<string, string | number | boolean>;
-};
-
-export function recordGameResult(result: Omit<GameResult, "id" | "finishedAt">): void;
-export function listGameResults(gameId?: string): GameResult[];
-export function clearGameResults(gameId?: string): void;
-export function bestGameResult(
-  gameId: string,
-  metric: "score" | "moves" | "durationMs" | "level",
-  direction: "max" | "min",
-): GameResult | null;
-```
-
-Bound history and best-result rules:
-
-- Keep latest 250 total results, or latest 50 per game.
-- If both limits used, prune by `finishedAt`.
-- Dedupe records by `runId`.
-- Use max for score/level; min for moves/duration.
-
-## Preferences plan
-
-Persist these now:
-
-| Game | Preferences |
-| --- | --- |
-| Connect 4 | difficulty, mode (`bot`/`local`) |
-| Minesweeper | difficulty |
-| 2048 | difficulty |
-| Tic-Tac-Toe | difficulty, mode (`bot`/`local`) |
-| Snake | difficulty, wall mode (`fatal`/`teleport`) |
-| Memory | difficulty |
-| Tetris | difficulty |
-| Breakout | difficulty |
-| Space Invaders | difficulty |
-
-Implementation pattern inside each game:
-
-1. Load preferences at mount.
-2. Validate enum values.
-3. Initialize local `difficulty`/mode from preferences or default.
-4. When control changes, save preferences, clear old save, and reset game.
-
-Example pattern:
-
-```ts
-const preferences = loadGamePreferences("snake");
-let difficulty = parseDifficulty(preferences.difficulty) ?? "Medium";
-let wallMode = parseWallMode(preferences.options?.wallMode) ?? "fatal";
-
-function setDifficulty(next: Difficulty): void {
-  difficulty = next;
-  saveGamePreferences("snake", { difficulty, options: { wallMode } });
-}
-```
-
-Add helper validators:
-
-```ts
-export function parseDifficulty(value: unknown): Difficulty | null;
-```
-
-## Save/resume UX
-
-### First version UX
-
-Keep simple:
-
-- If save exists when game mounts, restore automatically.
-- Save payload wins over stored preferences for difficulty/mode.
-- If no save exists, preferences initialize new game.
-- Status text should show restored state if paused/ready.
-- `New` button clears save via existing reset flow.
-- Finished game clears save after result is recorded.
-
-### Better later UX
-
-Add reusable resume prompt:
-
-- `Resume saved game?`
-- Buttons: `Resume`, `New`, `Dismiss`.
-- Show saved time.
-
-Potential module:
-
-```text
-src/resume.ts
-```
-
-Potential API:
-
-```ts
-export function confirmResumeSave(options: {
-  gameName: string;
-  savedAt: string;
-  onResume(): void;
-  onNew(): void;
-}): () => void;
-```
-
-## Save/resume per game
-
-### 2048
-
-Likely easy.
-
-Save payload:
-
-```ts
-type Save2048 = {
-  board: number[][];
-  score: number;
-  difficulty: Difficulty;
-  size: number;
-  started: boolean;
-  finished: boolean;
-};
-```
-
-Save when:
-
-- after successful move
-- after difficulty change/reset preferences
-- on `pagehide`
-
-Clear when:
-
-- no moves/finished
-- new game reset
-
-Restore:
-
-- board, score, difficulty, size
-- progress flags from `started`/`finished`
-
-Result history:
-
-- outcome: `lost` or `completed` if max tile threshold/win exists
-- score
-- max tile metadata
-
-### Minesweeper
-
-Medium complexity; board must include mine layout.
-
-Save payload:
-
-```ts
-type SaveMinesweeper = {
-  difficulty: Difficulty;
-  config: { rows: number; columns: number; mines: number };
-  board: MinesweeperCell[][];
-  state: "playing" | "won" | "lost";
-  firstMove: boolean;
-  selectedRow: number;
-  selectedColumn: number;
-  startedAt?: number;
-  elapsedMs?: number;
-};
-```
-
-Save when:
-
-- after reveal
-- after flag
-- on page hide
-
-Clear when:
-
-- won/lost after result recorded
-- new game reset
-
-Restore:
-
-- exact board with mines/revealed/flags/adjacent counts
-- state
-- difficulty
-
-Result history:
-
-- won/lost
-- duration
-- difficulty
-- flags/revealed maybe metadata
-
-### Memory
-
-Medium easy.
-
-Save payload:
-
-```ts
-type SaveMemory = {
-  difficulty: Difficulty;
-  cards: MemoryCard[];
-  selected: number;
-  moves: number;
-  startedAt?: number;
-  elapsedMs?: number;
-};
-```
-
-Important:
-
-- Save shuffled card order.
-- Before saving during pending mismatch timeout, close the unmatched pair and set `lock = false`.
-- Do not persist `pendingFlip` timer or `lock`.
-
-Save when:
-
-- after card flip resolution
-- after move count change
-- page hide
-
-Result history:
-
-- won/completed
-- moves
-- duration
-
-### Tic-Tac-Toe
-
-Easy.
-
-Save payload:
-
-```ts
-type SaveTicTacToe = {
-  board: TicTacToeCell[];
-  current: Mark;
-  mode: "bot" | "local";
-  difficulty: Difficulty;
-  winner: Mark | "draw" | null;
-};
-```
-
-Save when:
-
-- after every move
-- after bot move
-- after mode/difficulty change
-
-Restore notes:
-
-- If restored in bot mode with `current === botMark` and no winner, schedule bot move after render.
-
-Clear when:
-
-- game finished after result recorded
-- reset
-
-Result history:
-
-- won/lost/draw from human perspective in bot mode
-- winner metadata
-- moves
-- mode/difficulty
-
-### Connect 4
-
-Easy.
-
-Save payload:
-
-```ts
-type SaveConnect4 = {
-  board: Connect4Cell[][];
-  current: Connect4Player;
-  winner: Connect4Player | null;
-  moves: number;
-  mode: "bot" | "local";
-  difficulty: Difficulty;
-};
-```
-
-Save when:
-
-- after every player move
-- after bot move
-- after mode/difficulty change
-
-Restore notes:
-
-- If restored in bot mode with `current === connect4Bot` and no winner/draw, schedule bot move after render.
-
-Result history:
-
-- winner/lost/draw if draw exists
-- moves
-- mode/difficulty
-
-### Snake
-
-Harder because animation loop.
-
-Save payload:
-
-```ts
-type SaveSnake = {
-  difficulty: Difficulty;
-  wallMode: "fatal" | "teleport";
-  config: { size: number; speed: number };
-  snake: SnakePoint[];
-  food: SnakePoint;
-  direction: Direction;
-  queuedDirection: Direction;
-  state: "ready" | "playing" | "paused" | "won" | "lost";
-  score: number;
-};
-```
-
-Implementation notes:
-
-- Prefer adding real `paused` state before save/resume.
-- If old save says `playing`, restore as `paused` with message `Paused · press key to resume`.
-- Do not store `animationFrame`, `lastFrameTime`, `tickRemainder`.
-- On restore, no RAF running.
-- Clear held key state.
-
-Save when:
-
-- throttled during play after ticks
-- immediately on pause/visibility hidden/pagehide
-- after food eaten
-
-Clear when:
-
-- won/lost after result recorded
-- reset
-
-Result history:
-
-- score = snake length or food eaten
-- won/lost
-- difficulty/wall mode
-
-### Tetris
-
-Good candidate because `TetrisState` is serializable.
-
-Save payload:
-
-```ts
-type SaveTetris = {
-  difficulty: Difficulty;
-  mode: "ready" | "playing" | "paused" | "over";
-  state: TetrisState;
-};
-```
-
-Restore rules:
-
-- If saved mode was `playing`, restore as `paused`.
-- Do not restore timer.
-- User resumes with pause button or start action.
-
-Save when:
-
-- after hard drop
-- after soft/drop tick, throttled
-- on pause
-- pagehide/visibility hidden
-
-Clear when:
-
-- over after result recorded
-- reset
-
-Result history:
-
-- score
-- lines
-- level
-- difficulty
-
-### Breakout
-
-Harder but feasible if state is serializable.
-
-Save payload:
-
-```ts
-type SaveBreakout = {
-  difficulty: Difficulty;
-  mode: "ready" | "playing" | "paused" | "won" | "lost";
-  state: BreakoutState;
-};
-```
-
-State should include:
-
-- ball position/velocity
-- paddle position
-- bricks
-- score
-- lives
-- level/config-derived data if needed
-
-Restore rules:
-
-- `playing` becomes `paused`.
-- Held keys not restored.
-- Timer/loop not restored.
-
-Save when:
-
-- on pause
-- throttled during play
-- pagehide/visibility hidden
-
-Result history:
-
-- won/lost
-- score
-- lives
-- level metadata
-
-### Space Invaders
-
-Harder due wave timer.
-
-Save payload:
-
-```ts
-type SaveSpaceInvaders = {
-  difficulty: Difficulty;
-  mode: "ready" | "playing" | "paused" | "wave" | "lost";
-  state: InvaderState;
-};
-```
-
-State should include:
-
-- player/cannon position
-- bullets
-- invaders
-- barriers
-- score
-- lives
-- wave
-- formation direction/speed data if not derived
-
-Restore rules:
-
-- `playing` becomes `paused`.
-- If saved mode was `wave`, advance immediately with `nextInvaderWave(...)`, then restore as `paused`.
-- Timers/held keys not restored.
-
-Save when:
-
-- on pause
-- throttled during play
-- pagehide/visibility hidden
-
-Result history:
-
-- lost/completed if win condition exists
-- score
-- wave
-- difficulty
-
-## Result history details
-
-### Recording rule
-
-Call `recordGameResult()` close to `markGameFinished(shell)`.
-
-Avoid duplicate result records:
-
-- Use local boolean `resultRecorded` per mounted game, or
-- clear save and set finished once, or
-- have `recordGameResult` accept `runId` and dedupe.
-
-Recommended: generate `runId` when new game starts/restores.
-
-```ts
-type GameRun = {
-  runId: string;
-  startedAt: number;
-};
-```
-
-Store `runId` in every save payload and every result. `recordGameResult` should no-op if same `runId` already exists.
-
-### Example records
-
-Tetris:
-
-```json
-{
-  "id": "result-uuid",
-  "runId": "run-uuid",
+  "deviceId": "optional-device-id",
+  "runId": "run-id-from-local-result",
   "gameId": "tetris",
-  "finishedAt": "2026-04-25T00:00:00.000Z",
+  "username": "KARL",
   "difficulty": "Hard",
   "outcome": "lost",
   "score": 12000,
@@ -716,445 +228,242 @@ Tetris:
 }
 ```
 
-Memory:
+Success response:
 
 ```json
 {
-  "id": "result-uuid",
-  "runId": "run-uuid",
-  "gameId": "memory",
-  "finishedAt": "2026-04-25T00:00:00.000Z",
-  "difficulty": "Medium",
-  "outcome": "completed",
-  "moves": 24,
-  "durationMs": 91000
+  "ok": true,
+  "rank": 4,
+  "entry": {
+    "id": "leaderboard-entry-id",
+    "gameId": "tetris",
+    "username": "KARL",
+    "score": 12000,
+    "rank": 4,
+    "createdAt": "2026-04-25T00:00:00.000Z"
+  }
 }
 ```
 
-## Dashboard/UI ideas
+Failure response:
 
-Phase after data exists:
+```json
+{
+  "ok": false,
+  "error": "Choose another name."
+}
+```
 
-1. Dashboard card shows best stat:
-   - Tetris: best score
-   - Memory: best moves/time
-   - Minesweeper: best time
-   - Snake/Breakout/Invaders: best score
-2. Game header shows `Best: X` pill.
-3. Add `History` button per game.
-4. Add result summary modal after finish.
-5. Add clear history action with confirmation.
-6. Add saved-game indicator on dashboard card.
+## Server modules
 
-## IndexedDB option
-
-Do not implement now.
-
-Use IndexedDB later if:
-
-- result history grows past localStorage comfort,
-- multiple save slots per game are desired,
-- replay/event logs are stored,
-- large analytics are added,
-- import/export of complete DB is needed.
-
-Potential stores:
+Add:
 
 ```text
-preferences
-saves
-results
-events
+src/server/leaderboard.ts
+src/server/leaderboard-schema.ts
+src/server/username.ts
+src/server/profanity.ts
+src/server/rate-limit.ts
 ```
 
-Migration path:
+Responsibilities:
 
-1. Keep public API from `game-preferences.ts`, `game-state.ts`, `game-results.ts`.
-2. Swap internals from localStorage to IndexedDB later.
-3. On first IndexedDB load, migrate localStorage values.
+- `leaderboard.ts`: DB queries and rank calculation.
+- `leaderboard-schema.ts`: request parsing/validation.
+- `username.ts`: normalize and validate display names.
+- `profanity.ts`: offline denylist filter.
+- `rate-limit.ts`: small in-memory IP/device throttle.
 
-## Server SQLite option
+Keep modules small and dependency-light.
 
-Do not implement now.
+## Client modules
 
-Use server SQLite later for:
-
-- cloud sync,
-- public/private leaderboards,
-- accounts,
-- cross-device saves,
-- backup/restore.
-
-Needed backend pieces:
+Add:
 
 ```text
-src/server/db.ts
-src/server/api.ts
-migrations/
-data/games.sqlite
+src/leaderboard.ts
+src/leaderboard-dialog.ts
 ```
 
-Possible schema:
+Responsibilities:
 
-```sql
-CREATE TABLE users (
-  id TEXT PRIMARY KEY,
-  created_at TEXT NOT NULL
-);
+- Fetch top scores.
+- Submit score.
+- Show submit form after result.
+- Show leaderboard list per game.
+- Hide gracefully when server/API unavailable.
 
-CREATE TABLE results (
-  id TEXT PRIMARY KEY,
-  user_id TEXT,
-  game_id TEXT NOT NULL,
-  difficulty TEXT,
-  outcome TEXT NOT NULL,
-  score INTEGER,
-  moves INTEGER,
-  duration_ms INTEGER,
-  metadata_json TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL
-);
+Possible UI:
 
-CREATE TABLE preferences (
-  user_id TEXT NOT NULL,
-  game_id TEXT NOT NULL,
-  data_json TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  PRIMARY KEY (user_id, game_id)
-);
+- Add `Leaderboard` button near `History`.
+- Add `Submit score` in result modal for eligible results.
+- Add top 10 list with rank, username, score, difficulty/date.
 
-CREATE TABLE saves (
-  user_id TEXT NOT NULL,
-  game_id TEXT NOT NULL,
-  data_json TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  PRIMARY KEY (user_id, game_id)
-);
-```
+## Validation details
 
-API ideas:
+Server must validate:
 
-```text
-GET /api/results?gameId=tetris
-POST /api/results
-GET /api/preferences
-PUT /api/preferences/:gameId
-GET /api/saves/:gameId
-PUT /api/saves/:gameId
-DELETE /api/saves/:gameId
-```
+- Known game id.
+- Known difficulty if present.
+- Known outcome.
+- Numeric fields finite integers and sane ranges.
+- Metric exists for game.
+- Submitted result qualifies for leaderboard.
+- Metadata is small and JSON-safe.
+- Username passes normalization/profanity rules.
 
-Concerns:
+Client validation is only UX. Server validation is source of truth.
 
-- Need auth or anonymous device id.
-- Client results are cheat-able.
-- Need migrations and backups.
-- Need rate limiting if public.
-- Docker/deploy needs persistent volume for SQLite file.
+## Rate limiting
 
-## Cache/offline option
+Simple first pass:
 
-Service worker/Cache API is separate from state.
+- In-memory token bucket by IP and optional device id.
+- Example: 10 submissions per 5 minutes.
+- Example: 60 leaderboard reads per minute.
 
-Use for:
+This resets on server restart, acceptable for MVP.
 
-- offline app shell,
-- faster repeat loads,
-- installable PWA.
+Later if needed, persist rate limits in SQLite.
 
-Do not use Cache API for:
+## Privacy
 
-- save games,
-- score history,
-- preferences.
+Public leaderboard stores:
 
-Later files:
+- display username
+- score/result fields
+- timestamp
+- game id/difficulty
 
-```text
-src/service-worker.ts
-public/manifest.webmanifest
-```
+Do not publicly show:
+
+- device id
+- IP address
+- raw sync data
+
+Avoid storing IP unless needed for moderation. Prefer transient in-memory rate limit only.
 
 ## Implementation phases
 
-### Phase 1: Storage primitives
+### Phase 1: Server foundation
 
-Add:
-
-```text
-src/storage.ts
-test/storage.test.ts
-```
-
-Tasks:
-
-- implement `readStored`, `writeStored`, `removeStored`, `storageKey`.
-- support schema version mismatch fallback.
-- test corrupt JSON, missing key, schema version mismatch.
-
-Run:
-
-```bash
-mise run test
-mise run typecheck
-```
-
-### Phase 2: Preferences
-
-Add:
-
-```text
-src/game-preferences.ts
-```
-
-Tasks:
-
-- implement preference load/save.
-- add `parseDifficulty` helper.
-- wire all games to load difficulty.
-- wire option modes for Snake, Tic-Tac-Toe, Connect 4.
-- save on change.
+- Add migration `002_leaderboard.sql`.
+- Add leaderboard table to schema bootstrap.
+- Add DB methods for insert/list/rank.
+- Add unit tests with `GameDatabase(":memory:")`.
 
 Acceptance:
 
-- Change difficulty, reload, same game keeps difficulty.
-- Change Snake wall mode, reload, wall mode remains.
-- Existing appearance storage still works.
+- Can insert valid leaderboard score.
+- Can list top scores by game.
+- Rank calculation works.
+- Duplicate `(deviceId, runId)` no-ops or returns existing entry.
 
-### Phase 3: 2048 save/resume pilot
+### Phase 2: Username moderation
 
-Add enough of `src/game-state.ts` to prove save API on one simple game.
-
-Tasks:
-
-- implement one-save-per-game helpers.
-- add 2048 save payload version and parser.
-- save after successful move and on `pagehide`.
-- restore board/score/difficulty on reload.
-- clear save on New and on game over.
+- Implement username normalize/validate.
+- Add reserved-name list.
+- Add offline denylist module.
+- Add tests for allowed/rejected names.
 
 Acceptance:
 
-- Make 2048 move, reload, board and score restore.
-- Press New, reload, fresh board appears.
-- Corrupt/old 2048 save is ignored safely.
+- Repeated usernames allowed.
+- Reserved/offensive/URL/control-char names rejected.
+- Error remains generic.
 
-### Phase 4: Result history
+### Phase 3: API routes
 
-Add:
-
-```text
-src/game-results.ts
-test/game-results.test.ts
-```
-
-Tasks:
-
-- bounded result array.
-- record on game finish.
-- avoid duplicate records per `runId`.
-- expose list/best helpers with explicit max/min direction.
+- Add `GET /api/leaderboard`.
+- Add `POST /api/leaderboard`.
+- Add request parsing and response helpers.
+- Add simple in-memory rate limit.
 
 Acceptance:
 
-- Finish a game, reload, result still listed via helper.
-- Result cap works.
-- Duplicate `runId` does not create duplicate result.
-- Corrupt history ignored/reset safely.
+- Invalid payload returns 400.
+- Bad username returns 400 with generic error.
+- API returns top 10.
+- API not cached by service worker.
 
-### Phase 5: Save/resume for remaining turn-based games
+### Phase 4: Client UI
 
-Implement in order:
-
-1. Tic-Tac-Toe
-2. Connect 4
-3. Memory
-4. Minesweeper
+- Add `Leaderboard` button in game nav.
+- Add leaderboard dialog.
+- Add submit action after result saved.
+- Reuse existing modal/dialog styling.
 
 Acceptance:
 
-- Make move, reload, board restored.
-- Pending bot turn resumes by scheduling bot after restore.
-- Press New, save cleared.
-- Finish game, save cleared and result recorded.
-- Difficulty/mode restored correctly.
+- User can submit eligible score after finishing game.
+- Leaderboard shows submitted score.
+- Repeated username entries appear separately.
+- Static/no-server mode degrades cleanly.
 
-### Phase 6: Save/resume for realtime games
+### Phase 5: Game-specific eligibility
 
-Implement in order:
+Implement first:
 
 1. Tetris
 2. Snake
-3. Breakout
-4. Space Invaders
+3. 2048
+4. Breakout
+5. Space Invaders
+
+Then evaluate puzzle/board games.
 
 Acceptance:
 
-- Start game, play, reload, state restored paused.
-- Resume continues from saved state.
-- No auto-running after reload.
-- No timers/timeouts/held keys are restored.
-- No excessive localStorage writes during gameplay.
-- Finish clears save and records result.
+- Each included game has clear metric/direction.
+- Server rejects missing metric values.
+- UI labels metric clearly.
 
-### Phase 7: UI polish
+### Phase 6: Polish and moderation tools
 
-Tasks:
+- Add clear/delete helper task or documented SQLite command.
+- Add optional admin-only delete endpoint only if a simple secret env var is acceptable.
+- Add better empty/error states.
+- Add README docs.
 
-- saved-game badge on dashboard cards.
-- best score/stat on dashboard cards.
-- per-game `History` button.
-- result summary after finish.
-- clear history action.
+## Tests
 
-### Phase 8: Optional offline/PWA
-
-Tasks:
-
-- add manifest.
-- add service worker.
-- cache built assets.
-- verify state remains in localStorage modules, not Cache API.
-
-### Phase 9: Optional backend sync
-
-Tasks:
-
-- design auth/device identity.
-- add SQLite migrations.
-- add API routes.
-- sync local results/saves/preferences.
-- preserve local-first behavior if server unavailable.
-
-## Testing plan
-
-### Unit tests
-
-Add tests for:
-
-- storage safe parse/write/remove.
-- storage unavailable or throwing on `setItem`.
-- preference validation.
-- result pruning/best lookup.
-- schema version and payload version mismatch.
-
-### Game logic tests
-
-Existing pure logic should stay unchanged when possible.
-
-Add tests only if save serialization needs helpers, e.g.:
-
-- `serializeTetrisState` / `parseTetrisSave`.
-- `parseSnakeSave`.
-
-### E2E tests
-
-Add Playwright tests after first save/resume game:
-
-1. Open 2048.
-2. Make move.
-3. Reload.
-4. Assert score/board changed state persists.
-5. Press New.
-6. Reload.
-7. Assert fresh board.
-
-Add preferences e2e:
-
-1. Open Snake.
-2. Change difficulty/wall mode.
-3. Reload.
-4. Assert controls show same values.
-
-Add realtime e2e later:
-
-1. Open Tetris.
-2. Move/drop piece.
-3. Reload.
-4. Assert mode paused/restored, not auto-running.
-
-Run full check:
+Run:
 
 ```bash
 mise run check
 ```
 
-## Migration/versioning
+Add unit tests for:
 
-Initial names:
+- username normalization.
+- profanity/reserved-name rejection.
+- leaderboard DB insert/list/rank.
+- duplicate run handling.
+- request parsing.
+- impossible value rejection.
 
-```ts
-const STORAGE_NAMESPACE = "games:v1";
-const PREFERENCES_SCHEMA_VERSION = 1;
-const RESULTS_SCHEMA_VERSION = 1;
-const TETRIS_SAVE_PAYLOAD_VERSION = 1;
-```
+Add e2e tests for:
 
-Rules:
+- finish/submit flow on one game if practical.
+- leaderboard dialog loads and displays seeded API data.
+- bad username shows generic error.
 
-- Bump `STORAGE_NAMESPACE` only for broad key layout changes.
-- Bump `*_SCHEMA_VERSION` when a collection/envelope shape changes.
-- Bump per-game `*_SAVE_PAYLOAD_VERSION` when that game's payload changes.
+## Open questions
 
-If shape changes:
+- Which games launch with public leaderboards?
+- Should local two-player/board games be excluded from public scores?
+- Should leaderboard separate by difficulty, or show difficulty as a filter?
+- Should score submission be automatic prompt or manual button only?
+- How large should top list be: 10, 25, 50?
 
-- Prefer migration function if simple.
-- Else ignore old save and clear it.
-- Never crash because old save exists.
+## Recommended MVP answer
 
-## Privacy/export ideas
+Build first version with:
 
-Later optional:
-
-- `Export data` button downloads JSON.
-- `Import data` button validates and merges.
-- `Clear all local data` button.
-
-Useful because all data is local-first.
-
-## Risks and mitigations
-
-| Risk | Mitigation |
-| --- | --- |
-| Corrupt localStorage breaks app | Safe parse + fallback + remove bad key. |
-| Quota exceeded | Catch write error; keep game playable. |
-| Realtime autosave too frequent | Throttle to 500-1000ms and flush on pagehide. |
-| Old save shape crashes after deploy | Use `payloadVersion` and validate payload. |
-| Duplicate score records | Use `runId` or local `resultRecorded` guard. |
-| Restored timers behave wrong | Never store timers; restore paused. |
-| Multiple tabs overwrite saves | Accept last-writer-wins in first version; maybe add storage-event sync later. |
-| Server data conflicts later | Local-first API boundary allows merge/sync later. |
-
-## Best first PR sequence
-
-1. `feat: add safe local storage helpers`
-2. `feat: persist game preferences`
-3. `feat: resume 2048 games after reload`
-4. `feat: record local game results`
-5. `feat: resume board games after reload`
-6. `feat: resume tetris games paused after reload`
-7. `feat: show saved games and best scores`
-
-## Final direction
-
-Build this now:
-
-```text
-localStorage:
-  preferences
-  one current save per game
-  bounded result history
-```
-
-Keep this for later:
-
-```text
-IndexedDB:
-  large history, multiple save slots, replay/event logs
-
-Server SQLite:
-  cloud sync, accounts, leaderboards
-
-Cache API:
-  offline assets only
-```
+- Repeated usernames allowed.
+- No auth.
+- Offline username denylist.
+- Tetris + Snake + 2048 leaderboards first.
+- Top 10 per game/difficulty.
+- Bun SQLite only.
+- Local-first game data unchanged.
