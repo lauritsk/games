@@ -34,6 +34,9 @@
     cursor: pointer;
     padding: 0;
   }
+  button:disabled {
+    cursor: not-allowed;
+  }
   a {
     text-decoration: none;
   }
@@ -181,6 +184,12 @@
     transform: translateY(-1px);
     background: var(--surface-hover);
   }
+  .interactive:disabled {
+    opacity: 0.62;
+  }
+  .interactive:disabled:hover {
+    transform: none;
+  }
   .pill {
     border-radius: var(--round);
     padding: 10px 13px;
@@ -263,7 +272,9 @@
   .game-screen__nav {
     position: relative;
     z-index: 3;
+    min-width: 0;
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .back-button {
@@ -380,6 +391,7 @@
 
   .modal__actions {
     justify-content: end;
+    flex-wrap: wrap;
   }
 
   .confirm {
@@ -617,6 +629,7 @@
   .game__actions {
     flex: 1 1 auto;
     min-width: 0;
+    max-width: 100%;
     justify-content: end;
     flex-wrap: wrap;
     overflow: visible;
@@ -1279,6 +1292,14 @@
     }
   }
 
+  @media (max-width: 370px), (max-height: 620px) {
+    .dashboard {
+      place-items: start center;
+      align-content: start;
+      padding-block: calc(46px + var(--gap)) var(--gap);
+    }
+  }
+
   @media (max-height: 620px) {
     .pill {
       padding-block: 7px;
@@ -1292,6 +1313,17 @@
     }
     .game__top {
       min-height: var(--game-top);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 1ms !important;
     }
   }
 }

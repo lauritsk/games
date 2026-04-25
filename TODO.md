@@ -1,5 +1,6 @@
 # TODO
 
+- [x] Apply refactor/design cleanup pass.
 - [x] Apply web design review to current project.
 - [x] Refactor maintainability hotspots.
 - [x] Update TypeScript to v6.
