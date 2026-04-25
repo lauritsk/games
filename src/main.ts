@@ -324,6 +324,7 @@ function showGameHistory(game: GameDefinition, highlight?: GameResult): void {
   });
   close.addEventListener("click", closeDialog);
   document.addEventListener("keydown", onModalDocumentKeyDown, { capture: true });
+  dialog.addEventListener("click", onModalBackdropClick);
   dialog.addEventListener("keydown", onModalKeyDown);
   dialog.addEventListener("cancel", (dialogEvent) => {
     dialogEvent.preventDefault();
@@ -346,6 +347,10 @@ function showGameHistory(game: GameDefinition, highlight?: GameResult): void {
     event.preventDefault();
     event.stopPropagation();
     closeDialog();
+  }
+
+  function onModalBackdropClick(event: MouseEvent): void {
+    if (event.target === dialog) closeDialog();
   }
 
   function onModalKeyDown(event: KeyboardEvent): void {

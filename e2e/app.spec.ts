@@ -62,6 +62,34 @@ test("reset confirmation can cancel or accept an active game reset", async ({ pa
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
+test("result history dismisses when clicking outside the popup", async ({ page }) => {
+  await openGame(page, "Tic-Tac-Toe");
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new CustomEvent("games:result-recorded", {
+        detail: {
+          id: "result-e2e",
+          runId: "run-e2e",
+          gameId: "tictactoe",
+          outcome: "won",
+          difficulty: "Medium",
+          moves: 5,
+          finishedAt: new Date().toISOString(),
+        },
+      }),
+    );
+  });
+
+  const dialog = page.getByRole("dialog", { name: "Tic-Tac-Toe result history" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("heading", { name: "Result saved" }).click();
+  await expect(dialog).toBeVisible();
+
+  await page.mouse.click(8, 8);
+  await expect(dialog).toBeHidden();
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
 test("keyboard routing selects games, plays current game, and protects escape navigation", async ({
   page,
 }) => {
