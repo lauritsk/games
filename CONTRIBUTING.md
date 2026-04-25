@@ -38,3 +38,20 @@ Use `-B` for breaking changes.
 - Keep changes focused
 - Update tests and docs when behavior changes
 - Use a Conventional Commit title
+
+## New game acceptance checklist
+
+Each added game should satisfy this checklist before review:
+
+- Reuse shared project pieces first: `src/core.ts`, `src/arcade.ts`, `src/keyboard.ts`, `src/game-input.ts`, shared dialogs/history/results, and theme tokens in `src/styles.css`.
+- Keep unique game feel without duplicating generic UI, input, loop, collision, storage, or styling logic that already exists.
+- Separate non-trivial rules into `src/games/<game>.logic.ts` and cover them with deterministic tests.
+- Register a `GameDefinition` with clear name, description, difficulty/options, theme, and result behavior.
+- Look good and remain playable on desktop, tablet, and mobile viewports.
+- Avoid page scroll during normal play; if a large board cannot fit, provide intentional in-game pan/zoom/overflow controls that are usable and visually polished.
+- Support keyboard, mouse, and touch controls where the game design allows; document any intentional exception in the PR.
+- Preserve accessibility basics: visible focus, semantic controls, readable contrast, labels/help text for controls, and no pointer-only required action.
+- Handle lifecycle cleanly: start/restart, pause/resume for real-time games, win/loss/draw/end states, cleanup of timers/listeners, and saved/history state where relevant.
+- Integrate leaderboards only when there is a fair primary metric; validate eligibility and metadata consistently with existing leaderboard games.
+- Include tests for logic plus at least smoke coverage for UI behavior when risk warrants it.
+- Run `mise run check` before opening the PR.

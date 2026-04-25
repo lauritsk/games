@@ -90,7 +90,8 @@ Open <http://localhost:3000>.
 3. Add deterministic tests in `test/`.
 4. Register the game in `src/games.ts`.
 5. Reuse shared helpers from `src/core.ts`, `src/arcade.ts`, `src/keyboard.ts`, and `src/game-input.ts` where possible.
-6. Run `mise run check` before opening a PR.
+6. Check the new game acceptance checklist in `CONTRIBUTING.md`.
+7. Run `mise run check` before opening a PR.
 
 Themes are shared tokens in `src/styles.css` and selected by each game's `theme` field. Current theme names include `deep-cave`, `deep-ocean`, `outer-space`, and `deep-forest`.
 

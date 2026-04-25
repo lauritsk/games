@@ -1,5 +1,7 @@
 # TODO
 
+- [x] Document new game addition checklist.
+
 - [x] Optimize games for touchscreen controls.
 
 - [x] Apply refactor/design cleanup pass.
