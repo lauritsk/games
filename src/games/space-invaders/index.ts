@@ -157,7 +157,10 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     if (isConfirmOpen() || (direction !== "left" && direction !== "right")) return;
     start();
   });
-  const player = el("div", { className: "invader-player", ariaLabel: "Player cannon" });
+  const player = el("div", {
+    className: "arcade-entity arcade-glow invader-player",
+    ariaLabel: "Player cannon",
+  });
   const aliens = el("div", { className: "invader-aliens" });
   const barriers = el("div", { className: "invader-barriers" });
   const shots = el("div", { className: "invader-shots" });
@@ -354,7 +357,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function syncAliens(next: InvaderState): void {
-    syncPositioned(aliens, next.aliens.length, "invader-alien", (child, index) => {
+    syncPositioned(aliens, next.aliens.length, "arcade-entity invader-alien", (child, index) => {
       const alien = next.aliens[index];
       if (!alien) return;
       position(child, alien.x, alien.y, alien.width, alien.height);
@@ -367,28 +370,38 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function syncBarriers(next: InvaderState): void {
-    syncPositioned(barriers, next.barriers.length, "invader-barrier", (child, index) => {
-      const barrier = next.barriers[index];
-      if (!barrier) return;
-      position(child, barrier.x, barrier.y, barrier.width, barrier.height);
-      child.dataset.hp = String(barrier.hp);
-      child.setAttribute("aria-label", `Barrier ${index + 1}, ${barrier.hp} strength`);
-    });
+    syncPositioned(
+      barriers,
+      next.barriers.length,
+      "arcade-entity invader-barrier",
+      (child, index) => {
+        const barrier = next.barriers[index];
+        if (!barrier) return;
+        position(child, barrier.x, barrier.y, barrier.width, barrier.height);
+        child.dataset.hp = String(barrier.hp);
+        child.setAttribute("aria-label", `Barrier ${index + 1}, ${barrier.hp} strength`);
+      },
+    );
   }
 
   function syncShots(next: InvaderState): void {
-    syncPositioned(shots, next.shots.length, "invader-shot", (child, index) => {
-      const shot = next.shots[index];
-      if (!shot) return;
-      child.dataset.owner = shot.owner;
-      position(
-        child,
-        shot.x - invaderShotWidth / 2,
-        shot.y - invaderShotHeight / 2,
-        invaderShotWidth,
-        invaderShotHeight,
-      );
-    });
+    syncPositioned(
+      shots,
+      next.shots.length,
+      "arcade-entity arcade-glow invader-shot",
+      (child, index) => {
+        const shot = next.shots[index];
+        if (!shot) return;
+        child.dataset.owner = shot.owner;
+        position(
+          child,
+          shot.x - invaderShotWidth / 2,
+          shot.y - invaderShotHeight / 2,
+          invaderShotWidth,
+          invaderShotHeight,
+        );
+      },
+    );
   }
 
   function syncPositioned(

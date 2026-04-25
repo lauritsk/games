@@ -1,5 +1,7 @@
 # TODO
 
+- [x] Fix split CSS layer ordering for game controls.
+- [x] Reduce CSS duplication and share common game element styles.
 - [x] Improve icon consistency and top-bar title hierarchy.
 - [x] Normalize game action ordering by generic-to-specific priority.
 - [x] Remove duplicated game-setting display.

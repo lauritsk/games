@@ -20,7 +20,7 @@ async function watchForClientErrors(page: Page): Promise<void> {
 async function openGame(page: Page, name: string): Promise<void> {
   await page.goto("/");
   await page.getByRole("link", { name }).click();
-  await expect(page.getByRole("link", { name: "← Selection" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Back to games" })).toBeVisible();
 }
 
 async function expectElementsNotToOverlap(a: Locator, b: Locator): Promise<void> {
@@ -342,7 +342,7 @@ test("difficulty changes during active games reset to the selected difficulty", 
 
   await page.keyboard.press("+");
   await expect(page.getByRole("button", { name: "Hard" })).toBeVisible();
-  await expect(page.getByLabel("Game status")).toHaveText("Ready · Fatal walls");
+  await expect(page.getByLabel("Game status")).toHaveText("Ready");
   await expect(page.locator(".snake-cell")).toHaveCount(22 * 22);
   await page.evaluate(() => window.assertNoClientErrors());
 });

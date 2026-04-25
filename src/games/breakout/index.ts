@@ -123,8 +123,8 @@ export function mountBreakout(target: HTMLElement): () => void {
     if (isConfirmOpen() || (direction !== "left" && direction !== "right")) return;
     start();
   });
-  const ball = el("div", { className: "breakout-ball" });
-  const paddle = el("div", { className: "breakout-paddle" });
+  const ball = el("div", { className: "arcade-entity arcade-glow breakout-ball" });
+  const paddle = el("div", { className: "arcade-entity arcade-glow breakout-paddle" });
   const bricks = el("div", { className: "breakout-bricks" });
   board.append(bricks, paddle, ball);
   const modeController = createArcadeModeController<Mode>({
@@ -296,16 +296,21 @@ export function mountBreakout(target: HTMLElement): () => void {
   }
 
   function syncBricks(next: BreakoutState): void {
-    syncPositionedChildren(bricks, next.bricks.length, "breakout-brick", (child, index) => {
-      const brick = next.bricks[index];
-      if (!brick) return;
-      positionPercent(child, brick);
-      child.dataset.alive = String(brick.alive);
-      child.setAttribute(
-        "aria-label",
-        brick.alive ? `Brick ${index + 1}` : `Destroyed brick ${index + 1}`,
-      );
-    });
+    syncPositionedChildren(
+      bricks,
+      next.bricks.length,
+      "arcade-entity breakout-brick",
+      (child, index) => {
+        const brick = next.bricks[index];
+        if (!brick) return;
+        positionPercent(child, brick);
+        child.dataset.alive = String(brick.alive);
+        child.setAttribute(
+          "aria-label",
+          brick.alive ? `Brick ${index + 1}` : `Destroyed brick ${index + 1}`,
+        );
+      },
+    );
   }
 
   function positionBall(): void {
