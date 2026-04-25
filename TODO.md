@@ -86,3 +86,4 @@
 - [x] Roll out Minesweeper leaderboard: winning duration min.
 - [x] Roll out Memory leaderboard: completion duration min.
 - [x] Refine icon state toggles and centered game title.
+- [x] Replace fragile emoji icons with inline SVG icons after visual check.

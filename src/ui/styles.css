@@ -201,6 +201,24 @@
   .interactive:disabled:hover {
     transform: none;
   }
+  .icon-glyph {
+    display: block;
+    width: 18px;
+    height: 18px;
+    overflow: visible;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+  }
+
+  .appearance-toggle .icon-glyph,
+  .nav-action .icon-glyph,
+  .button .icon-glyph {
+    width: 19px;
+    height: 19px;
+  }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .surface {
       background: var(--surface-flat);
