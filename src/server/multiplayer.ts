@@ -1,0 +1,395 @@
+import type { ServerWebSocket } from "bun";
+import {
+  normalizeMultiplayerCode,
+  type MultiplayerActionMessage,
+  type MultiplayerRoomSnapshot,
+  type MultiplayerSeat,
+  type MultiplayerSession,
+} from "../multiplayer-protocol";
+import { isRecord } from "../validation";
+import { checkRateLimit, rateLimitKey } from "./rate-limit";
+import { multiplayerAdapterForGame, type MultiplayerAdapter } from "./multiplayer-games";
+
+export type MultiplayerSocketData = {
+  code: string;
+  playerId: string;
+  seat: MultiplayerSeat;
+};
+
+type PlayerState = {
+  id: string;
+  tokenHash: string;
+  connectedCount: number;
+};
+
+type Room = {
+  code: string;
+  gameId: string;
+  adapter: MultiplayerAdapter;
+  status: "lobby" | "playing" | "finished";
+  revision: number;
+  createdAt: number;
+  lastActivityAt: number;
+  players: Partial<Record<MultiplayerSeat, PlayerState>>;
+  state: unknown;
+};
+
+type UpgradePreparation =
+  | { ok: true; data: MultiplayerSocketData }
+  | { ok: false; response: Response };
+
+const codeAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+const codeLength = 6;
+const maxRooms = 500;
+const lobbyTtlMs = 10 * 60_000;
+const disconnectedTtlMs = 2 * 60_000;
+const hardTtlMs = 24 * 60 * 60_000;
+const maxRequestBytes = 10_000;
+
+export class MultiplayerHub {
+  private readonly rooms = new Map<string, Room>();
+  private readonly cleanupTimer: ReturnType<typeof setInterval>;
+
+  constructor() {
+    this.cleanupTimer = setInterval(() => this.cleanup(), 60_000);
+    this.cleanupTimer.unref?.();
+  }
+
+  dispose(): void {
+    clearInterval(this.cleanupTimer);
+    this.rooms.clear();
+  }
+
+  async handleHttp(request: Request): Promise<Response | null> {
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith("/api/multiplayer")) return null;
+
+    try {
+      if (url.pathname === "/api/multiplayer/status" && request.method === "GET") {
+        return json({ ok: true });
+      }
+      if (url.pathname === "/api/multiplayer/rooms" && request.method === "POST") {
+        if (
+          !checkRateLimit(rateLimitKey(request, "multiplayer-create"), {
+            windowMs: 60_000,
+            max: 12,
+          })
+        ) {
+          return json({ ok: false, error: "Too many requests" }, 429);
+        }
+        const body = await readSmallJson(request);
+        const gameId = isRecord(body) && typeof body.gameId === "string" ? body.gameId : null;
+        if (!gameId) return json({ ok: false, error: "Invalid room request" }, 400);
+        const result = await this.createRoom(gameId);
+        if (!result.ok) return json(result, 400);
+        return json(result);
+      }
+      if (url.pathname === "/api/multiplayer/rooms/join" && request.method === "POST") {
+        const body = await readSmallJson(request);
+        const code = isRecord(body) && typeof body.code === "string" ? body.code : "";
+        const normalized = normalizeMultiplayerCode(code);
+        if (
+          !checkRateLimit(rateLimitKey(request, `multiplayer-join:${normalized}`), {
+            windowMs: 60_000,
+            max: 20,
+          })
+        ) {
+          return json({ ok: false, error: "Too many requests" }, 429);
+        }
+        const result = await this.joinRoom(normalized);
+        if (!result.ok) return json(result, 400);
+        return json(result);
+      }
+      if (url.pathname === "/api/multiplayer/socket") {
+        return json({ ok: false, error: "Upgrade required" }, 426);
+      }
+      return json({ ok: false, error: "Not found" }, 404);
+    } catch {
+      return json({ ok: false, error: "Request failed" }, 500);
+    }
+  }
+
+  async createRoom(
+    gameId: string,
+  ): Promise<{ ok: true; session: MultiplayerSession } | { ok: false; error: string }> {
+    this.cleanup();
+    if (this.rooms.size >= maxRooms) return { ok: false, error: "Too many active rooms" };
+    const adapter = multiplayerAdapterForGame(gameId);
+    if (!adapter) return { ok: false, error: "Game does not support online play" };
+    const code = this.createUniqueCode();
+    if (!code) return { ok: false, error: "Could not create room" };
+    const session = await this.createPlayerSession(code, gameId, "p1");
+    const now = Date.now();
+    this.rooms.set(code, {
+      code,
+      gameId,
+      adapter,
+      status: "lobby",
+      revision: 0,
+      createdAt: now,
+      lastActivityAt: now,
+      players: {
+        p1: {
+          id: session.playerId,
+          tokenHash: await hashToken(session.playerToken),
+          connectedCount: 0,
+        },
+      },
+      state: adapter.newState(),
+    });
+    return { ok: true, session };
+  }
+
+  async joinRoom(
+    code: string,
+  ): Promise<{ ok: true; session: MultiplayerSession } | { ok: false; error: string }> {
+    this.cleanup();
+    const room = this.rooms.get(normalizeMultiplayerCode(code));
+    if (!room || room.status !== "lobby" || room.players.p2) {
+      return { ok: false, error: "Room not found or unavailable" };
+    }
+    const session = await this.createPlayerSession(room.code, room.gameId, "p2");
+    room.players.p2 = {
+      id: session.playerId,
+      tokenHash: await hashToken(session.playerToken),
+      connectedCount: 0,
+    };
+    room.status = "playing";
+    room.revision += 1;
+    room.lastActivityAt = Date.now();
+    return { ok: true, session };
+  }
+
+  async prepareUpgrade(request: Request): Promise<UpgradePreparation> {
+    const url = new URL(request.url);
+    if (url.pathname !== "/api/multiplayer/socket") {
+      return { ok: false, response: json({ ok: false, error: "Not found" }, 404) };
+    }
+    if (
+      !checkRateLimit(rateLimitKey(request, "multiplayer-ws-auth"), { windowMs: 60_000, max: 60 })
+    ) {
+      return { ok: false, response: json({ ok: false, error: "Too many requests" }, 429) };
+    }
+    const code = normalizeMultiplayerCode(url.searchParams.get("code") ?? "");
+    const playerId = url.searchParams.get("playerId") ?? "";
+    const token = url.searchParams.get("token") ?? "";
+    const room = this.rooms.get(code);
+    if (!room) return { ok: false, response: json({ ok: false, error: "Room not found" }, 404) };
+    const seat = findSeat(room, playerId);
+    if (!seat) return { ok: false, response: json({ ok: false, error: "Unauthorized" }, 401) };
+    const player = room.players[seat];
+    if (!player || player.tokenHash !== (await hashToken(token))) {
+      return { ok: false, response: json({ ok: false, error: "Unauthorized" }, 401) };
+    }
+    room.lastActivityAt = Date.now();
+    return { ok: true, data: { code, playerId, seat } };
+  }
+
+  onOpen(ws: ServerWebSocket<MultiplayerSocketData>): void {
+    const room = this.rooms.get(ws.data.code);
+    const player = room?.players[ws.data.seat];
+    if (!room || !player) {
+      ws.close(1008, "Room unavailable");
+      return;
+    }
+    player.connectedCount += 1;
+    room.lastActivityAt = Date.now();
+    ws.subscribe(roomTopic(room.code));
+    ws.send(JSON.stringify(this.snapshotMessage(room, ws.data)));
+    this.publishRoom(ws, room);
+  }
+
+  onMessage(ws: ServerWebSocket<MultiplayerSocketData>, message: string | Buffer): void {
+    const room = this.rooms.get(ws.data.code);
+    if (!room) {
+      ws.close(1008, "Room unavailable");
+      return;
+    }
+    if (
+      !checkRateLimit(`multiplayer-action:${room.code}:${ws.data.playerId}`, {
+        windowMs: 10_000,
+        max: 50,
+      })
+    ) {
+      ws.send(JSON.stringify({ type: "error", error: "Too many actions" }));
+      return;
+    }
+    const parsed = parseClientMessage(message);
+    if (!parsed) {
+      ws.send(
+        JSON.stringify({ type: "error", error: "Invalid message", room: this.publicRoom(room) }),
+      );
+      return;
+    }
+    if (parsed.revision !== room.revision) {
+      ws.send(
+        JSON.stringify({ type: "error", error: "Stale game state", room: this.publicRoom(room) }),
+      );
+      return;
+    }
+    if (room.status !== "playing") {
+      ws.send(
+        JSON.stringify({ type: "error", error: "Room is not ready", room: this.publicRoom(room) }),
+      );
+      return;
+    }
+    const action = room.adapter.parseAction(parsed.action);
+    if (!action) {
+      ws.send(
+        JSON.stringify({ type: "error", error: "Invalid action", room: this.publicRoom(room) }),
+      );
+      return;
+    }
+    const result = room.adapter.applyAction(room.state, ws.data.seat, action);
+    if (!result.ok) {
+      ws.send(JSON.stringify({ type: "error", error: result.error, room: this.publicRoom(room) }));
+      return;
+    }
+    room.state = result.state;
+    room.revision += 1;
+    room.lastActivityAt = Date.now();
+    if (result.finished) room.status = "finished";
+    this.publishRoom(ws, room);
+  }
+
+  onClose(ws: ServerWebSocket<MultiplayerSocketData>): void {
+    const room = this.rooms.get(ws.data.code);
+    const player = room?.players[ws.data.seat];
+    if (!room || !player) return;
+    player.connectedCount = Math.max(0, player.connectedCount - 1);
+    room.lastActivityAt = Date.now();
+    this.publishRoom(ws, room);
+  }
+
+  private async createPlayerSession(
+    code: string,
+    gameId: string,
+    seat: MultiplayerSeat,
+  ): Promise<MultiplayerSession> {
+    return {
+      code,
+      gameId,
+      seat,
+      playerId: crypto.randomUUID(),
+      playerToken: randomToken(),
+    };
+  }
+
+  private createUniqueCode(): string | null {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const code = randomCode();
+      if (!this.rooms.has(code)) return code;
+    }
+    return null;
+  }
+
+  private publicRoom(room: Room): MultiplayerRoomSnapshot {
+    return {
+      code: room.code,
+      gameId: room.gameId,
+      status: room.status,
+      revision: room.revision,
+      seats: {
+        p1: seatSnapshot(room.players.p1),
+        p2: seatSnapshot(room.players.p2),
+      },
+      state: room.adapter.publicSnapshot(room.state),
+    };
+  }
+
+  private snapshotMessage(room: Room, data: MultiplayerSocketData) {
+    return {
+      type: "snapshot" as const,
+      you: { playerId: data.playerId, seat: data.seat },
+      room: this.publicRoom(room),
+    };
+  }
+
+  private publishRoom(ws: ServerWebSocket<MultiplayerSocketData>, room: Room): void {
+    ws.publish(
+      roomTopic(room.code),
+      JSON.stringify({ type: "snapshot", room: this.publicRoom(room) }),
+    );
+    ws.send(JSON.stringify(this.snapshotMessage(room, ws.data)));
+  }
+
+  private cleanup(now = Date.now()): void {
+    for (const [code, room] of this.rooms) {
+      const age = now - room.createdAt;
+      const idle = now - room.lastActivityAt;
+      const connected = Object.values(room.players).some(
+        (player) => (player?.connectedCount ?? 0) > 0,
+      );
+      if (age > hardTtlMs) this.rooms.delete(code);
+      else if (room.status === "lobby" && idle > lobbyTtlMs) this.rooms.delete(code);
+      else if (!connected && idle > disconnectedTtlMs) this.rooms.delete(code);
+    }
+  }
+}
+
+function parseClientMessage(message: string | Buffer): MultiplayerActionMessage | null {
+  try {
+    const value = JSON.parse(typeof message === "string" ? message : message.toString()) as unknown;
+    if (!isRecord(value) || value.type !== "action") return null;
+    if (typeof value.revision !== "number" || !Number.isInteger(value.revision)) return null;
+    return { type: "action", revision: value.revision, action: value.action };
+  } catch {
+    return null;
+  }
+}
+
+function findSeat(room: Room, playerId: string): MultiplayerSeat | null {
+  if (room.players.p1?.id === playerId) return "p1";
+  if (room.players.p2?.id === playerId) return "p2";
+  return null;
+}
+
+function seatSnapshot(player: PlayerState | undefined) {
+  return { joined: Boolean(player), connected: (player?.connectedCount ?? 0) > 0 };
+}
+
+function roomTopic(code: string): string {
+  return `multiplayer:${code}`;
+}
+
+function randomCode(): string {
+  const bytes = new Uint8Array(codeLength);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => codeAlphabet[byte % codeAlphabet.length]).join("");
+}
+
+function randomToken(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+async function hashToken(token: string): Promise<string> {
+  const data = new TextEncoder().encode(token);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function readSmallJson(request: Request): Promise<unknown> {
+  const length = Number(request.headers.get("content-length") ?? "0");
+  if (length > maxRequestBytes) return null;
+  try {
+    return (await request.json()) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function json(value: unknown, status = 200, headers?: Record<string, string>): Response {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: {
+      "content-type": "application/json;charset=utf-8",
+      "cache-control": "no-store",
+      ...headers,
+    },
+  });
+}

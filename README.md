@@ -18,6 +18,7 @@
 - Static builds and a Docker image for simple deployment.
 - Local-first saves/results with optional Bun SQLite sync when served by the included Bun server.
 - Public leaderboards for scores, fastest times, and bot win streaks when the Bun server is available.
+- Live private-room 1v1 multiplayer for Tic-Tac-Toe and Connect 4 when the Bun server is available.
 
 ## Demo locally
 
@@ -35,10 +36,10 @@ Open <http://localhost:3000>.
 
 | Game | Notes |
 | --- | --- |
-| Connect 4 | Local play against a bot with difficulty-aware moves. |
+| Connect 4 | Bot, local two-player, and private-room online 1v1 with difficulty-aware bot moves. |
 | Minesweeper | Reveal/flag puzzle with scalable difficulty. |
 | 2048 | Sliding tile puzzle with keyboard controls. |
-| Tic-Tac-Toe | Easy, medium, hard bot plus local two-player mode. |
+| Tic-Tac-Toe | Easy, medium, hard bot plus local and private-room online two-player modes. |
 | Snake | Speed and wall behavior change by difficulty. |
 | Memory | Concentration card matching with variable pair count. |
 | Tetris | Bag pieces, rotation, line clears, levels, pause, and next preview. |
@@ -111,7 +112,21 @@ Create the database manually, or let the server create it on first request:
 mise run db:migrate
 ```
 
-Static hosting still works, but sync and public leaderboards are disabled because there is no API server.
+Static hosting still works, but sync, public leaderboards, and live multiplayer are disabled because there is no API server.
+
+## Live multiplayer
+
+When served by `src/server.ts`, Tic-Tac-Toe and Connect 4 support casual live 1v1 rooms:
+
+1. Open a supported game.
+2. Select `Play online`.
+3. Create a room and share the 6-character code, or join with a code from another player.
+
+Room codes use a cryptographically random ambiguity-safe base32 alphabet such as `K7P9Q2`. Each player also receives a separate high-entropy session token that is required for the WebSocket connection and reconnects. The server enforces room capacity, turn order, move validation, short request rate limits, and room cleanup TTLs.
+
+Multiplayer rooms are process-local memory only in v1. They disappear when the Bun server restarts, and they are intended for friendly private games rather than strong anti-cheat. Online results can appear in local history but are not eligible for public leaderboards.
+
+Static builds cannot host live multiplayer because they have no WebSocket/API server.
 
 ## Leaderboards
 

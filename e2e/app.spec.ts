@@ -125,6 +125,66 @@ test("leaderboard navigation opens public leaderboard games", async ({ page }) =
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
+test("plays a live Tic-Tac-Toe room across two browsers", async ({ page, browser }) => {
+  await openGame(page, "Tic-Tac-Toe");
+  await page.getByRole("button", { name: "Play online" }).click();
+  await page.getByRole("button", { name: "Create room" }).click();
+  const code = (await page.locator(".multiplayer-dialog__code").textContent())?.trim();
+  expect(code).toMatch(/^[2-9A-HJKMNP-Z]{6}$/);
+
+  const guestContext = await browser.newContext();
+  const guest = await guestContext.newPage();
+  await watchForClientErrors(guest);
+  await openGame(guest, "Tic-Tac-Toe");
+  await guest.getByRole("button", { name: "Play online" }).click();
+  await guest.getByLabel("Room code").fill(code!);
+  await guest.getByRole("button", { name: "Join room" }).click();
+  await page.getByRole("button", { name: "Close" }).click();
+
+  await expect(page.getByText("Your turn")).toBeVisible();
+  await page.getByRole("button", { name: "Row 2, column 2, empty" }).click();
+  await expect(guest.getByRole("button", { name: "Row 2, column 2, X" })).toHaveText("X");
+  await guest.getByRole("button", { name: "Row 1, column 1, empty" }).click();
+  await expect(page.getByRole("button", { name: "Row 1, column 1, O" })).toHaveText("O");
+
+  await page.getByRole("button", { name: "Row 2, column 1, empty" }).click();
+  await guest.getByRole("button", { name: "Row 1, column 2, empty" }).click();
+  await page.getByRole("button", { name: "Row 2, column 3, empty" }).click();
+  await expect(page.getByText("You win")).toBeVisible();
+  await expect(guest.getByText("Opponent wins")).toBeVisible();
+
+  await guest.evaluate(() => window.assertNoClientErrors());
+  await guestContext.close();
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
+test("syncs a live Connect 4 room across two browsers", async ({ page, browser }) => {
+  await openGame(page, "Connect 4");
+  await page.getByRole("button", { name: "Play online" }).click();
+  await page.getByRole("button", { name: "Create room" }).click();
+  const code = (await page.locator(".multiplayer-dialog__code").textContent())?.trim();
+  expect(code).toMatch(/^[2-9A-HJKMNP-Z]{6}$/);
+
+  const guestContext = await browser.newContext();
+  const guest = await guestContext.newPage();
+  await watchForClientErrors(guest);
+  await openGame(guest, "Connect 4");
+  await guest.getByRole("button", { name: "Play online" }).click();
+  await guest.getByLabel("Room code").fill(code!);
+  await guest.getByRole("button", { name: "Join room" }).click();
+  await page.getByRole("button", { name: "Close" }).click();
+
+  await expect(page.getByText("Your turn")).toBeVisible();
+  await page.getByRole("button", { name: "Row 1, column 4, empty" }).click();
+  await expect(guest.getByRole("button", { name: "Row 6, column 4, Red disc" })).toBeVisible();
+  await guest.getByRole("button", { name: "Row 1, column 5, empty" }).click();
+  await expect(page.getByRole("button", { name: "Row 6, column 5, Gold disc" })).toBeVisible();
+
+  await guest.evaluate(() => window.assertNoClientErrors());
+  await guestContext.close();
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
 test("submits one eligible leaderboard result flow", async ({ page }) => {
   let submittedEntry: unknown;
   await page.route("**/api/leaderboard**", async (route) => {

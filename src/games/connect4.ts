@@ -27,6 +27,17 @@ import { getBotStreak, recordBotStreakOutcome, resetBotStreak } from "../bot-str
 import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
 import { recordGameResult } from "../game-results";
 import { clearGameSave, createRunId, loadGameSave, saveGameSave } from "../game-state";
+import {
+  connectMultiplayerSession,
+  type MultiplayerConnection,
+  type MultiplayerConnectionStatus,
+} from "../multiplayer";
+import { createMultiplayerDialog } from "../multiplayer-dialog";
+import type {
+  MultiplayerRoomSnapshot,
+  MultiplayerSeat,
+  MultiplayerSession,
+} from "../multiplayer-protocol";
 import { playSound } from "../sound";
 import {
   botPlayModeLabel,
@@ -64,11 +75,19 @@ type SaveConnect4 = {
   difficulty: Difficulty;
 };
 
+type OnlineConnect4State = {
+  board: Connect4Cell[][];
+  current: MultiplayerSeat;
+  winner: MultiplayerSeat | "draw" | null;
+  winningLine: Connect4WinLine;
+  moves: number;
+};
+
 export const connect4: GameDefinition = {
   id: "connect4",
   name: "Connect 4",
   tagline: "Drop discs. Stack four. Keep it light.",
-  players: "Solo vs bot",
+  players: "Solo, local, or online",
   theme: "deep-ocean",
   mount: mountConnect4,
 };
@@ -85,6 +104,13 @@ export function mountConnect4(target: HTMLElement): () => void {
   let selectedColumn = Math.floor(connect4Columns / 2);
   let runId = createRunId();
   let skipNextAbandonStreakReset = false;
+  let onlineSession: MultiplayerSession | null = null;
+  let onlineConnection: MultiplayerConnection | null = null;
+  let onlineSeat: MultiplayerSeat | null = null;
+  let onlineRevision = 0;
+  let onlineStatus: MultiplayerConnectionStatus = "closed";
+  let onlineResultRecorded = false;
+  let onlineError = "";
 
   const saved = loadGameSave(connect4.id, savePayloadVersion, parseSaveConnect4);
   if (saved) {
@@ -147,11 +173,21 @@ export function mountConnect4(target: HTMLElement): () => void {
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
 
+  const onlineDialog = createMultiplayerDialog();
+  const onlineButton = el("button", {
+    className: "button pill surface interactive",
+    text: "Play online",
+    type: "button",
+  });
+  onlineButton.addEventListener("click", () => onlineDialog.show(connect4, startOnline));
+  actions.append(onlineButton);
+
   const requestReset = createResetControl(actions, shell, resetGame);
 
   function resetGame(): void {
     if (skipNextAbandonStreakReset) skipNextAbandonStreakReset = false;
     else resetAbandonedBotStreak();
+    stopOnline();
     botMove.clear();
     clearGameSave(connect4.id);
     resetGameProgress(shell);
@@ -169,8 +205,11 @@ export function mountConnect4(target: HTMLElement): () => void {
   function render(): void {
     shell.dataset.turn = String(current);
     status.textContent = statusText();
-    modeButton.textContent = botPlayModeLabel(mode);
-    difficultyButton.textContent = difficulty;
+    modeButton.textContent = onlineSession ? "Online" : botPlayModeLabel(mode);
+    modeButton.disabled = Boolean(onlineSession);
+    difficultyButton.textContent = onlineSession ? "Online" : difficulty;
+    difficultyButton.disabled = Boolean(onlineSession);
+    onlineButton.textContent = onlineSession ? `Room ${onlineSession.code}` : "Play online";
 
     const cells = syncChildren(grid, connect4Rows * connect4Columns, (index) => {
       const column = index % connect4Columns;
@@ -206,7 +245,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     if (isConfirmOpen()) return;
     if (event.key.toLowerCase() === "m") {
       event.preventDefault();
-      toggleMode(modeControl);
+      if (!onlineSession) toggleMode(modeControl);
       return;
     }
     if (matchesKey(event, Keys.down)) {
@@ -232,6 +271,7 @@ export function mountConnect4(target: HTMLElement): () => void {
   }
 
   function statusText(): string {
+    if (onlineSession) return onlineStatusText();
     if (mode === "local") return winner ? `${names[winner]} wins` : `${names[current]} turn`;
     if (winner === connect4Human) return withBotStreakText("You win");
     if (winner === connect4Bot) return withBotStreakText("Bot wins");
@@ -245,6 +285,15 @@ export function mountConnect4(target: HTMLElement): () => void {
   }
 
   function isLocked(): boolean {
+    if (onlineSession) {
+      return (
+        onlineStatus !== "connected" ||
+        !onlineSeat ||
+        Boolean(winner) ||
+        moves === connect4Rows * connect4Columns ||
+        current !== playerForSeat(onlineSeat)
+      );
+    }
     return mode === "bot" && current === connect4Bot;
   }
 
@@ -252,6 +301,10 @@ export function mountConnect4(target: HTMLElement): () => void {
     if (isLocked()) return;
     if (winner || moves === connect4Rows * connect4Columns || !canPlay(column)) {
       invalidMove.trigger();
+      return;
+    }
+    if (onlineSession) {
+      onlineConnection?.sendAction(onlineRevision, { type: "drop", column });
       return;
     }
     play(column);
@@ -294,6 +347,7 @@ export function mountConnect4(target: HTMLElement): () => void {
   }
 
   function saveCurrentGame(): void {
+    if (onlineSession) return;
     saveGameSave(connect4.id, savePayloadVersion, {
       runId,
       status: "playing",
@@ -326,6 +380,96 @@ export function mountConnect4(target: HTMLElement): () => void {
     saveGamePreferences(connect4.id, { difficulty, options: { mode } });
   }
 
+  function startOnline(session: MultiplayerSession): void {
+    resetAbandonedBotStreak();
+    botMove.clear();
+    clearGameSave(connect4.id);
+    resetGameProgress(shell);
+    onlineConnection?.close();
+    onlineSession = session;
+    onlineSeat = session.seat;
+    onlineRevision = 0;
+    onlineStatus = "connecting";
+    onlineResultRecorded = false;
+    onlineError = "";
+    runId = createRunId();
+    board = newConnect4Board();
+    current = connect4Human;
+    winner = null;
+    winningLine = [];
+    moves = 0;
+    onlineConnection = connectMultiplayerSession(session, {
+      onSnapshot: (message) => applyOnlineSnapshot(message.room, message.you.seat),
+      onError: (error, room) => {
+        onlineError = error;
+        if (room) applyOnlineSnapshot(room, onlineSeat ?? session.seat);
+        else render();
+      },
+      onStatus: (status) => {
+        onlineStatus = status;
+        if (status === "connected") onlineError = "";
+        render();
+      },
+    });
+    render();
+  }
+
+  function stopOnline(): void {
+    onlineDialog.close();
+    onlineConnection?.close();
+    onlineConnection = null;
+    onlineSession = null;
+    onlineSeat = null;
+    onlineRevision = 0;
+    onlineStatus = "closed";
+    onlineError = "";
+    onlineResultRecorded = false;
+  }
+
+  function applyOnlineSnapshot(room: MultiplayerRoomSnapshot, seat: MultiplayerSeat): void {
+    const state = parseOnlineConnect4State(room.state);
+    if (!state || room.gameId !== connect4.id) return;
+    onlineError = "";
+    onlineSeat = seat;
+    onlineRevision = room.revision;
+    board = state.board;
+    current = playerForSeat(state.current);
+    winner = state.winner === "draw" || state.winner === null ? null : playerForSeat(state.winner);
+    winningLine = state.winningLine;
+    moves = state.moves;
+    if (moves > 0) markGameStarted(shell);
+    if (state.winner) {
+      markGameFinished(shell);
+      recordOnlineFinished(state);
+    }
+    render();
+  }
+
+  function onlineStatusText(): string {
+    if (onlineError) return onlineError;
+    if (onlineStatus === "connecting") return "Connecting…";
+    if (onlineStatus === "reconnecting") return "Reconnecting…";
+    if (!onlineSession) return "Online";
+    if (!onlineSeat) return "Joining…";
+    if (moves === connect4Rows * connect4Columns && !winner) return "Draw";
+    if (winner) return winner === playerForSeat(onlineSeat) ? "You win" : "Opponent wins";
+    if (onlineRevision === 0) return `Room ${onlineSession.code} · Waiting`;
+    return current === playerForSeat(onlineSeat) ? "Your turn" : "Opponent turn";
+  }
+
+  function recordOnlineFinished(state: OnlineConnect4State): void {
+    if (onlineResultRecorded || !onlineSeat || !state.winner) return;
+    onlineResultRecorded = true;
+    const outcome = state.winner === "draw" ? "draw" : state.winner === onlineSeat ? "won" : "lost";
+    recordGameResult({
+      runId,
+      gameId: connect4.id,
+      outcome,
+      moves: state.moves,
+      metadata: { mode: "online", seat: onlineSeat, winner: state.winner },
+    });
+  }
+
   if (moves > 0) markGameStarted(shell);
   render();
   if (mode === "bot" && current === connect4Bot && !winner) scheduleBot();
@@ -334,6 +478,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     scope.cleanup();
     invalidMove.cleanup();
     botMove.clear();
+    stopOnline();
     remove();
   };
 }
@@ -380,6 +525,36 @@ function parsePlayer(value: unknown): Connect4Player | null {
 function parseWinner(value: unknown): Connect4Player | null | undefined {
   if (value === null) return null;
   return parsePlayer(value) ?? undefined;
+}
+
+function parseOnlineConnect4State(value: unknown): OnlineConnect4State | null {
+  if (!isRecord(value)) return null;
+  const board = parseBoard(value.board);
+  const current = parseSeat(value.current);
+  const winner = parseOnlineWinner(value.winner);
+  if (!board || !current || winner === undefined) return null;
+  const winningLine = Array.isArray(value.winningLine)
+    ? value.winningLine.flatMap((point): Connect4WinLine => {
+        if (!Array.isArray(point) || point.length !== 2) return [];
+        const [row, column] = point;
+        return typeof row === "number" && typeof column === "number" ? [[row, column]] : [];
+      })
+    : [];
+  const moves = typeof value.moves === "number" && Number.isInteger(value.moves) ? value.moves : 0;
+  return { board, current, winner, winningLine, moves };
+}
+
+function parseSeat(value: unknown): MultiplayerSeat | null {
+  return parseOneOf(value, ["p1", "p2"] as const);
+}
+
+function parseOnlineWinner(value: unknown): MultiplayerSeat | "draw" | null | undefined {
+  if (value === null || value === "draw") return value;
+  return parseSeat(value) ?? undefined;
+}
+
+function playerForSeat(seat: MultiplayerSeat): Connect4Player {
+  return seat === "p1" ? connect4Human : connect4Bot;
 }
 
 function labelFor(row: number, column: number, value: Connect4Cell): string {

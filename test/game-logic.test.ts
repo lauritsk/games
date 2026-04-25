@@ -64,6 +64,10 @@ import {
   winningTicTacToeMove,
   type TicTacToeCell,
 } from "../src/games/tictactoe.logic";
+import {
+  connect4MultiplayerAdapter,
+  ticTacToeMultiplayerAdapter,
+} from "../src/server/multiplayer-games";
 
 describe("2048 logic", () => {
   test("merges one pair per tile", () => {
@@ -438,6 +442,58 @@ describe("tetris logic", () => {
 
     board[18] = Array.from({ length: 10 }, () => "Z");
     expect(tetrisGhostPiece(board, piece).origin.row).toBe(17);
+  });
+});
+
+describe("multiplayer adapters", () => {
+  test("validates Tic-Tac-Toe turns and finishes wins", () => {
+    let state = ticTacToeMultiplayerAdapter.newState();
+    expect(
+      ticTacToeMultiplayerAdapter.applyAction(state, "p2", { type: "place", index: 0 }).ok,
+    ).toBe(false);
+    const moves = [
+      ["p1", 0],
+      ["p2", 3],
+      ["p1", 1],
+      ["p2", 4],
+      ["p1", 2],
+    ] as const;
+    let finished: unknown;
+    for (const [seat, index] of moves) {
+      const result = ticTacToeMultiplayerAdapter.applyAction(state, seat, { type: "place", index });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        state = result.state;
+        finished = result.finished;
+      }
+    }
+    expect(finished).toEqual({ winner: "p1" });
+  });
+
+  test("validates Connect 4 turns and finishes wins", () => {
+    let state = connect4MultiplayerAdapter.newState();
+    const moves = [
+      ["p1", 0],
+      ["p2", 1],
+      ["p1", 0],
+      ["p2", 1],
+      ["p1", 0],
+      ["p2", 1],
+      ["p1", 0],
+    ] as const;
+    let finished: unknown;
+    for (const [seat, column] of moves) {
+      const result = connect4MultiplayerAdapter.applyAction(state, seat, { type: "drop", column });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        state = result.state;
+        finished = result.finished;
+      }
+    }
+    expect(finished).toEqual({ winner: "p1" });
+    expect(
+      connect4MultiplayerAdapter.applyAction(state, "p2", { type: "drop", column: 2 }).ok,
+    ).toBe(false);
   });
 });
 

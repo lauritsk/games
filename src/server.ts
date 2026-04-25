@@ -1,5 +1,6 @@
 import index from "../index.html";
 import { createSyncApiHandler } from "./server/api";
+import { MultiplayerHub, type MultiplayerSocketData } from "./server/multiplayer";
 
 const isProduction = process.env["NODE_ENV"] === "production";
 const publicDir = process.env.PUBLIC_DIR ?? "public";
@@ -25,8 +26,22 @@ function contentType(path: string): string | undefined {
 }
 
 const syncApi = createSyncApiHandler();
+const multiplayer = new MultiplayerHub();
 
-async function appResponse(request: Request): Promise<Response> {
+async function appResponse(
+  request: Request,
+  server: Bun.Server<MultiplayerSocketData>,
+): Promise<Response | undefined> {
+  const url = new URL(request.url);
+  if (url.pathname === "/api/multiplayer/socket") {
+    const prepared = await multiplayer.prepareUpgrade(request);
+    if (!prepared.ok) return prepared.response;
+    if (server.upgrade(request, { data: prepared.data })) return undefined;
+    return new Response("Upgrade failed", { status: 400 });
+  }
+
+  const multiplayerResponse = await multiplayer.handleHttp(request);
+  if (multiplayerResponse) return multiplayerResponse;
   const apiResponse = await syncApi(request);
   if (apiResponse) return apiResponse;
   return isProduction ? staticResponse(request) : new Response("Not found", { status: 404 });
@@ -66,6 +81,14 @@ const server = Bun.serve({
     console: true,
   },
   fetch: appResponse,
+  websocket: {
+    idleTimeout: 120,
+    maxPayloadLength: 4096,
+    open: (ws: Bun.ServerWebSocket<MultiplayerSocketData>) => multiplayer.onOpen(ws),
+    message: (ws: Bun.ServerWebSocket<MultiplayerSocketData>, message) =>
+      multiplayer.onMessage(ws, message),
+    close: (ws: Bun.ServerWebSocket<MultiplayerSocketData>) => multiplayer.onClose(ws),
+  },
 });
 
 console.log(`Games running at ${server.url}`);

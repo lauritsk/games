@@ -612,6 +612,43 @@
   .leaderboard-list__time {
     grid-row: span 2;
   }
+
+  .multiplayer-dialog__panel {
+    gap: 14px;
+  }
+
+  .multiplayer-dialog__title {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+
+  .multiplayer-dialog__body {
+    display: grid;
+    gap: 12px;
+  }
+
+  .multiplayer-dialog__join {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .multiplayer-dialog__join input {
+    flex: 1 1 160px;
+  }
+
+  .multiplayer-dialog__code {
+    width: max-content;
+    max-width: 100%;
+    border: 1px solid color-mix(in srgb, var(--accent), transparent 35%);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    background: color-mix(in srgb, var(--accent), transparent 86%);
+    color: var(--accent);
+    font-size: clamp(1.8rem, 9vw, 3rem);
+    font-weight: 950;
+    letter-spacing: 0.14em;
+  }
 }
 
 @layer game {
