@@ -108,6 +108,12 @@ export function emptyMultiplayerSeatSnapshots(): Record<MultiplayerSeat, Multipl
   };
 }
 
+export function multiplayerJoinedSeatCount(
+  seats: Record<MultiplayerSeat, MultiplayerSeatSnapshot>,
+): number {
+  return multiplayerSeats.filter((seat) => seats[seat].joined).length;
+}
+
 export function multiplayerReadySeatCount(
   seats: Record<MultiplayerSeat, MultiplayerSeatSnapshot>,
 ): number {

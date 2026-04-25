@@ -140,6 +140,7 @@ test("plays a live Tic-Tac-Toe room across two browsers", async ({ page, browser
   await guest.getByLabel("Room code").fill(code!);
   await guest.getByRole("button", { name: "Join room" }).click();
   await page.getByRole("button", { name: "Close" }).click();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
 
   await expect(page.getByText("Your turn")).toBeVisible({ timeout: 7000 });
   await page.getByRole("button", { name: "Row 2, column 2, empty" }).click();
@@ -173,6 +174,7 @@ test("syncs a live Connect 4 room across two browsers", async ({ page, browser }
   await guest.getByLabel("Room code").fill(code!);
   await guest.getByRole("button", { name: "Join room" }).click();
   await page.getByRole("button", { name: "Close" }).click();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
 
   await expect(page.getByText("Your turn")).toBeVisible({ timeout: 7000 });
   await page.getByRole("button", { name: "Row 1, column 4, empty" }).click();

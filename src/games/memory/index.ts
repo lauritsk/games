@@ -39,17 +39,23 @@ import {
 } from "@games/shared/game-state";
 import {
   createMultiplayerCountdown,
-  multiplayerCountdownNumber,
+  multiplayerCountdownText,
 } from "@features/multiplayer/multiplayer-countdown";
+import {
+  canRequestMultiplayerRematch,
+  canStartMultiplayerMatch,
+  createMultiplayerActionButtons,
+  multiplayerRematchActionLabel,
+} from "@features/multiplayer/multiplayer-actions";
 import {
   connectMultiplayerSession,
   type MultiplayerConnection,
   type MultiplayerConnectionStatus,
 } from "@features/multiplayer/multiplayer";
-import { createMultiplayerDialog } from "@features/multiplayer/multiplayer-dialog";
 import { renderMultiplayerPresence } from "@features/multiplayer/multiplayer-presence";
 import {
   emptyMultiplayerSeatSnapshots,
+  multiplayerJoinedSeatCount,
   multiplayerRematchStatusText,
   parseMultiplayerSeat,
   type MultiplayerRoomSnapshot,
@@ -191,30 +197,18 @@ export function mountMemory(target: HTMLElement): () => void {
     reset: resetGame,
   };
   const difficultyButton = createDifficultyControl(actions, difficultyControl);
-  const onlineDialog = createMultiplayerDialog();
-  const onlineButton = el("button", {
-    className: "button pill surface interactive",
-    text: "Play online",
-    type: "button",
+  const {
+    onlineButton,
+    startOnlineButton,
+    rematchButton,
+    closeDialog: closeOnlineDialog,
+  } = createMultiplayerActionButtons(actions, {
+    game: memory,
+    getSession: () => onlineSession,
+    onSession: startOnline,
+    onStart: requestOnlineStart,
+    onRematch: requestOnlineRematch,
   });
-  onlineButton.addEventListener("click", () => {
-    if (!onlineSession) onlineDialog.show(memory, startOnline);
-  });
-  actions.append(onlineButton);
-  const startOnlineButton = el("button", {
-    className: "button pill surface interactive",
-    text: "Start",
-    type: "button",
-  });
-  startOnlineButton.addEventListener("click", requestOnlineStart);
-  actions.append(startOnlineButton);
-  const rematchButton = el("button", {
-    className: "button pill surface interactive",
-    text: "Rematch",
-    type: "button",
-  });
-  rematchButton.addEventListener("click", requestOnlineRematch);
-  actions.append(rematchButton);
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
   addTouchGestureControls(
@@ -265,8 +259,7 @@ export function mountMemory(target: HTMLElement): () => void {
       !onlineSession || onlineRoomStatus !== "lobby" || onlineSeat !== "p1";
     startOnlineButton.disabled = !canOnlineStart();
     rematchButton.hidden = !isOnlineFinished();
-    rematchButton.textContent =
-      onlineSeat === "p1" ? "Start rematch" : currentSeatReady() ? "Ready" : "Ready rematch";
+    rematchButton.textContent = multiplayerRematchActionLabel(onlineSeat, currentSeatReady());
     rematchButton.disabled = onlineStatus !== "connected" || !canOnlineRematch();
 
     const tiles = syncChildren(grid, cards.length, (index) => {
@@ -528,18 +521,17 @@ export function mountMemory(target: HTMLElement): () => void {
   }
 
   function canOnlineStart(): boolean {
-    return Boolean(
-      onlineSession &&
-      onlineSeat === "p1" &&
-      onlineStatus === "connected" &&
-      onlineRoomStatus === "lobby" &&
-      joinedOnlineSeatCount() >= 2,
-    );
+    return canStartMultiplayerMatch({
+      session: onlineSession,
+      seat: onlineSeat,
+      connectionStatus: onlineStatus,
+      roomStatus: onlineRoomStatus,
+      seats: onlineSeats,
+    });
   }
 
   function canOnlineRematch(): boolean {
-    if (!isOnlineFinished()) return false;
-    return onlineSeat === "p1" || !currentSeatReady();
+    return canRequestMultiplayerRematch(isOnlineFinished(), onlineSeat, currentSeatReady());
   }
 
   function isOnlineFinished(): boolean {
@@ -551,7 +543,7 @@ export function mountMemory(target: HTMLElement): () => void {
   }
 
   function stopOnline(): void {
-    onlineDialog.close();
+    closeOnlineDialog();
     onlineConnection?.close();
     onlineConnection = null;
     onlineSession = null;
@@ -611,7 +603,7 @@ export function mountMemory(target: HTMLElement): () => void {
     if (!onlineSeat) return "Joining…";
     if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
     if (onlineRoomStatus === "lobby") {
-      const joined = joinedOnlineSeatCount();
+      const joined = multiplayerJoinedSeatCount(onlineSeats);
       if (onlineSeat === "p1") return `Room ${onlineSession.code} · ${joined}/2 · Start at 2`;
       return `Room ${onlineSession.code} · Waiting host`;
     }
@@ -638,20 +630,10 @@ export function mountMemory(target: HTMLElement): () => void {
   }
 
   function onlineCountdownText(): string {
-    const number = multiplayerCountdownNumber({
-      code: onlineSession?.code ?? "",
-      gameId: memory.id,
+    return multiplayerCountdownText({
       status: onlineRoomStatus,
-      revision: onlineRevision,
-      seats: onlineSeats,
-      state: {},
       countdownEndsAt: onlineCountdownEndsAt,
     });
-    return number === null ? "…" : String(number);
-  }
-
-  function joinedOnlineSeatCount(): number {
-    return Object.values(onlineSeats).filter((seat) => seat.joined).length;
   }
 
   function recordOnlineFinished(state: OnlineMemoryState): void {

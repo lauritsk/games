@@ -40,19 +40,24 @@ import {
 } from "@games/shared/game-state";
 import {
   createMultiplayerCountdown,
-  multiplayerCountdownNumber,
+  multiplayerCountdownText,
 } from "@features/multiplayer/multiplayer-countdown";
+import {
+  canRequestMultiplayerRematch,
+  canStartMultiplayerMatch,
+  createMultiplayerActionButtons,
+  multiplayerRematchActionLabel,
+} from "@features/multiplayer/multiplayer-actions";
 import {
   connectMultiplayerSession,
   type MultiplayerConnection,
   type MultiplayerConnectionStatus,
 } from "@features/multiplayer/multiplayer";
-import { createMultiplayerDialog } from "@features/multiplayer/multiplayer-dialog";
 import { renderMultiplayerPresence } from "@features/multiplayer/multiplayer-presence";
 import {
   emptyMultiplayerSeatSnapshots,
+  multiplayerJoinedSeatCount,
   multiplayerRematchStatusText,
-  multiplayerSeats,
   parseMultiplayerSeat,
   type MultiplayerRoomSnapshot,
   type MultiplayerRoomStatus,
@@ -225,30 +230,18 @@ export function mountSnake(target: HTMLElement): () => void {
     label: wallModeLabel,
     reset: resetGame,
   });
-  const onlineDialog = createMultiplayerDialog();
-  const onlineButton = el("button", {
-    className: "button pill surface interactive",
-    text: "Play online",
-    type: "button",
+  const {
+    onlineButton,
+    startOnlineButton,
+    rematchButton,
+    closeDialog: closeOnlineDialog,
+  } = createMultiplayerActionButtons(actions, {
+    game: snakeGameDefinition,
+    getSession: () => onlineSession,
+    onSession: startOnline,
+    onStart: requestOnlineStart,
+    onRematch: requestOnlineRematch,
   });
-  onlineButton.addEventListener("click", () => {
-    if (!onlineSession) onlineDialog.show(snakeGameDefinition, startOnline);
-  });
-  actions.append(onlineButton);
-  const startOnlineButton = el("button", {
-    className: "button pill surface interactive",
-    text: "Start",
-    type: "button",
-  });
-  startOnlineButton.addEventListener("click", requestOnlineStart);
-  actions.append(startOnlineButton);
-  const rematchButton = el("button", {
-    className: "button pill surface interactive",
-    text: "Rematch",
-    type: "button",
-  });
-  rematchButton.addEventListener("click", requestOnlineRematch);
-  actions.append(rematchButton);
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
   addTouchGestureControls(
@@ -301,8 +294,7 @@ export function mountSnake(target: HTMLElement): () => void {
     startOnlineButton.hidden = !onlineSession || onlineRoomStatus !== "lobby";
     startOnlineButton.disabled = !canOnlineStart();
     rematchButton.hidden = !isOnlineFinished();
-    rematchButton.textContent =
-      onlineSeat === "p1" ? "Start rematch" : currentSeatReady() ? "Ready" : "Ready rematch";
+    rematchButton.textContent = multiplayerRematchActionLabel(onlineSeat, currentSeatReady());
     rematchButton.disabled = onlineStatus !== "connected" || !canOnlineRematch();
 
     const onlineCells = onlineSession ? onlineCellStates() : null;
@@ -711,18 +703,17 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function canOnlineStart(): boolean {
-    return Boolean(
-      onlineSession &&
-      onlineSeat === "p1" &&
-      onlineStatus === "connected" &&
-      onlineRoomStatus === "lobby" &&
-      joinedOnlineSeatCount() >= 2,
-    );
+    return canStartMultiplayerMatch({
+      session: onlineSession,
+      seat: onlineSeat,
+      connectionStatus: onlineStatus,
+      roomStatus: onlineRoomStatus,
+      seats: onlineSeats,
+    });
   }
 
   function canOnlineRematch(): boolean {
-    if (!isOnlineFinished()) return false;
-    return onlineSeat === "p1" || !currentSeatReady();
+    return canRequestMultiplayerRematch(isOnlineFinished(), onlineSeat, currentSeatReady());
   }
 
   function isOnlineFinished(): boolean {
@@ -734,7 +725,7 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function stopOnline(): void {
-    onlineDialog.close();
+    closeOnlineDialog();
     onlineConnection?.close();
     onlineConnection = null;
     onlineSession = null;
@@ -786,7 +777,7 @@ export function mountSnake(target: HTMLElement): () => void {
     if (onlineStatus === "connecting") return "Connecting…";
     if (onlineStatus === "reconnecting") return "Reconnecting…";
     if (!onlineSession) return "Online";
-    const joined = joinedOnlineSeatCount();
+    const joined = multiplayerJoinedSeatCount(onlineSeats);
     if (onlineRoomStatus === "lobby") {
       if (onlineSeat === "p1") return `Room ${onlineSession.code} · ${joined}/4 · Start at 2`;
       return `Room ${onlineSession.code} · ${joined}/4 · Waiting host`;
@@ -815,16 +806,10 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function onlineCountdownText(): string {
-    const number = multiplayerCountdownNumber({
-      code: onlineSession?.code ?? "",
-      gameId,
+    return multiplayerCountdownText({
       status: onlineRoomStatus,
-      revision: onlineRevision,
-      seats: onlineSeats,
-      state: {},
       countdownEndsAt: onlineCountdownEndsAt,
     });
-    return number === null ? "…" : String(number);
   }
 
   function recordOnlineFinished(snapshot: OnlineSnakeState): void {
@@ -878,10 +863,6 @@ export function mountSnake(target: HTMLElement): () => void {
     snapshot: OnlineSnakeState | null = onlineState,
   ): OnlineSnakePlayer | null {
     return snapshot?.players.find((player) => player.seat === seat) ?? null;
-  }
-
-  function joinedOnlineSeatCount(): number {
-    return multiplayerSeats.filter((seat) => onlineSeats[seat].joined).length;
   }
 
   if (startedAt !== null) markGameStarted(shell);

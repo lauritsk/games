@@ -1,5 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import type { ServerWebSocket } from "bun";
+import {
+  canRequestMultiplayerRematch,
+  canStartMultiplayerMatch,
+  multiplayerRematchActionLabel,
+} from "@features/multiplayer/multiplayer-actions";
+import {
+  emptyMultiplayerSeatSnapshots,
+  multiplayerJoinedSeatCount,
+  type MultiplayerSession,
+} from "@features/multiplayer/multiplayer-protocol";
 import { MultiplayerHub, type MultiplayerSocketData } from "@server/multiplayer";
 
 async function json(response: Response): Promise<Record<string, unknown>> {
@@ -36,6 +46,50 @@ function lastSentJson(socket: TestSocket): Record<string, unknown> {
   if (!message) throw new Error("No socket message sent");
   return JSON.parse(message) as Record<string, unknown>;
 }
+
+describe("multiplayer client helpers", () => {
+  test("gate start and rematch actions from shared room state", () => {
+    const seats = emptyMultiplayerSeatSnapshots();
+    const session = {
+      code: "ABC234",
+      gameId: "tictactoe",
+      playerId: "p1-id",
+      playerToken: "token",
+      seat: "p1",
+    } satisfies MultiplayerSession;
+
+    seats.p1.joined = true;
+    expect(multiplayerJoinedSeatCount(seats)).toBe(1);
+    expect(
+      canStartMultiplayerMatch({
+        session,
+        seat: "p1",
+        connectionStatus: "connected",
+        roomStatus: "lobby",
+        seats,
+      }),
+    ).toBe(false);
+
+    seats.p2.joined = true;
+    expect(multiplayerJoinedSeatCount(seats)).toBe(2);
+    expect(
+      canStartMultiplayerMatch({
+        session,
+        seat: "p1",
+        connectionStatus: "connected",
+        roomStatus: "lobby",
+        seats,
+      }),
+    ).toBe(true);
+    expect(canRequestMultiplayerRematch(true, "p1", false)).toBe(true);
+    expect(canRequestMultiplayerRematch(true, "p2", false)).toBe(true);
+    expect(canRequestMultiplayerRematch(true, "p2", true)).toBe(false);
+    expect(canRequestMultiplayerRematch(false, "p1", false)).toBe(false);
+    expect(multiplayerRematchActionLabel("p1", false)).toBe("Start rematch");
+    expect(multiplayerRematchActionLabel("p2", false)).toBe("Ready rematch");
+    expect(multiplayerRematchActionLabel("p2", true)).toBe("Ready");
+  });
+});
 
 describe("multiplayer API", () => {
   test("creates and joins short-code rooms", async () => {

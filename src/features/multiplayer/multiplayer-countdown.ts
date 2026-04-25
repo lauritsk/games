@@ -6,11 +6,18 @@ export type MultiplayerCountdown = {
   cleanup(): void;
 };
 
-export function multiplayerCountdownNumber(room: MultiplayerRoomSnapshot): number | null {
+type CountdownRoom = Pick<MultiplayerRoomSnapshot, "status" | "countdownEndsAt">;
+
+export function multiplayerCountdownNumber(room: CountdownRoom): number | null {
   if (room.status !== "countdown" || typeof room.countdownEndsAt !== "number") return null;
   const remaining = Math.ceil((room.countdownEndsAt - Date.now()) / 1000);
   if (remaining < 1) return null;
   return Math.min(5, remaining);
+}
+
+export function multiplayerCountdownText(room: CountdownRoom): string {
+  const number = multiplayerCountdownNumber(room);
+  return number === null ? "…" : String(number);
 }
 
 export function createMultiplayerCountdown(onTick: () => void): MultiplayerCountdown {
