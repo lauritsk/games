@@ -1,5 +1,6 @@
 # TODO
 
+- [x] Require host manual start for all online matches.
 - [x] Simplify online pre-match UI spacing and labels.
 - [x] Fix online room pre-match status: visible countdown numerals, player positions, and assigned colors.
 - [ ] Add Space Invaders online-only 2-player co-op with two shooters and scaled harder difficulty for 2 players.

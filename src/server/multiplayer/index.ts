@@ -188,16 +188,7 @@ export class MultiplayerHub {
       connectedCount: 0,
     };
     room.lastActivityAt = Date.now();
-
-    if (room.adapter.autoStart !== false && joinedSeats(room).length >= minPlayers(room)) {
-      const started = this.beginRoomCountdown(room);
-      if (!started.ok) {
-        delete room.players[seat];
-        return { ok: false, error: started.error };
-      }
-    } else {
-      room.revision += 1;
-    }
+    room.revision += 1;
 
     return { ok: true, session };
   }

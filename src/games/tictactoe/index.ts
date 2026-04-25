@@ -194,6 +194,13 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     if (!onlineSession) onlineDialog.show(tictactoe, startOnline);
   });
   actions.append(onlineButton);
+  const startOnlineButton = el("button", {
+    className: "button pill surface interactive",
+    text: "Start",
+    type: "button",
+  });
+  startOnlineButton.addEventListener("click", requestOnlineStart);
+  actions.append(startOnlineButton);
   const rematchButton = el("button", {
     className: "button pill surface interactive",
     text: "Rematch",
@@ -236,6 +243,9 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     difficultyButton.disabled = Boolean(onlineSession);
     onlineButton.textContent = onlineSession ? `Room ${onlineSession.code}` : "Play online";
     onlineButton.disabled = Boolean(onlineSession);
+    startOnlineButton.hidden =
+      !onlineSession || onlineRoomStatus !== "lobby" || onlineSeat !== "p1";
+    startOnlineButton.disabled = !canOnlineStart();
     rematchButton.hidden = !isOnlineFinished();
     rematchButton.textContent =
       onlineSeat === "p1" ? "Start rematch" : currentSeatReady() ? "Ready" : "Ready rematch";
@@ -432,11 +442,32 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     render();
   }
 
+  function requestOnlineStart(): void {
+    if (!onlineSession) return;
+    if (!canOnlineStart()) {
+      if (onlineRoomStatus === "lobby") invalidMove.trigger();
+      return;
+    }
+    onlineError = "Starting…";
+    onlineConnection?.requestStart(onlineRevision);
+    render();
+  }
+
   function requestOnlineRematch(): void {
     if (!canOnlineRematch()) return;
     onlineError = onlineSeat === "p1" ? "Starting rematch…" : "Ready for rematch…";
     onlineConnection?.requestRematch(onlineRevision);
     render();
+  }
+
+  function canOnlineStart(): boolean {
+    return Boolean(
+      onlineSession &&
+      onlineSeat === "p1" &&
+      onlineStatus === "connected" &&
+      onlineRoomStatus === "lobby" &&
+      joinedOnlineSeatCount() >= 2,
+    );
   }
 
   function canOnlineRematch(): boolean {
@@ -513,7 +544,11 @@ export function mountTicTacToe(target: HTMLElement): () => void {
       return `${result} · ${multiplayerReadySeatCount(onlineSeats)} ready`;
     }
     if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
-    if (onlineRevision === 0) return `Room ${onlineSession.code} · Waiting`;
+    if (onlineRoomStatus === "lobby") {
+      const joined = joinedOnlineSeatCount();
+      if (onlineSeat === "p1") return `Room ${onlineSession.code} · ${joined}/2 · Start at 2`;
+      return `Room ${onlineSession.code} · Waiting host`;
+    }
     return current === markForSeat(onlineSeat) ? "Your turn" : "Opponent turn";
   }
 
@@ -528,6 +563,10 @@ export function mountTicTacToe(target: HTMLElement): () => void {
       countdownEndsAt: onlineCountdownEndsAt,
     });
     return number === null ? "…" : String(number);
+  }
+
+  function joinedOnlineSeatCount(): number {
+    return Object.values(onlineSeats).filter((seat) => seat.joined).length;
   }
 
   function recordOnlineFinished(state: OnlineTicTacToeState): void {
