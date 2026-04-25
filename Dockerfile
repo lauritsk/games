@@ -8,6 +8,8 @@ RUN bun install --frozen-lockfile
 COPY index.html tsconfig.json ./
 COPY src ./src
 RUN bun build ./index.html --outdir ./dist/public --minify \
+    && bun build ./src/service-worker.js --outdir ./dist/public --minify --entry-naming='[name].[ext]' \
+    && cp src/favicon.svg ./dist/public/favicon.svg \
     && bun build ./src/server.ts --outdir ./dist --target bun
 
 ARG BUN_VERSION=1.3.13

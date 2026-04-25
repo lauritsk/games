@@ -24,6 +24,7 @@ import {
 import { games } from "./games";
 import { bestGameResult, clearGameResults, listGameResults, type GameResult } from "./game-results";
 import { hasGameSave } from "./game-state";
+import { initializePwa } from "./pwa";
 import { playSound, unlockSound } from "./sound";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -47,6 +48,7 @@ window.addEventListener("games:result-recorded", onResultRecorded);
 window.addEventListener("pointerdown", unlockSound, { capture: true });
 window.addEventListener("keydown", unlockSound, { capture: true });
 initializeAppearance();
+initializePwa();
 onAppearanceChange(() => {
   updateAppearanceControl(appearanceControl);
   updateThemeColor();
