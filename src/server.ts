@@ -1,4 +1,5 @@
 import index from "../index.html";
+import { createSyncApiHandler } from "./server/api";
 
 const isProduction = process.env["NODE_ENV"] === "production";
 const publicDir = process.env.PUBLIC_DIR ?? "public";
@@ -21,6 +22,14 @@ function contentType(path: string): string | undefined {
   if (path.endsWith(".svg")) return "image/svg+xml";
   if (path.endsWith(".webmanifest")) return "application/manifest+json;charset=utf-8";
   return undefined;
+}
+
+const syncApi = createSyncApiHandler();
+
+async function appResponse(request: Request): Promise<Response> {
+  const apiResponse = await syncApi(request);
+  if (apiResponse) return apiResponse;
+  return isProduction ? staticResponse(request) : new Response("Not found", { status: 404 });
 }
 
 async function staticResponse(request: Request): Promise<Response> {
@@ -56,7 +65,7 @@ const server = Bun.serve({
     hmr: true,
     console: true,
   },
-  fetch: isProduction ? staticResponse : () => new Response("Not found", { status: 404 }),
+  fetch: appResponse,
 });
 
 console.log(`Games running at ${server.url}`);

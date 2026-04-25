@@ -1,5 +1,6 @@
 import type { Difficulty } from "./types";
 import { readStored, storageKey, writeStored } from "./storage";
+import { notifySyncChanged } from "./sync-local";
 import { isRecord } from "./validation";
 
 export type GamePreferences = {
@@ -20,7 +21,7 @@ export function loadGamePreferences(gameId: string): GamePreferences {
 export function saveGamePreferences(gameId: string, preferences: GamePreferences): void {
   const all = loadPreferences();
   all[gameId] = sanitizePreferences(preferences);
-  writeStored(preferencesKey, PREFERENCES_SCHEMA_VERSION, all);
+  if (writeStored(preferencesKey, PREFERENCES_SCHEMA_VERSION, all)) notifySyncChanged();
 }
 
 export function updateGamePreferences(

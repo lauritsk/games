@@ -16,6 +16,7 @@
 - Shared arcade helpers for fixed-step loops, collisions, held-key input, pause overlays, and touch controls.
 - Unit tests for game logic plus Playwright coverage for browser behavior.
 - Static builds and a Docker image for simple deployment.
+- Local-first saves/results with optional Bun SQLite sync when served by the included Bun server.
 
 ## Demo locally
 
@@ -48,7 +49,9 @@ Open <http://localhost:3000>.
 | Command | Description |
 | --- | --- |
 | `mise run dev` | Start the Bun dev server with HMR at <http://localhost:3000>. |
+| `mise run db:migrate` | Create or migrate the Bun SQLite sync database. |
 | `mise run build` | Build the static app into `dist/`. |
+| `mise run build:server` | Build the Bun server bundle into a temporary directory. |
 | `mise run build:single` | Build a standalone single-file browser artifact into `dist-single/`. |
 | `mise run test` | Run Bun unit tests. |
 | `mise run test:e2e` | Build and run Playwright browser tests. |
@@ -90,6 +93,24 @@ Open <http://localhost:3000>.
 
 Themes are shared tokens in `src/styles.css` and selected by each game's `theme` field. Current theme names include `deep-cave`, `deep-ocean`, `outer-space`, and `deep-forest`.
 
+## State and sync
+
+The browser keeps game preferences, saves, and result history in `localStorage` first. When served by `src/server.ts`, the app also syncs that local data to Bun's native SQLite driver (`bun:sqlite`) through `/api/sync`.
+
+Default database path:
+
+```bash
+GAMES_DB_PATH=data/games.sqlite
+```
+
+Create the database manually, or let the server create it on first request:
+
+```bash
+mise run db:migrate
+```
+
+Static hosting still works, but sync is disabled because there is no `/api/sync` server.
+
 ## Deployment
 
 Build static assets:
@@ -98,7 +119,7 @@ Build static assets:
 mise run build
 ```
 
-Serve `dist/` with any static host, or run the included container:
+Serve `dist/` with any static host, or run the included container. For persistent sync storage, mount `/app/data` or set `GAMES_DB_PATH` to a persistent SQLite path:
 
 ```bash
 mise run docker:up

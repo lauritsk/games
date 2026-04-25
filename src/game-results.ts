@@ -1,6 +1,7 @@
 import type { Difficulty } from "./types";
 import { readStored, storageKey, writeStored } from "./storage";
 import { parseDifficulty } from "./game-preferences";
+import { notifySyncChanged, recordResultsClearedForSync } from "./sync-local";
 import { isFiniteNumber, isRecord } from "./validation";
 
 export type GameOutcome = "won" | "lost" | "draw" | "completed";
@@ -40,7 +41,9 @@ export function recordGameResult(result: Omit<GameResult, "id" | "finishedAt">):
     id: createResultId(),
     finishedAt: new Date().toISOString(),
   };
-  writeStored(resultsKey, RESULTS_SCHEMA_VERSION, pruneResults([next, ...current]));
+  if (writeStored(resultsKey, RESULTS_SCHEMA_VERSION, pruneResults([next, ...current]))) {
+    notifySyncChanged();
+  }
   dispatchResultRecorded(next);
 }
 
@@ -50,15 +53,15 @@ export function listGameResults(gameId?: string): GameResult[] {
 }
 
 export function clearGameResults(gameId?: string): void {
-  if (!gameId) {
-    writeStored(resultsKey, RESULTS_SCHEMA_VERSION, []);
-    return;
-  }
-  writeStored(
-    resultsKey,
-    RESULTS_SCHEMA_VERSION,
-    listGameResults().filter((result) => result.gameId !== gameId),
-  );
+  const written = !gameId
+    ? writeStored(resultsKey, RESULTS_SCHEMA_VERSION, [])
+    : writeStored(
+        resultsKey,
+        RESULTS_SCHEMA_VERSION,
+        listGameResults().filter((result) => result.gameId !== gameId),
+      );
+  if (!written) return;
+  recordResultsClearedForSync(gameId);
 }
 
 export function bestGameResult(

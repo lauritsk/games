@@ -1,5 +1,10 @@
 import type { MountScope } from "./lifecycle";
 import { readStored, removeStored, storageKey, writeStored } from "./storage";
+import {
+  notifySyncChanged,
+  recordSaveDeletedForSync,
+  recordSaveWrittenForSync,
+} from "./sync-local";
 import { isRecord } from "./validation";
 
 export type SaveStatus = "ready" | "playing" | "paused";
@@ -31,18 +36,24 @@ export function saveGameSave<T>(
   payloadVersion: number,
   save: Omit<GameSave<T>, "gameId" | "payloadVersion" | "savedAt">,
 ): void {
-  writeStored(saveKey(gameId), SAVE_SCHEMA_VERSION, {
-    gameId,
-    payloadVersion,
-    runId: save.runId,
-    savedAt: new Date().toISOString(),
-    status: save.status,
-    payload: save.payload,
-  } satisfies GameSave<T>);
+  if (
+    writeStored(saveKey(gameId), SAVE_SCHEMA_VERSION, {
+      gameId,
+      payloadVersion,
+      runId: save.runId,
+      savedAt: new Date().toISOString(),
+      status: save.status,
+      payload: save.payload,
+    } satisfies GameSave<T>)
+  ) {
+    recordSaveWrittenForSync(gameId);
+    notifySyncChanged();
+  }
 }
 
 export function clearGameSave(gameId: string): void {
   removeStored(saveKey(gameId));
+  recordSaveDeletedForSync(gameId);
 }
 
 export function hasGameSave(gameId: string): boolean {

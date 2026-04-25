@@ -24,6 +24,7 @@ import { hasGameSave } from "./game-state";
 import { createGameHistoryDialog } from "./history-dialog";
 import { initializePwa } from "./pwa";
 import { playSound, unlockSound } from "./sound";
+import { initializeSync } from "./sync";
 
 const defaultTheme = "deep-cave" satisfies GameDefinition["theme"];
 const themeColors = {
@@ -59,10 +60,12 @@ app.append(page);
 
 window.addEventListener("hashchange", renderRoute);
 window.addEventListener("games:result-recorded", onResultRecorded);
+window.addEventListener("games:sync-merged", onSyncMerged);
 window.addEventListener("pointerdown", unlockSound, { capture: true });
 window.addEventListener("keydown", unlockSound, { capture: true });
 initializeAppearance();
 initializePwa();
+initializeSync();
 onAppearanceChange(() => {
   updateAppearanceControl(appearanceControl);
   updateThemeColor();
@@ -248,6 +251,10 @@ function onResultRecorded(event: Event): void {
   const game = getRouteGame();
   if (!game || !result || result.gameId !== game.id) return;
   historyDialog.show(game, result);
+}
+
+function onSyncMerged(): void {
+  if (!getRouteGame()) renderRoute();
 }
 
 function cleanupGame(): void {

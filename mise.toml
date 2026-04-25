@@ -16,6 +16,10 @@ postinstall = "hk install --mise"
 description = "Run the web app dev server"
 run = "bun run dev"
 
+[tasks."db:migrate"]
+description = "Create or migrate the Bun SQLite sync database"
+run = "bun run src/server/migrate.ts"
+
 [tasks.build]
 description = "Build the web app"
 run = "bun run build"
@@ -24,6 +28,10 @@ run = "bun run build"
 description = "Build the web app as one standalone HTML file"
 run = "bun run build:single"
 
+[tasks."build:server"]
+description = "Build the Bun server bundle into a temporary directory"
+run = "rm -rf /tmp/games-server-build && bun build ./src/server.ts --outdir /tmp/games-server-build --target bun"
+
 [tasks.lint]
 description = "Run hk-managed checks across the repository"
 run = "hk check --all"
@@ -31,6 +39,10 @@ run = "hk check --all"
 [tasks.fix]
 description = "Run hk-managed fixers across the repository"
 run = "hk fix --all"
+
+[tasks.typecheck]
+description = "Run TypeScript type checks"
+run = "bun run typecheck"
 
 [tasks.test]
 description = "Run tests"
@@ -55,4 +67,4 @@ run = "BUN_VERSION=$(mise current bun) docker compose up --build"
 
 [tasks.check]
 description = "Run version check, hk checks, tests, and build"
-depends = ["lint", "test", "build", "test:e2e"]
+depends = ["lint", "test", "build", "build:server", "test:e2e"]

@@ -4,5 +4,12 @@ services:
       context: .
       args:
         BUN_VERSION: ${BUN_VERSION:-1.3.13}
+    environment:
+      GAMES_DB_PATH: /app/data/games.sqlite
     ports:
       - "3000:3000"
+    volumes:
+      - games-data:/app/data
+
+volumes:
+  games-data:

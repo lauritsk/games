@@ -19,6 +19,14 @@ export function readStored<T>(
   schemaVersion: number,
   parse: StoredParser<T>,
 ): T | null {
+  return readStoredEnvelope(key, schemaVersion, parse)?.data ?? null;
+}
+
+export function readStoredEnvelope<T>(
+  key: string,
+  schemaVersion: number,
+  parse: StoredParser<T>,
+): StoredEnvelope<T> | null {
   const storage = getLocalStorage();
   if (!storage) return null;
 
@@ -34,7 +42,9 @@ export function readStored<T>(
     const envelope = JSON.parse(raw) as Partial<StoredEnvelope<unknown>>;
     if (!isRecord(envelope) || envelope.schemaVersion !== schemaVersion) return null;
     if (typeof envelope.updatedAt !== "string" || !("data" in envelope)) return null;
-    return parse(envelope.data);
+    const data = parse(envelope.data);
+    if (data === null) return null;
+    return { schemaVersion, updatedAt: envelope.updatedAt, data };
   } catch {
     removeStored(key);
     return null;
@@ -42,14 +52,16 @@ export function readStored<T>(
 }
 
 export function writeStored<T>(key: string, schemaVersion: number, data: T): boolean {
-  const storage = getLocalStorage();
-  if (!storage) return false;
-
-  const envelope: StoredEnvelope<T> = {
+  return writeStoredEnvelope(key, {
     schemaVersion,
     updatedAt: new Date().toISOString(),
     data,
-  };
+  });
+}
+
+export function writeStoredEnvelope<T>(key: string, envelope: StoredEnvelope<T>): boolean {
+  const storage = getLocalStorage();
+  if (!storage) return false;
 
   try {
     storage.setItem(key, JSON.stringify(envelope));

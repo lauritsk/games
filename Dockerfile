@@ -17,8 +17,10 @@ FROM dhi.io/bun:${BUN_VERSION}
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV GAMES_DB_PATH=/app/data/games.sqlite
 WORKDIR /app/dist
 COPY --from=build /app/dist ./
 
 EXPOSE 3000
+VOLUME ["/app/data"]
 CMD ["bun", "run", "server.js"]
