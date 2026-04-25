@@ -16,6 +16,7 @@ export type LeaderboardEntry = {
   moves?: number;
   durationMs?: number;
   level?: number;
+  streak?: number;
   metadata?: Record<string, string | number | boolean>;
   createdAt: string;
   rank?: number;
@@ -38,7 +39,9 @@ export function isLeaderboardEligible(result: GameResult): boolean {
   const value = result[config.metric];
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0) return false;
   if (value > config.maxMetricValue) return false;
-  return !config.allowedOutcomes || config.allowedOutcomes.includes(result.outcome);
+  if (config.requireDifficulty && !result.difficulty) return false;
+  if (config.allowedOutcomes && !config.allowedOutcomes.includes(result.outcome)) return false;
+  return hasRequiredMetadata(result.metadata, config.requiredMetadata);
 }
 
 export function leaderboardMetricText(entry: LeaderboardEntry): string {
@@ -47,11 +50,20 @@ export function leaderboardMetricText(entry: LeaderboardEntry): string {
 
 export function leaderboardResultMetricText(result: GameResult): string {
   const config = leaderboardConfigForGame(result.gameId);
-  if (!config) return "Score unavailable";
+  if (!config) return "Metric unavailable";
   const value = result[config.metric];
   return typeof value === "number"
     ? `${config.label[0]?.toLocaleUpperCase()}${config.label.slice(1)} ${formatMetric(config.metric, value)}`
-    : "Score unavailable";
+    : "Metric unavailable";
+}
+
+function hasRequiredMetadata(
+  metadata: GameResult["metadata"] | undefined,
+  required: Readonly<Record<string, string | number | boolean>> | undefined,
+): boolean {
+  if (!required) return true;
+  if (!metadata) return false;
+  return Object.entries(required).every(([key, value]) => metadata[key] === value);
 }
 
 export async function fetchLeaderboard(
@@ -68,7 +80,7 @@ export async function submitLeaderboardScore(
   username: string,
 ): Promise<LeaderboardSubmitResponse> {
   const config = leaderboardConfigForGame(result.gameId);
-  if (!config) return { ok: false, error: "Score cannot be submitted." };
+  if (!config) return { ok: false, error: "Result cannot be submitted." };
   const body: Record<string, unknown> = {
     deviceId: getDeviceId(),
     runId: result.runId,
@@ -80,6 +92,7 @@ export async function submitLeaderboardScore(
     moves: result.moves,
     durationMs: result.durationMs,
     level: result.level,
+    streak: result.streak,
     metadata: result.metadata ?? {},
   };
   return requestJson<LeaderboardSubmitResponse>("/api/leaderboard", {

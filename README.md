@@ -17,6 +17,7 @@
 - Unit tests for game logic plus Playwright coverage for browser behavior.
 - Static builds and a Docker image for simple deployment.
 - Local-first saves/results with optional Bun SQLite sync when served by the included Bun server.
+- Public leaderboards for scores, fastest times, and bot win streaks when the Bun server is available.
 
 ## Demo locally
 
@@ -109,7 +110,35 @@ Create the database manually, or let the server create it on first request:
 mise run db:migrate
 ```
 
-Static hosting still works, but sync is disabled because there is no `/api/sync` server.
+Static hosting still works, but sync and public leaderboards are disabled because there is no API server.
+
+## Leaderboards
+
+When served by `src/server.ts`, games can publish one primary leaderboard metric per game:
+
+- Score leaderboards rank higher values first.
+- Fastest-time leaderboards rank lower durations first.
+- Bot win-streak leaderboards rank consecutive wins against the bot, separated by game and difficulty.
+
+Tic-Tac-Toe and Connect 4 streaks are only eligible in `Vs bot` mode. A bot win increments the current streak for that game and difficulty. A bot loss, draw, or abandoned active bot game resets the current streak; leaving a saved game to resume later does not. Current streak state is device-local; submitted result history can still sync. Local two-player results stay in history but are not public-leaderboard eligible.
+
+Leaderboard submissions use a display name plus the local device/run id to prevent duplicate submissions for the same finished run. They are intended as casual, friendly rankings: the server validates payload shape, ranges, allowed outcomes, duplicate runs, and basic moderation rules, but it does not provide strong anti-cheat.
+
+### Moderation and cleanup
+
+Leaderboard rows live in the `leaderboard_scores` SQLite table. To remove a bad public row, connect to the database configured by `GAMES_DB_PATH`, inspect the row, then delete it by `id`:
+
+```sql
+SELECT id, game_id, username, metric, metric_value, created_at
+FROM leaderboard_scores
+ORDER BY created_at DESC
+LIMIT 20;
+
+DELETE FROM leaderboard_scores
+WHERE id = 'leaderboard-id-to-remove';
+```
+
+Create a backup before manual cleanup. Restart is not required because reads query SQLite directly.
 
 ## Deployment
 

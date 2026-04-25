@@ -59,7 +59,7 @@ const leaderboardDialog = createLeaderboardDialog();
 const historyDialog = createGameHistoryDialog({
   resultActions: (game, result, closeCurrent) => {
     if (!isLeaderboardEligible(result)) return [];
-    const submit = pillButton("Submit score");
+    const submit = pillButton("Submit to leaderboard");
     submit.addEventListener("click", () => {
       closeCurrent();
       leaderboardDialog.show(game, result);

@@ -65,12 +65,12 @@ test("game header controls do not overlap the appearance toggle", async ({ page 
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
-test("leaderboard navigation only appears for public leaderboard games", async ({ page }) => {
+test("leaderboard navigation opens public leaderboard games", async ({ page }) => {
   await openGame(page, "Minesweeper");
   await page.getByRole("button", { name: "Leaderboard" }).click();
   const dialog = page.getByRole("dialog", { name: "Minesweeper leaderboard" });
   await expect(dialog).toBeVisible();
-  await expect(dialog).not.toContainText("Loading scores…");
+  await expect(dialog).not.toContainText("Loading leaderboard…");
   await expect(dialog).not.toContainText("Invalid leaderboard query");
   await dialog.getByRole("button", { name: "Close", exact: true }).click();
 
@@ -82,7 +82,75 @@ test("leaderboard navigation only appears for public leaderboard games", async (
   await memoryDialog.getByRole("button", { name: "Close", exact: true }).click();
 
   await openGame(page, "Tic-Tac-Toe");
-  await expect(page.getByRole("button", { name: "Leaderboard" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Leaderboard" }).click();
+  const ticTacToeDialog = page.getByRole("dialog", { name: "Tic-Tac-Toe leaderboard" });
+  await expect(ticTacToeDialog).toBeVisible();
+  await expect(ticTacToeDialog).not.toContainText("Invalid leaderboard query");
+  await ticTacToeDialog.getByRole("button", { name: "Close", exact: true }).click();
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
+test("submits one eligible leaderboard result flow", async ({ page }) => {
+  let submittedEntry: unknown;
+  await page.route("**/api/leaderboard**", async (route) => {
+    if (route.request().method() === "POST") {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      expect(body.gameId).toBe("tictactoe");
+      expect(body.streak).toBe(2);
+      expect(body.metadata).toEqual({ mode: "bot", winner: "X" });
+      submittedEntry = {
+        id: "leaderboard-e2e",
+        gameId: "tictactoe",
+        username: body.username,
+        difficulty: body.difficulty,
+        outcome: body.outcome,
+        metric: "streak",
+        metricValue: body.streak,
+        streak: body.streak,
+        metadata: body.metadata,
+        createdAt: new Date().toISOString(),
+        rank: 1,
+      };
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, rank: 1, entry: submittedEntry }),
+      });
+      return;
+    }
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, entries: submittedEntry ? [submittedEntry] : [] }),
+    });
+  });
+
+  await openGame(page, "Tic-Tac-Toe");
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new CustomEvent("games:result-recorded", {
+        detail: {
+          id: "result-submit-e2e",
+          runId: "run-submit-e2e",
+          gameId: "tictactoe",
+          outcome: "won",
+          difficulty: "Hard",
+          moves: 5,
+          streak: 2,
+          metadata: { mode: "bot", winner: "X" },
+          finishedAt: new Date().toISOString(),
+        },
+      }),
+    );
+  });
+
+  await page.getByRole("button", { name: "Submit to leaderboard" }).click();
+  const dialog = page.getByRole("dialog", { name: "Tic-Tac-Toe leaderboard" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByPlaceholder("Display name").fill("ACE");
+  await dialog.getByRole("button", { name: "Submit Streak 2 wins" }).click();
+
+  await expect(dialog).toContainText("Rank #1");
+  await expect(dialog).toContainText("ACE");
+  await expect(dialog).toContainText("2 wins");
   await page.evaluate(() => window.assertNoClientErrors());
 });
 

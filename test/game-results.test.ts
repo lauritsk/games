@@ -52,8 +52,12 @@ describe("game results", () => {
     recordGameResult({ runId: "run-a", gameId: "tetris", outcome: "lost", score: 100, level: 2 });
     recordGameResult({ runId: "run-b", gameId: "tetris", outcome: "lost", score: 300, level: 1 });
 
+    recordGameResult({ runId: "run-c", gameId: "tictactoe", outcome: "won", streak: 4 });
+    recordGameResult({ runId: "run-d", gameId: "tictactoe", outcome: "won", streak: 2 });
+
     expect(bestGameResult("tetris", "score", "max")?.score).toBe(300);
     expect(bestGameResult("tetris", "level", "min")?.level).toBe(1);
+    expect(bestGameResult("tictactoe", "streak", "max")?.streak).toBe(4);
   });
 
   test("prunes to 50 results per game", () => {

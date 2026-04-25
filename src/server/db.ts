@@ -43,6 +43,7 @@ type ResultRow = {
   moves: number | null;
   duration_ms: number | null;
   level: number | null;
+  streak: number | null;
   metadata_json: string;
 };
 type ResultPruneRow = { id: string; game_id: string; finished_at: string };
@@ -58,6 +59,8 @@ export class GameDatabase {
     this.db.exec("PRAGMA journal_mode = WAL;");
     this.db.exec("PRAGMA foreign_keys = ON;");
     this.db.exec(SYNC_SCHEMA_SQL);
+    this.ensureColumn("results", "streak", "INTEGER");
+    this.ensureColumn("leaderboard_scores", "streak", "INTEGER");
   }
 
   close(): void {
@@ -113,7 +116,7 @@ export class GameDatabase {
       ? (this.db
           .query(
             `SELECT id, game_id, username, difficulty, outcome, metric, metric_value, score,
-                    moves, duration_ms, level, metadata_json, created_at
+                    moves, duration_ms, level, streak, metadata_json, created_at
              FROM leaderboard_scores
              WHERE game_id = ?1 AND metric = ?2 AND difficulty = ?3
              ORDER BY metric_value ${directionSql}, created_at ASC, id ASC
@@ -128,7 +131,7 @@ export class GameDatabase {
       : (this.db
           .query(
             `SELECT id, game_id, username, difficulty, outcome, metric, metric_value, score,
-                    moves, duration_ms, level, metadata_json, created_at
+                    moves, duration_ms, level, streak, metadata_json, created_at
              FROM leaderboard_scores
              WHERE game_id = ?1 AND metric = ?2
              ORDER BY metric_value ${directionSql}, created_at ASC, id ASC
@@ -140,6 +143,16 @@ export class GameDatabase {
       entry.rank = index + 1;
       return entry;
     });
+  }
+
+  private ensureColumn(
+    table: "results" | "leaderboard_scores",
+    column: string,
+    definition: string,
+  ): void {
+    const rows = this.db.query(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (rows.some((row) => row.name === column)) return;
+    this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
 
   private touchDevice(deviceId: string): void {
@@ -200,8 +213,8 @@ export class GameDatabase {
       .prepare(
         `INSERT INTO results (
            device_id, id, run_id, game_id, finished_at, difficulty, outcome,
-           score, moves, duration_ms, level, metadata_json
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+           score, moves, duration_ms, level, streak, metadata_json
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
          ON CONFLICT(device_id, run_id) DO NOTHING`,
       )
       .run(
@@ -216,6 +229,7 @@ export class GameDatabase {
         result.moves ?? null,
         result.durationMs ?? null,
         result.level ?? null,
+        result.streak ?? null,
         jsonString(result.metadata ?? {}),
       );
   }
@@ -308,7 +322,7 @@ export class GameDatabase {
     const rows = this.db
       .query(
         `SELECT id, run_id, game_id, finished_at, difficulty, outcome, score, moves,
-                duration_ms, level, metadata_json
+                duration_ms, level, streak, metadata_json
          FROM results
          WHERE device_id = ?1
          ORDER BY finished_at DESC
@@ -365,7 +379,7 @@ export class GameDatabase {
     const row = this.db
       .query(
         `SELECT id, game_id, username, difficulty, outcome, metric, metric_value, score,
-                moves, duration_ms, level, metadata_json, created_at
+                moves, duration_ms, level, streak, metadata_json, created_at
          FROM leaderboard_scores
          WHERE device_id = ?1 AND run_id = ?2`,
       )
@@ -380,8 +394,8 @@ export class GameDatabase {
       .prepare(
         `INSERT INTO leaderboard_scores (
            id, run_id, device_id, game_id, username, normalized_username, difficulty, outcome,
-           metric, metric_value, score, moves, duration_ms, level, metadata_json, created_at
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)`,
+           metric, metric_value, score, moves, duration_ms, level, streak, metadata_json, created_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)`,
       )
       .run(
         id,
@@ -398,6 +412,7 @@ export class GameDatabase {
         score.moves ?? null,
         score.durationMs ?? null,
         score.level ?? null,
+        score.streak ?? null,
         jsonString(score.metadata),
         createdAt,
       );
@@ -405,7 +420,7 @@ export class GameDatabase {
     const row = this.db
       .query(
         `SELECT id, game_id, username, difficulty, outcome, metric, metric_value, score,
-                moves, duration_ms, level, metadata_json, created_at
+                moves, duration_ms, level, streak, metadata_json, created_at
          FROM leaderboard_scores
          WHERE id = ?1`,
       )
@@ -493,6 +508,7 @@ function rowToResult(row: ResultRow): SyncResult {
   if (row.moves !== null) result.moves = row.moves;
   if (row.duration_ms !== null) result.durationMs = row.duration_ms;
   if (row.level !== null) result.level = row.level;
+  if (row.streak !== null) result.streak = row.streak;
   const metadata = parseJson(row.metadata_json);
   if (metadata && typeof metadata === "object" && Object.keys(metadata).length > 0) {
     result.metadata = metadata as SyncResult["metadata"];

@@ -63,6 +63,7 @@ describe("Bun SQLite sync", () => {
           finishedAt: "2026-04-25T00:01:00.000Z",
           outcome: "lost",
           score: 128,
+          streak: 2,
         },
       ],
       resultClears: [],
@@ -71,6 +72,7 @@ describe("Bun SQLite sync", () => {
     expect(snapshot.preferences).toHaveLength(1);
     expect(snapshot.saves).toHaveLength(1);
     expect(snapshot.results).toHaveLength(1);
+    expect(snapshot.results[0]?.streak).toBe(2);
 
     const afterDelete = db.applySync({
       deviceId: "device-test",

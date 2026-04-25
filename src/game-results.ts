@@ -2,6 +2,7 @@ import type { Difficulty } from "./types";
 import { readStored, storageKey, writeStored } from "./storage";
 import { parseDifficulty } from "./game-preferences";
 import { notifySyncChanged, recordResultsClearedForSync } from "./sync-local";
+import { numericResultFields, type ResultMetric, type MetricDirection } from "./result-metrics";
 import { isFiniteNumber, isRecord } from "./validation";
 
 export type GameOutcome = "won" | "lost" | "draw" | "completed";
@@ -18,18 +19,18 @@ export type GameResult = {
   score?: number;
   moves?: number;
   level?: number;
+  streak?: number;
   metadata?: GameMetadata;
 };
 
 type OptionalResultDetails = Pick<
   GameResult,
-  "difficulty" | "durationMs" | "score" | "moves" | "level" | "metadata"
+  "difficulty" | "durationMs" | "score" | "moves" | "level" | "streak" | "metadata"
 >;
 
 const RESULTS_SCHEMA_VERSION = 1;
 const resultsKey = storageKey("results");
 const outcomes = new Set<GameOutcome>(["won", "lost", "draw", "completed"]);
-const numericResultFields = ["durationMs", "score", "moves", "level"] as const;
 const maxTotalResults = 250;
 const maxResultsPerGame = 50;
 
@@ -66,8 +67,8 @@ export function clearGameResults(gameId?: string): void {
 
 export function bestGameResult(
   gameId: string,
-  metric: "score" | "moves" | "durationMs" | "level",
-  direction: "max" | "min",
+  metric: ResultMetric,
+  direction: MetricDirection,
 ): GameResult | null {
   const results = listGameResults(gameId).filter((result) => typeof result[metric] === "number");
   if (results.length === 0) return null;

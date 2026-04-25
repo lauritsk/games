@@ -50,10 +50,12 @@ describe("game result formatting", () => {
         score: 40,
         moves: 12,
         level: 3,
+        streak: 2,
         durationMs: 61_000,
         difficulty: "Hard",
+        metadata: { mode: "bot" },
       }),
-    ).toEqual(["Score 40", "12 moves", "Level 3", "1m 1s", "Hard"]);
+    ).toEqual(["Score 40", "12 moves", "Level 3", "Streak 2 wins", "1m 1s", "Hard", "Vs bot"]);
   });
 
   test("selects best-result metrics by game", () => {
@@ -67,6 +69,11 @@ describe("game result formatting", () => {
       direction: "min",
       label: "time",
     });
+    expect(bestConfigForGame("tictactoe")).toEqual({
+      metric: "streak",
+      direction: "max",
+      label: "streak",
+    });
     expect(bestConfigForGame("tetris")).toEqual({
       metric: "score",
       direction: "max",
@@ -79,8 +86,11 @@ describe("game result formatting", () => {
     recordGameResult({ runId: "run-b", gameId: "memory", outcome: "completed", moves: 12 });
     recordGameResult({ runId: "run-c", gameId: "minesweeper", outcome: "won", durationMs: 91_000 });
 
+    recordGameResult({ runId: "run-d", gameId: "tictactoe", outcome: "won", streak: 3 });
+
     expect(bestSummaryText("memory")).toBe("Best moves: 12");
     expect(bestSummaryText("minesweeper")).toBe("Best time: 1m 31s");
+    expect(bestSummaryText("tictactoe")).toBe("Best streak: 3 wins");
     expect(bestSummaryText("unknown")).toBeNull();
   });
 });

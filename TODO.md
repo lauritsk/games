@@ -1,13 +1,18 @@
 # TODO
 
-- [ ] Design bot win-streak leaderboards for Tic-Tac-Toe and Connect 4 before implementation.
-- [ ] Add API route tests for duplicate leaderboard submissions.
-- [ ] Add e2e coverage for one leaderboard submit flow.
-- [ ] Document leaderboard behavior in `README.md`.
-- [ ] Document moderation/admin cleanup path.
-- [ ] Add a `mise` task for repeated admin/test workflow if needed.
-- [ ] Confirm Docker/server build includes migrations and works with `GAMES_DB_PATH`.
-- [ ] Run `mise run check` before considering leaderboards done.
+- [x] Design bot win-streak leaderboards for Tic-Tac-Toe and Connect 4 before implementation.
+- [x] Add first-class `streak` result/leaderboard metric across local results, sync, server schema, and formatting.
+- [x] Add shared bot streak state/eligibility handling, including loss/draw/abandon reset behavior.
+- [x] Roll out Tic-Tac-Toe bot win-streak leaderboard using shared streak model.
+- [x] Roll out Connect 4 bot win-streak leaderboard using shared streak model.
+- [x] Generalize leaderboard/result UI copy so score, time, and streak submissions feel consistent.
+- [x] Add API route tests for duplicate leaderboard submissions.
+- [x] Add e2e coverage for one leaderboard submit flow.
+- [x] Document leaderboard behavior in `README.md`.
+- [x] Document moderation/admin cleanup path.
+- [x] Add a `mise` task for repeated admin/test workflow if needed. (Not needed; existing `db:migrate`, `build:server`, `test:e2e`, and `check` cover it.)
+- [x] Confirm Docker/server build includes migrations and works with `GAMES_DB_PATH`.
+- [x] Run `mise run check` before considering leaderboards done.
 - [ ] Add Ballz / Bricks n Balls.
 - [ ] Add Asteroids.
 - [ ] Add Frogger.

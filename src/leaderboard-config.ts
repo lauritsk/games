@@ -1,5 +1,7 @@
-export type LeaderboardMetric = "score" | "moves" | "durationMs" | "level";
-export type LeaderboardDirection = "max" | "min";
+import type { MetricDirection, ResultMetric } from "./result-metrics";
+
+export type LeaderboardMetric = ResultMetric;
+export type LeaderboardDirection = MetricDirection;
 
 export type LeaderboardGameConfig = {
   gameId: string;
@@ -8,6 +10,8 @@ export type LeaderboardGameConfig = {
   label: string;
   maxMetricValue: number;
   allowedOutcomes?: readonly string[];
+  requireDifficulty?: boolean;
+  requiredMetadata?: Readonly<Record<string, string | number | boolean>>;
 };
 
 export const leaderboardGameConfigs = {
@@ -66,6 +70,26 @@ export const leaderboardGameConfigs = {
     label: "score",
     maxMetricValue: 100_000_000,
     allowedOutcomes: ["lost"],
+  },
+  tictactoe: {
+    gameId: "tictactoe",
+    metric: "streak",
+    direction: "max",
+    label: "streak",
+    maxMetricValue: 10_000,
+    allowedOutcomes: ["won"],
+    requireDifficulty: true,
+    requiredMetadata: { mode: "bot" },
+  },
+  connect4: {
+    gameId: "connect4",
+    metric: "streak",
+    direction: "max",
+    label: "streak",
+    maxMetricValue: 10_000,
+    allowedOutcomes: ["won"],
+    requireDifficulty: true,
+    requiredMetadata: { mode: "bot" },
   },
 } as const satisfies Record<string, LeaderboardGameConfig>;
 

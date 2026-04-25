@@ -1,7 +1,7 @@
 import { bestGameResult, type GameResult } from "./game-results";
+import type { MetricDirection, ResultMetric } from "./result-metrics";
 
-export type ResultMetric = "score" | "moves" | "durationMs" | "level";
-export type BestResultDirection = "max" | "min";
+export type BestResultDirection = MetricDirection;
 
 export type BestResultConfig = {
   metric: ResultMetric;
@@ -21,8 +21,8 @@ export function bestSummaryText(gameId: string): string | null {
 export function bestConfigForGame(gameId: string): BestResultConfig {
   if (gameId === "memory") return { metric: "moves", direction: "min", label: "moves" };
   if (gameId === "minesweeper") return { metric: "durationMs", direction: "min", label: "time" };
-  if (gameId === "connect4" || gameId === "tic-tac-toe") {
-    return { metric: "moves", direction: "min", label: "moves" };
+  if (gameId === "connect4" || gameId === "tictactoe") {
+    return { metric: "streak", direction: "max", label: "streak" };
   }
   return { metric: "score", direction: "max", label: "score" };
 }
@@ -38,15 +38,23 @@ export function resultDetails(result: GameResult): string[] {
   if (typeof result.level === "number") {
     details.push(`Level ${formatMetric("level", result.level)}`);
   }
+  if (typeof result.streak === "number") {
+    details.push(`Streak ${formatMetric("streak", result.streak)}`);
+  }
   if (typeof result.durationMs === "number") {
     details.push(formatMetric("durationMs", result.durationMs));
   }
   if (result.difficulty) details.push(result.difficulty);
+  const mode = result.metadata?.mode;
+  if (mode === "bot") details.push("Vs bot");
+  else if (mode === "local") details.push("2 players");
   return details;
 }
 
 export function formatMetric(metric: ResultMetric, value: number): string {
   if (metric === "durationMs") return formatDuration(value);
+  if (metric === "streak")
+    return `${new Intl.NumberFormat().format(value)} win${value === 1 ? "" : "s"}`;
   return new Intl.NumberFormat().format(value);
 }
 

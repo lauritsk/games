@@ -29,6 +29,7 @@ export type SyncResult = {
   score?: number;
   moves?: number;
   level?: number;
+  streak?: number;
   metadata?: GameMetadata;
 };
 

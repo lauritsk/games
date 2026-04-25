@@ -13,6 +13,7 @@ export type LeaderboardEntry = {
   moves?: number;
   durationMs?: number;
   level?: number;
+  streak?: number;
   metadata: Record<string, string | number | boolean>;
   createdAt: string;
   rank?: number;
@@ -33,6 +34,7 @@ export type LeaderboardInsert = {
   moves?: number;
   durationMs?: number;
   level?: number;
+  streak?: number;
   metadata: Record<string, string | number | boolean>;
   createdAt?: string;
 };
@@ -57,6 +59,7 @@ export type LeaderboardRow = {
   moves: number | null;
   duration_ms: number | null;
   level: number | null;
+  streak: number | null;
   metadata_json: string;
   created_at: string;
 };
@@ -85,6 +88,7 @@ export function rowToLeaderboardEntry(row: LeaderboardRow): LeaderboardEntry {
   if (row.moves !== null) entry.moves = row.moves;
   if (row.duration_ms !== null) entry.durationMs = row.duration_ms;
   if (row.level !== null) entry.level = row.level;
+  if (row.streak !== null) entry.streak = row.streak;
   return entry;
 }
 

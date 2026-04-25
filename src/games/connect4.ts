@@ -21,6 +21,7 @@ import {
   type GameDefinition,
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
+import { getBotStreak, recordBotStreakOutcome, resetBotStreak } from "../bot-streaks";
 import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
 import { recordGameResult } from "../game-results";
 import { clearGameSave, createRunId, loadGameSave, saveGameSave } from "../game-state";
@@ -81,6 +82,7 @@ export function mountConnect4(target: HTMLElement): () => void {
   let difficulty: Difficulty = parseDifficulty(preferences.difficulty) ?? "Medium";
   let selectedColumn = Math.floor(connect4Columns / 2);
   let runId = createRunId();
+  let skipNextAbandonStreakReset = false;
 
   const saved = loadGameSave(connect4.id, savePayloadVersion, parseSaveConnect4);
   if (saved) {
@@ -115,6 +117,8 @@ export function mountConnect4(target: HTMLElement): () => void {
   const modeControl = {
     get: () => mode,
     set: (next: BotPlayMode) => {
+      resetAbandonedBotStreak();
+      skipNextAbandonStreakReset = true;
       mode = next;
       savePreferences();
     },
@@ -127,6 +131,8 @@ export function mountConnect4(target: HTMLElement): () => void {
   const difficultyControl = {
     get: () => difficulty,
     set: (next: Difficulty) => {
+      resetAbandonedBotStreak();
+      skipNextAbandonStreakReset = true;
       difficulty = next;
       savePreferences();
     },
@@ -137,6 +143,8 @@ export function mountConnect4(target: HTMLElement): () => void {
   const requestReset = createResetControl(actions, shell, resetGame);
 
   function resetGame(): void {
+    if (skipNextAbandonStreakReset) skipNextAbandonStreakReset = false;
+    else resetAbandonedBotStreak();
     botMove.clear();
     clearGameSave(connect4.id);
     resetGameProgress(shell);
@@ -216,10 +224,15 @@ export function mountConnect4(target: HTMLElement): () => void {
 
   function statusText(): string {
     if (mode === "local") return winner ? `${names[winner]} wins` : `${names[current]} turn`;
-    if (winner === connect4Human) return "You win";
-    if (winner === connect4Bot) return "Bot wins";
-    if (moves === connect4Rows * connect4Columns) return "Draw";
-    return current === connect4Human ? "Your turn" : "Bot thinking";
+    if (winner === connect4Human) return withBotStreakText("You win");
+    if (winner === connect4Bot) return withBotStreakText("Bot wins");
+    if (moves === connect4Rows * connect4Columns) return withBotStreakText("Draw");
+    return withBotStreakText(current === connect4Human ? "Your turn" : "Bot thinking");
+  }
+
+  function withBotStreakText(text: string): string {
+    if (mode !== "bot") return text;
+    return `${text} · Streak ${getBotStreak(connect4.id, difficulty).current}`;
   }
 
   function isLocked(): boolean {
@@ -280,14 +293,24 @@ export function mountConnect4(target: HTMLElement): () => void {
   }
 
   function recordFinishedGame(): void {
+    const outcome = winner ? (mode === "bot" && winner === connect4Bot ? "lost" : "won") : "draw";
+    const streak =
+      mode === "bot" ? recordBotStreakOutcome(connect4.id, difficulty, outcome).current : undefined;
     recordGameResult({
       runId,
       gameId: connect4.id,
       difficulty,
-      outcome: winner ? (mode === "bot" && winner === connect4Bot ? "lost" : "won") : "draw",
+      outcome,
       moves,
+      ...(outcome === "won" && streak ? { streak } : {}),
       metadata: { mode, winner: winner ?? "draw" },
     });
+  }
+
+  function resetAbandonedBotStreak(): void {
+    if (mode === "bot" && !winner && moves > 0 && moves < connect4Rows * connect4Columns) {
+      resetBotStreak(connect4.id, difficulty);
+    }
   }
 
   function savePreferences(): void {

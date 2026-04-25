@@ -28,6 +28,7 @@ export type LeaderboardSubmission = {
   moves?: number;
   durationMs?: number;
   level?: number;
+  streak?: number;
   metadata: Record<string, string | number | boolean>;
 };
 
@@ -66,6 +67,7 @@ export function parseLeaderboardSubmission(value: unknown): ParseResult<Leaderbo
 
   const difficulty = value.difficulty === undefined ? undefined : parseDifficulty(value.difficulty);
   if (value.difficulty !== undefined && !difficulty) return invalid("Invalid score");
+  if (config.requireDifficulty && !difficulty) return invalid("Invalid score");
 
   if (typeof value.outcome !== "string" || !outcomes.has(value.outcome))
     return invalid("Invalid score");
@@ -80,12 +82,21 @@ export function parseLeaderboardSubmission(value: unknown): ParseResult<Leaderbo
   const moves = optionalIntegerField(value.moves, 0, 1_000_000);
   const durationMs = optionalIntegerField(value.durationMs, 0, 86_400_000);
   const level = optionalIntegerField(value.level, 0, 10_000);
-  if (score === null || moves === null || durationMs === null || level === null) {
+  const streak = optionalIntegerField(value.streak, 0, 10_000);
+  if (
+    score === null ||
+    moves === null ||
+    durationMs === null ||
+    level === null ||
+    streak === null
+  ) {
     return invalid("Invalid score");
   }
 
   const metadata = parseMetadata(value.metadata);
-  if (metadata === null) return invalid("Invalid score");
+  if (metadata === null || !hasRequiredMetadata(metadata, config.requiredMetadata)) {
+    return invalid("Invalid score");
+  }
 
   const deviceId = value.deviceId === undefined ? undefined : optionalSyncId(value.deviceId);
   const runId = value.runId === undefined ? undefined : optionalSyncId(value.runId);
@@ -107,9 +118,18 @@ export function parseLeaderboardSubmission(value: unknown): ParseResult<Leaderbo
       ...(moves === undefined ? {} : { moves }),
       ...(durationMs === undefined ? {} : { durationMs }),
       ...(level === undefined ? {} : { level }),
+      ...(streak === undefined ? {} : { streak }),
       metadata,
     },
   };
+}
+
+function hasRequiredMetadata(
+  metadata: Record<string, string | number | boolean>,
+  required: Readonly<Record<string, string | number | boolean>> | undefined,
+): boolean {
+  if (!required) return true;
+  return Object.entries(required).every(([key, value]) => metadata[key] === value);
 }
 
 function parseIntegerField(value: unknown, max: number): number | null {

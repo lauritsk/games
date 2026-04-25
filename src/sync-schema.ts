@@ -12,7 +12,7 @@ import { isFiniteNumber, isRecord } from "./validation";
 
 const syncIdPattern = /^[A-Za-z0-9._:-]+$/;
 const outcomes = new Set(["won", "lost", "draw", "completed"]);
-const numericFields = ["durationMs", "score", "moves", "level"] as const;
+const numericFields = ["durationMs", "score", "moves", "level", "streak"] as const;
 
 export function isSyncId(value: unknown): value is string {
   return (

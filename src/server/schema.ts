@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS results (
   moves INTEGER,
   duration_ms INTEGER,
   level INTEGER,
+  streak INTEGER,
   metadata_json TEXT NOT NULL DEFAULT '{}',
   PRIMARY KEY (device_id, id),
   UNIQUE (device_id, run_id),
@@ -73,6 +74,7 @@ CREATE TABLE IF NOT EXISTS leaderboard_scores (
   moves INTEGER,
   duration_ms INTEGER,
   level INTEGER,
+  streak INTEGER,
   metadata_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL
 );

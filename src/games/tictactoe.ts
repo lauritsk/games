@@ -20,6 +20,7 @@ import {
   type GameDefinition,
 } from "../core";
 import { createInvalidMoveFeedback } from "../feedback";
+import { getBotStreak, recordBotStreakOutcome, resetBotStreak } from "../bot-streaks";
 import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
 import { recordGameResult } from "../game-results";
 import { clearGameSave, createRunId, loadGameSave, saveGameSave } from "../game-state";
@@ -74,6 +75,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   let winner: Mark | "draw" | null = null;
   let winLine: readonly number[] = [];
   let runId = createRunId();
+  let skipNextAbandonStreakReset = false;
 
   const saved = loadGameSave(tictactoe.id, savePayloadVersion, parseSaveTicTacToe);
   if (saved) {
@@ -108,6 +110,8 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   const modeControl = {
     get: () => mode,
     set: (next: BotPlayMode) => {
+      resetAbandonedBotStreak();
+      skipNextAbandonStreakReset = true;
       mode = next;
       savePreferences();
     },
@@ -119,6 +123,8 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   const difficultyControl = {
     get: () => difficulty,
     set: (next: Difficulty) => {
+      resetAbandonedBotStreak();
+      skipNextAbandonStreakReset = true;
       difficulty = next;
       savePreferences();
     },
@@ -128,6 +134,8 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   const requestReset = createResetControl(actions, shell, resetGame);
 
   function resetGame(): void {
+    if (skipNextAbandonStreakReset) skipNextAbandonStreakReset = false;
+    else resetAbandonedBotStreak();
     botMove.clear();
     clearGameSave(tictactoe.id);
     resetGameProgress(shell);
@@ -190,11 +198,16 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   }
 
   function statusText(): string {
-    if (winner === "draw") return "Draw";
+    if (winner === "draw") return withBotStreakText("Draw");
     if (mode === "local") return winner ? `${winner} wins` : `${current} turn`;
-    if (winner === humanMark) return "You win";
-    if (winner === botMark) return "Bot wins";
-    return current === humanMark ? "Your turn" : "Bot thinking";
+    if (winner === humanMark) return withBotStreakText("You win");
+    if (winner === botMark) return withBotStreakText("Bot wins");
+    return withBotStreakText(current === humanMark ? "Your turn" : "Bot thinking");
+  }
+
+  function withBotStreakText(text: string): string {
+    if (mode !== "bot") return text;
+    return `${text} · Streak ${getBotStreak(tictactoe.id, difficulty).current}`;
   }
 
   function isLocked(): boolean {
@@ -253,14 +266,25 @@ export function mountTicTacToe(target: HTMLElement): () => void {
 
   function recordFinishedGame(): void {
     if (!winner) return;
+    const outcome =
+      winner === "draw" ? "draw" : mode === "bot" && winner === botMark ? "lost" : "won";
+    const streak =
+      mode === "bot"
+        ? recordBotStreakOutcome(tictactoe.id, difficulty, outcome).current
+        : undefined;
     recordGameResult({
       runId,
       gameId: tictactoe.id,
       difficulty,
-      outcome: winner === "draw" ? "draw" : mode === "bot" && winner === botMark ? "lost" : "won",
+      outcome,
       moves: board.filter(Boolean).length,
+      ...(outcome === "won" && streak ? { streak } : {}),
       metadata: { mode, winner },
     });
+  }
+
+  function resetAbandonedBotStreak(): void {
+    if (mode === "bot" && !winner && board.some(Boolean)) resetBotStreak(tictactoe.id, difficulty);
   }
 
   function savePreferences(): void {
