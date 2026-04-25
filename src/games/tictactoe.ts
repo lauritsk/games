@@ -26,6 +26,7 @@ import { getBotStreak, recordBotStreakOutcome, resetBotStreak } from "../bot-str
 import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
 import { recordGameResult } from "../game-results";
 import { clearGameSave, createRunId, loadGameSave, saveGameSave } from "../game-state";
+import { createMultiplayerCountdown, multiplayerCountdownNumber } from "../multiplayer-countdown";
 import {
   connectMultiplayerSession,
   type MultiplayerConnection,
@@ -35,6 +36,7 @@ import { createMultiplayerDialog } from "../multiplayer-dialog";
 import {
   parseMultiplayerSeat,
   type MultiplayerRoomSnapshot,
+  type MultiplayerRoomStatus,
   type MultiplayerSeat,
   type MultiplayerSession,
 } from "../multiplayer-protocol";
@@ -103,6 +105,8 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   let onlineSeat: MultiplayerSeat | null = null;
   let onlineRevision = 0;
   let onlineStatus: MultiplayerConnectionStatus = "closed";
+  let onlineRoomStatus: MultiplayerRoomStatus = "lobby";
+  let onlineCountdownEndsAt: number | undefined;
   let onlineResultRecorded = false;
   let onlineError = "";
 
@@ -134,6 +138,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
   const botMove = createDelayedAction();
+  const onlineCountdown = createMultiplayerCountdown(render);
   onDocumentKeyDown(onKeyDown, scope);
   addTouchGestureControls(
     grid,
@@ -275,6 +280,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     if (onlineSession) {
       return (
         onlineStatus !== "connected" ||
+        onlineRoomStatus !== "playing" ||
         !onlineSeat ||
         winner !== null ||
         current !== markForSeat(onlineSeat)
@@ -375,6 +381,8 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     onlineSeat = session.seat;
     onlineRevision = 0;
     onlineStatus = "connecting";
+    onlineRoomStatus = "lobby";
+    onlineCountdownEndsAt = undefined;
     onlineResultRecorded = false;
     onlineError = "";
     runId = createRunId();
@@ -417,6 +425,9 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     onlineSeat = null;
     onlineRevision = 0;
     onlineStatus = "closed";
+    onlineRoomStatus = "lobby";
+    onlineCountdownEndsAt = undefined;
+    onlineCountdown.cleanup();
     onlineError = "";
     onlineResultRecorded = false;
   }
@@ -429,6 +440,9 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     onlineError = "";
     onlineSeat = seat;
     onlineRevision = room.revision;
+    onlineRoomStatus = room.status;
+    onlineCountdownEndsAt = room.countdownEndsAt;
+    onlineCountdown.update(room);
     if (wasInFinishedOrStartedOnlineGame && state.moves === 0 && !state.winner) {
       resetGameProgress(shell);
       runId = createRunId();
@@ -454,6 +468,23 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     if (!onlineSeat) return "Joining…";
     if (winner === "draw") return "Draw";
     if (winner) return winner === markForSeat(onlineSeat) ? "You win" : "Opponent wins";
+    if (onlineRoomStatus === "countdown") {
+      const number = multiplayerCountdownNumber({
+        code: onlineSession.code,
+        gameId: tictactoe.id,
+        status: onlineRoomStatus,
+        revision: onlineRevision,
+        seats: {
+          p1: { joined: true, connected: true },
+          p2: { joined: true, connected: true },
+          p3: { joined: false, connected: false },
+          p4: { joined: false, connected: false },
+        },
+        state: {},
+        countdownEndsAt: onlineCountdownEndsAt,
+      });
+      return `Starting in ${number ?? "…"}`;
+    }
     if (onlineRevision === 0) return `Room ${onlineSession.code} · Waiting`;
     return current === markForSeat(onlineSeat) ? "Your turn" : "Opponent turn";
   }
@@ -479,6 +510,7 @@ export function mountTicTacToe(target: HTMLElement): () => void {
     invalidMove.cleanup();
     botMove.clear();
     stopOnline();
+    onlineCountdown.cleanup();
     remove();
   };
 }

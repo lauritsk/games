@@ -64,20 +64,22 @@ const cueNotes: Record<SoundCue, Note[]> = {
 };
 
 export function playSound(cue: SoundCue): void {
-  const audio = audioContext();
-  if (!audio) return;
-  if (audio.state === "suspended") {
-    void audio
-      .resume()
-      .then(() => {
-        unlocked = audio.state === "running";
-        playCue(audio, cue);
-      })
-      .catch(() => undefined);
-    return;
-  }
-  unlocked = audio.state === "running";
-  playCue(audio, cue);
+  withAudio((audio) => playCue(audio, cue));
+}
+
+export function playCountdownSound(number: number): void {
+  const clamped = Math.max(1, Math.min(5, Math.trunc(number)));
+  const frequencies = [0, 880, 740, 660, 587, 523];
+  withAudio((audio) => {
+    const note: Note = {
+      frequency: frequencies[clamped] ?? 523,
+      start: 0,
+      duration: clamped === 1 ? 0.22 : 0.14,
+      gain: clamped === 1 ? 0.12 : 0.095,
+      wave: clamped === 1 ? "square" : "triangle",
+    };
+    playNote(audio, note, audio.currentTime + 0.004);
+  });
 }
 
 export function unlockSound(): void {
@@ -91,9 +93,24 @@ export function unlockSound(): void {
     .catch(() => undefined);
 }
 
-function playCue(audio: AudioContext, cue: SoundCue): void {
-  if (audio.state !== "running") return;
+function withAudio(callback: (audio: AudioContext) => void): void {
+  const audio = audioContext();
+  if (!audio) return;
+  if (audio.state === "suspended") {
+    void audio
+      .resume()
+      .then(() => {
+        unlocked = audio.state === "running";
+        if (unlocked) callback(audio);
+      })
+      .catch(() => undefined);
+    return;
+  }
+  unlocked = audio.state === "running";
+  if (unlocked) callback(audio);
+}
 
+function playCue(audio: AudioContext, cue: SoundCue): void {
   const nowMs = performance.now();
   if (cue === "gameMove" && nowMs - lastCueAt < 35) return;
   lastCueAt = nowMs;

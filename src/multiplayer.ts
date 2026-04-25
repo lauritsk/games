@@ -197,6 +197,10 @@ function parseRoom(value: unknown): MultiplayerRoomSnapshot | null {
   const p3 = parseSeat(value.seats.p3);
   const p4 = parseSeat(value.seats.p4);
   if (!p1 || !p2 || !p3 || !p4) return null;
+  const countdownEndsAt =
+    typeof value.countdownEndsAt === "number" && Number.isFinite(value.countdownEndsAt)
+      ? value.countdownEndsAt
+      : undefined;
   return {
     code: value.code,
     gameId: value.gameId,
@@ -204,6 +208,7 @@ function parseRoom(value: unknown): MultiplayerRoomSnapshot | null {
     revision: value.revision,
     seats: { p1, p2, p3, p4 },
     state: value.state,
+    ...(countdownEndsAt ? { countdownEndsAt } : {}),
   };
 }
 

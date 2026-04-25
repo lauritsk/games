@@ -27,6 +27,7 @@ import { getBotStreak, recordBotStreakOutcome, resetBotStreak } from "../bot-str
 import { loadGamePreferences, parseDifficulty, saveGamePreferences } from "../game-preferences";
 import { recordGameResult } from "../game-results";
 import { clearGameSave, createRunId, loadGameSave, saveGameSave } from "../game-state";
+import { createMultiplayerCountdown, multiplayerCountdownNumber } from "../multiplayer-countdown";
 import {
   connectMultiplayerSession,
   type MultiplayerConnection,
@@ -36,6 +37,7 @@ import { createMultiplayerDialog } from "../multiplayer-dialog";
 import {
   parseMultiplayerSeat,
   type MultiplayerRoomSnapshot,
+  type MultiplayerRoomStatus,
   type MultiplayerSeat,
   type MultiplayerSession,
 } from "../multiplayer-protocol";
@@ -110,6 +112,8 @@ export function mountConnect4(target: HTMLElement): () => void {
   let onlineSeat: MultiplayerSeat | null = null;
   let onlineRevision = 0;
   let onlineStatus: MultiplayerConnectionStatus = "closed";
+  let onlineRoomStatus: MultiplayerRoomStatus = "lobby";
+  let onlineCountdownEndsAt: number | undefined;
   let onlineResultRecorded = false;
   let onlineError = "";
 
@@ -141,6 +145,7 @@ export function mountConnect4(target: HTMLElement): () => void {
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
   const botMove = createDelayedAction();
+  const onlineCountdown = createMultiplayerCountdown(render);
   onDocumentKeyDown(onKeyDown, scope);
   addTouchGestureControls(
     grid,
@@ -302,6 +307,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     if (onlineSession) {
       return (
         onlineStatus !== "connected" ||
+        onlineRoomStatus !== "playing" ||
         !onlineSeat ||
         Boolean(winner) ||
         moves === connect4Rows * connect4Columns ||
@@ -404,6 +410,8 @@ export function mountConnect4(target: HTMLElement): () => void {
     onlineSeat = session.seat;
     onlineRevision = 0;
     onlineStatus = "connecting";
+    onlineRoomStatus = "lobby";
+    onlineCountdownEndsAt = undefined;
     onlineResultRecorded = false;
     onlineError = "";
     runId = createRunId();
@@ -447,6 +455,9 @@ export function mountConnect4(target: HTMLElement): () => void {
     onlineSeat = null;
     onlineRevision = 0;
     onlineStatus = "closed";
+    onlineRoomStatus = "lobby";
+    onlineCountdownEndsAt = undefined;
+    onlineCountdown.cleanup();
     onlineError = "";
     onlineResultRecorded = false;
   }
@@ -458,6 +469,9 @@ export function mountConnect4(target: HTMLElement): () => void {
     onlineError = "";
     onlineSeat = seat;
     onlineRevision = room.revision;
+    onlineRoomStatus = room.status;
+    onlineCountdownEndsAt = room.countdownEndsAt;
+    onlineCountdown.update(room);
     if (wasInFinishedOrStartedOnlineGame && state.moves === 0 && !state.winner) {
       resetGameProgress(shell);
       runId = createRunId();
@@ -482,10 +496,29 @@ export function mountConnect4(target: HTMLElement): () => void {
     if (onlineStatus === "reconnecting") return "Reconnecting…";
     if (!onlineSession) return "Online";
     if (!onlineSeat) return "Joining…";
+    if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
     if (moves === connect4Rows * connect4Columns && !winner) return "Draw";
     if (winner) return winner === playerForSeat(onlineSeat) ? "You win" : "Opponent wins";
     if (onlineRevision === 0) return `Room ${onlineSession.code} · Waiting`;
     return current === playerForSeat(onlineSeat) ? "Your turn" : "Opponent turn";
+  }
+
+  function onlineCountdownText(): string {
+    const number = multiplayerCountdownNumber({
+      code: onlineSession?.code ?? "",
+      gameId: connect4.id,
+      status: onlineRoomStatus,
+      revision: onlineRevision,
+      seats: {
+        p1: { joined: true, connected: true },
+        p2: { joined: true, connected: true },
+        p3: { joined: false, connected: false },
+        p4: { joined: false, connected: false },
+      },
+      state: {},
+      countdownEndsAt: onlineCountdownEndsAt,
+    });
+    return number === null ? "…" : String(number);
   }
 
   function recordOnlineFinished(state: OnlineConnect4State): void {
@@ -510,6 +543,7 @@ export function mountConnect4(target: HTMLElement): () => void {
     invalidMove.cleanup();
     botMove.clear();
     stopOnline();
+    onlineCountdown.cleanup();
     remove();
   };
 }

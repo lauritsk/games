@@ -1,5 +1,5 @@
 export type MultiplayerSeat = "p1" | "p2" | "p3" | "p4";
-export type MultiplayerRoomStatus = "lobby" | "playing" | "finished";
+export type MultiplayerRoomStatus = "lobby" | "countdown" | "playing" | "finished";
 
 export const multiplayerCodeAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 export const multiplayerCodeLength = 6;
@@ -30,6 +30,7 @@ export type MultiplayerRoomSnapshot = {
   revision: number;
   seats: Record<MultiplayerSeat, MultiplayerSeatSnapshot>;
   state: unknown;
+  countdownEndsAt?: number;
 };
 
 export type MultiplayerSnapshotMessage = {
@@ -90,7 +91,7 @@ export function parseMultiplayerSeat(value: unknown): MultiplayerSeat | null {
 }
 
 export function isMultiplayerRoomStatus(value: unknown): value is MultiplayerRoomStatus {
-  return value === "lobby" || value === "playing" || value === "finished";
+  return value === "lobby" || value === "countdown" || value === "playing" || value === "finished";
 }
 
 export function parseMultiplayerRoomStatus(value: unknown): MultiplayerRoomStatus | null {

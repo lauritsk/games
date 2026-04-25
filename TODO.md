@@ -29,6 +29,7 @@
 - [x] Refactor multiplayer mode maintainability without behavior change.
 - [x] Enable online multiplayer rematch in same room without new setup.
 - [x] Add Memory local PvP and online PvP modes.
+- [x] Add 5-4-3-2-1 multiplayer start countdown with sound effects after host starts game.
 - [ ] Add Space Invaders online-only 2-player co-op with two shooters and scaled harder difficulty for 2 players.
 - [ ] Add spectator view for online rooms with room/game code support, available for any game that has online mode/room-code generation.
 - [ ] Add Ballz / Bricks n Balls.

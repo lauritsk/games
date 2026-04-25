@@ -71,8 +71,40 @@ describe("multiplayer API", () => {
     hub.dispose();
   });
 
-  test("rematches finished rooms without creating a new session", async () => {
+  test("starts rooms with a countdown before accepting actions", async () => {
     const hub = new MultiplayerHub();
+    const created = await hub.createRoom("tictactoe");
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const joined = await hub.joinRoom(created.session.code);
+    expect(joined.ok).toBe(true);
+    if (!joined.ok) return;
+
+    const p1 = fakeSocket({
+      code: created.session.code,
+      playerId: created.session.playerId,
+      seat: "p1",
+    });
+    hub.onOpen(p1);
+    const snapshot = lastSentJson(p1);
+    expect(snapshot.type).toBe("snapshot");
+    const room = snapshot.room as { status: string; countdownEndsAt: number; revision: number };
+    expect(room.status).toBe("countdown");
+    expect(room.revision).toBe(1);
+    expect(room.countdownEndsAt).toBeGreaterThan(Date.now());
+
+    hub.onMessage(
+      p1,
+      JSON.stringify({ type: "action", revision: 1, action: { type: "place", index: 0 } }),
+    );
+    const error = lastSentJson(p1);
+    expect(error.type).toBe("error");
+    expect(error.error).toBe("Room is not ready");
+    hub.dispose();
+  });
+
+  test("rematches finished rooms without creating a new session", async () => {
+    const hub = new MultiplayerHub({ countdownMs: 0 });
     const created = await hub.createRoom("tictactoe");
     expect(created.ok).toBe(true);
     if (!created.ok) return;
@@ -118,7 +150,7 @@ describe("multiplayer API", () => {
   });
 
   test("supports four-player Snake lobbies before host start", async () => {
-    const hub = new MultiplayerHub();
+    const hub = new MultiplayerHub({ countdownMs: 0 });
     const created = await hub.createRoom("snake");
     expect(created.ok).toBe(true);
     if (!created.ok) return;

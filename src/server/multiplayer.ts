@@ -29,13 +29,15 @@ type Room = {
   code: string;
   gameId: string;
   adapter: MultiplayerAdapter;
-  status: "lobby" | "playing" | "finished";
+  status: "lobby" | "countdown" | "playing" | "finished";
   revision: number;
+  countdownEndsAt: number | null;
   createdAt: number;
   lastActivityAt: number;
   players: Partial<Record<MultiplayerSeat, PlayerState>>;
   sockets: Set<ServerWebSocket<MultiplayerSocketData>>;
   tickTimer: ReturnType<typeof setInterval> | null;
+  countdownTimer: ReturnType<typeof setTimeout> | null;
   state: unknown;
 };
 
@@ -48,19 +50,29 @@ const lobbyTtlMs = 10 * 60_000;
 const disconnectedTtlMs = 2 * 60_000;
 const hardTtlMs = 24 * 60 * 60_000;
 const maxRequestBytes = 10_000;
+const defaultCountdownMs = 5000;
+
+export type MultiplayerHubOptions = {
+  countdownMs?: number;
+};
 
 export class MultiplayerHub {
   private readonly rooms = new Map<string, Room>();
   private readonly cleanupTimer: ReturnType<typeof setInterval>;
+  private readonly countdownMs: number;
 
-  constructor() {
+  constructor(options: MultiplayerHubOptions = {}) {
+    this.countdownMs = options.countdownMs ?? defaultCountdownMs;
     this.cleanupTimer = setInterval(() => this.cleanup(), 60_000);
     this.cleanupTimer.unref?.();
   }
 
   dispose(): void {
     clearInterval(this.cleanupTimer);
-    for (const room of this.rooms.values()) this.stopRoomTicker(room);
+    for (const room of this.rooms.values()) {
+      this.stopRoomTicker(room);
+      this.stopRoomCountdown(room);
+    }
     this.rooms.clear();
   }
 
@@ -136,6 +148,7 @@ export class MultiplayerHub {
       adapter,
       status: "lobby",
       revision: 0,
+      countdownEndsAt: null,
       createdAt: now,
       lastActivityAt: now,
       players: {
@@ -147,6 +160,7 @@ export class MultiplayerHub {
       },
       sockets: new Set(),
       tickTimer: null,
+      countdownTimer: null,
       state: adapter.newState(),
     });
     return { ok: true, session };
@@ -172,7 +186,7 @@ export class MultiplayerHub {
     room.lastActivityAt = Date.now();
 
     if (room.adapter.autoStart !== false && joinedSeats(room).length >= minPlayers(room)) {
-      const started = this.startRoom(room);
+      const started = this.beginRoomCountdown(room);
       if (!started.ok) {
         delete room.players[seat];
         return { ok: false, error: started.error };
@@ -274,6 +288,7 @@ export class MultiplayerHub {
     room.lastActivityAt = Date.now();
     if (result.finished) {
       room.status = "finished";
+      room.countdownEndsAt = null;
       this.stopRoomTicker(room);
     }
     this.publishRoom(ws, room);
@@ -324,6 +339,7 @@ export class MultiplayerHub {
         p4: seatSnapshot(room.players.p4),
       },
       state: room.adapter.publicSnapshot(room.state),
+      ...(room.countdownEndsAt ? { countdownEndsAt: room.countdownEndsAt } : {}),
     };
   }
 
@@ -365,7 +381,7 @@ export class MultiplayerHub {
       this.sendError(ws, "Room is not in the lobby", room);
       return;
     }
-    const started = this.startRoom(room);
+    const started = this.beginRoomCountdown(room);
     if (!started.ok) {
       this.sendError(ws, started.error, room);
       return;
@@ -383,12 +399,40 @@ export class MultiplayerHub {
       return;
     }
     room.state = room.adapter.newState();
-    const started = this.startRoom(room);
+    const started = this.beginRoomCountdown(room);
     if (!started.ok) {
       this.sendError(ws, started.error, room);
       return;
     }
     this.publishRoom(ws, room);
+  }
+
+  private beginRoomCountdown(room: Room): { ok: true } | { ok: false; error: string } {
+    if (joinedSeats(room).length < minPlayers(room))
+      return { ok: false, error: "Need more players" };
+    this.stopRoomTicker(room);
+    this.stopRoomCountdown(room);
+    if (this.countdownMs <= 0) return this.startRoom(room);
+    room.status = "countdown";
+    room.countdownEndsAt = Date.now() + this.countdownMs;
+    room.revision += 1;
+    room.lastActivityAt = Date.now();
+    room.countdownTimer = setTimeout(() => this.completeRoomStart(room.code), this.countdownMs);
+    room.countdownTimer.unref?.();
+    return { ok: true };
+  }
+
+  private completeRoomStart(code: string): void {
+    const room = this.rooms.get(code);
+    if (!room || room.status !== "countdown") return;
+    const result = this.startRoom(room);
+    if (!result.ok) {
+      room.status = "lobby";
+      room.countdownEndsAt = null;
+      room.revision += 1;
+      room.lastActivityAt = Date.now();
+    }
+    this.broadcastRoom(room);
   }
 
   private startRoom(room: Room): { ok: true } | { ok: false; error: string } {
@@ -400,6 +444,8 @@ export class MultiplayerHub {
     if (!result.ok) return { ok: false, error: result.error };
     room.state = result.state;
     room.status = "playing";
+    room.countdownEndsAt = null;
+    room.countdownTimer = null;
     room.revision += 1;
     room.lastActivityAt = Date.now();
     this.startRoomTicker(room);
@@ -419,6 +465,13 @@ export class MultiplayerHub {
     room.tickTimer = null;
   }
 
+  private stopRoomCountdown(room: Room): void {
+    if (!room.countdownTimer) return;
+    clearTimeout(room.countdownTimer);
+    room.countdownTimer = null;
+    room.countdownEndsAt = null;
+  }
+
   private tickRoom(code: string): void {
     const room = this.rooms.get(code);
     if (!room || room.status !== "playing" || !room.adapter.tick) return;
@@ -433,6 +486,7 @@ export class MultiplayerHub {
     room.lastActivityAt = Date.now();
     if (result.finished) {
       room.status = "finished";
+      room.countdownEndsAt = null;
       this.stopRoomTicker(room);
     }
     this.broadcastRoom(room);
@@ -455,6 +509,7 @@ export class MultiplayerHub {
     const room = this.rooms.get(code);
     if (!room) return;
     this.stopRoomTicker(room);
+    this.stopRoomCountdown(room);
     this.rooms.delete(code);
   }
 }

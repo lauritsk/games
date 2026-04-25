@@ -34,6 +34,7 @@ import {
   loadGameSave,
   saveGameSave,
 } from "../game-state";
+import { createMultiplayerCountdown, multiplayerCountdownNumber } from "../multiplayer-countdown";
 import {
   connectMultiplayerSession,
   type MultiplayerConnection,
@@ -147,6 +148,7 @@ export function mountSnake(target: HTMLElement): () => void {
   let onlineRevision = 0;
   let onlineStatus: MultiplayerConnectionStatus = "closed";
   let onlineRoomStatus: MultiplayerRoomStatus = "lobby";
+  let onlineCountdownEndsAt: number | undefined;
   let onlineSeats = emptyOnlineSeats();
   let onlineState: OnlineSnakeState | null = null;
   let onlineResultRecorded = false;
@@ -190,6 +192,7 @@ export function mountSnake(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
+  const onlineCountdown = createMultiplayerCountdown(render);
   const difficultyControl = {
     get: () => difficulty,
     set: (next: Difficulty) => {
@@ -633,6 +636,7 @@ export function mountSnake(target: HTMLElement): () => void {
     onlineRevision = 0;
     onlineStatus = "connecting";
     onlineRoomStatus = "lobby";
+    onlineCountdownEndsAt = undefined;
     onlineSeats = emptyOnlineSeats();
     onlineSeats[session.seat] = { joined: true, connected: false };
     onlineState = null;
@@ -707,6 +711,8 @@ export function mountSnake(target: HTMLElement): () => void {
     onlineRevision = 0;
     onlineStatus = "closed";
     onlineRoomStatus = "lobby";
+    onlineCountdownEndsAt = undefined;
+    onlineCountdown.cleanup();
     onlineSeats = emptyOnlineSeats();
     onlineState = null;
     onlineResultRecorded = false;
@@ -722,6 +728,8 @@ export function mountSnake(target: HTMLElement): () => void {
     onlineSeat = seat;
     onlineRevision = room.revision;
     onlineRoomStatus = room.status;
+    onlineCountdownEndsAt = room.countdownEndsAt;
+    onlineCountdown.update(room);
     onlineSeats = room.seats;
     onlineState = snapshot;
     if (
@@ -752,6 +760,7 @@ export function mountSnake(target: HTMLElement): () => void {
       if (onlineSeat === "p1") return `Room ${onlineSession.code} · ${joined}/4 · Start at 2`;
       return `Room ${onlineSession.code} · ${joined}/4 · Waiting host`;
     }
+    if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
     const winner = onlineState?.winner ?? null;
     if (winner === "draw") return "Draw";
     if (winner) return winner === onlineSeat ? "You win" : `${onlinePlayerLabel(winner)} wins`;
@@ -760,6 +769,19 @@ export function mountSnake(target: HTMLElement): () => void {
     const alive = onlineState?.players.filter((entry) => entry.alive).length ?? 0;
     if (!player.alive) return `Crashed · ${alive} alive`;
     return `Length ${player.snake.length} · ${alive}/${onlineState?.players.length ?? joined} alive`;
+  }
+
+  function onlineCountdownText(): string {
+    const number = multiplayerCountdownNumber({
+      code: onlineSession?.code ?? "",
+      gameId,
+      status: onlineRoomStatus,
+      revision: onlineRevision,
+      seats: onlineSeats,
+      state: {},
+      countdownEndsAt: onlineCountdownEndsAt,
+    });
+    return number === null ? "…" : String(number);
   }
 
   function recordOnlineFinished(snapshot: OnlineSnakeState): void {
@@ -828,6 +850,7 @@ export function mountSnake(target: HTMLElement): () => void {
     invalidMove.cleanup();
     scope.cleanup();
     stopOnline();
+    onlineCountdown.cleanup();
     remove();
   };
 }

@@ -33,6 +33,7 @@ import {
   loadGameSave,
   saveGameSave,
 } from "../game-state";
+import { createMultiplayerCountdown, multiplayerCountdownNumber } from "../multiplayer-countdown";
 import {
   connectMultiplayerSession,
   type MultiplayerConnection,
@@ -42,6 +43,7 @@ import { createMultiplayerDialog } from "../multiplayer-dialog";
 import {
   parseMultiplayerSeat,
   type MultiplayerRoomSnapshot,
+  type MultiplayerRoomStatus,
   type MultiplayerSeat,
   type MultiplayerSession,
 } from "../multiplayer-protocol";
@@ -117,6 +119,8 @@ export function mountMemory(target: HTMLElement): () => void {
   let onlineSeat: MultiplayerSeat | null = null;
   let onlineRevision = 0;
   let onlineStatus: MultiplayerConnectionStatus = "closed";
+  let onlineRoomStatus: MultiplayerRoomStatus = "lobby";
+  let onlineCountdownEndsAt: number | undefined;
   let onlineResultRecorded = false;
   let onlineError = "";
 
@@ -152,6 +156,7 @@ export function mountMemory(target: HTMLElement): () => void {
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
   const pendingFlip = createDelayedAction();
+  const onlineCountdown = createMultiplayerCountdown(render);
   const modeControl = {
     get: () => mode,
     set: (next: MemoryMode) => {
@@ -354,6 +359,7 @@ export function mountMemory(target: HTMLElement): () => void {
     if (onlineSession) {
       return (
         onlineStatus !== "connected" ||
+        onlineRoomStatus !== "playing" ||
         !onlineSeat ||
         winner !== null ||
         lock ||
@@ -437,6 +443,8 @@ export function mountMemory(target: HTMLElement): () => void {
     onlineSeat = session.seat;
     onlineRevision = 0;
     onlineStatus = "connecting";
+    onlineRoomStatus = "lobby";
+    onlineCountdownEndsAt = undefined;
     onlineResultRecorded = false;
     onlineError = "";
     runId = createRunId();
@@ -484,6 +492,9 @@ export function mountMemory(target: HTMLElement): () => void {
     onlineSeat = null;
     onlineRevision = 0;
     onlineStatus = "closed";
+    onlineRoomStatus = "lobby";
+    onlineCountdownEndsAt = undefined;
+    onlineCountdown.cleanup();
     onlineError = "";
     onlineResultRecorded = false;
   }
@@ -497,6 +508,9 @@ export function mountMemory(target: HTMLElement): () => void {
     onlineError = "";
     onlineSeat = seat;
     onlineRevision = room.revision;
+    onlineRoomStatus = room.status;
+    onlineCountdownEndsAt = room.countdownEndsAt;
+    onlineCountdown.update(room);
     if (wasInFinishedOrStartedOnlineGame && state.moves === 0 && !state.winner) {
       resetGameProgress(shell);
       runId = createRunId();
@@ -527,6 +541,7 @@ export function mountMemory(target: HTMLElement): () => void {
     if (onlineStatus === "reconnecting") return "Reconnecting…";
     if (!onlineSession) return "Online";
     if (!onlineSeat) return "Joining…";
+    if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
     if (winner === "draw") return `Draw · ${scoreText()}`;
     if (winner) return winner === playerForSeat(onlineSeat) ? "You win" : "Opponent wins";
     if (onlineRevision === 0) return `Room ${onlineSession.code} · Waiting`;
@@ -534,6 +549,24 @@ export function mountMemory(target: HTMLElement): () => void {
     return currentPlayer === playerForSeat(onlineSeat)
       ? `Your turn · ${scoreText()}`
       : `Opponent turn · ${scoreText()}`;
+  }
+
+  function onlineCountdownText(): string {
+    const number = multiplayerCountdownNumber({
+      code: onlineSession?.code ?? "",
+      gameId: memory.id,
+      status: onlineRoomStatus,
+      revision: onlineRevision,
+      seats: {
+        p1: { joined: true, connected: true },
+        p2: { joined: true, connected: true },
+        p3: { joined: false, connected: false },
+        p4: { joined: false, connected: false },
+      },
+      state: {},
+      countdownEndsAt: onlineCountdownEndsAt,
+    });
+    return number === null ? "…" : String(number);
   }
 
   function recordOnlineFinished(state: OnlineMemoryState): void {
@@ -570,6 +603,7 @@ export function mountMemory(target: HTMLElement): () => void {
     pendingFlip.clear();
     invalidMove.cleanup();
     stopOnline();
+    onlineCountdown.cleanup();
     scope.cleanup();
     remove();
   };
