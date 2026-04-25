@@ -395,38 +395,8 @@
     justify-content: center;
   }
 
-  .history-dialog {
-    position: fixed;
-    inset: 0;
-    z-index: 11;
-    display: grid;
-    place-items: center;
-    width: 100%;
-    max-width: none;
-    height: 100%;
-    max-height: none;
-    margin: 0;
-    padding: 16px;
-    border: 0;
-    background: var(--confirm-backdrop);
-    color: inherit;
-  }
-
-  .history-dialog::backdrop {
-    background: transparent;
-  }
-
   .history-dialog__panel {
-    display: grid;
     grid-template-rows: auto auto minmax(0, 1fr) auto;
-    gap: var(--gap);
-    width: min(520px, calc(100vw - 32px));
-    max-height: min(680px, calc(100svh - 32px));
-    min-height: 0;
-    overflow: hidden;
-    padding: 18px;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
   }
 
   .history-dialog__title {
