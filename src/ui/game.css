@@ -87,7 +87,8 @@
 
   .status {
     display: grid;
-    place-items: center;
+    align-items: center;
+    justify-items: start;
     min-width: 10ch;
     width: max-content;
     overflow: visible;
@@ -95,7 +96,7 @@
     font-variant-numeric: tabular-nums;
     font-weight: var(--font-weight-strong);
     letter-spacing: -0.01em;
-    text-align: center;
+    text-align: left;
     white-space: nowrap;
   }
 
