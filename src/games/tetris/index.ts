@@ -21,6 +21,8 @@ import {
   markGameFinished,
   markGameStarted,
   onDocumentKeyDown,
+  parseArray,
+  parseFixedGrid,
   parseStartedAt,
   pauseGameOnRequest,
   pauseOnFocusLoss,
@@ -426,13 +428,7 @@ function parseTetrisState(value: unknown): TetrisState | null {
 }
 
 function parseBoard(value: unknown): TetrisBoard | null {
-  if (!Array.isArray(value) || value.length !== tetrisRows) return null;
-  const board = value.map((row) => {
-    if (!Array.isArray(row) || row.length !== tetrisColumns) return null;
-    const cells = row.map(parseCell);
-    return cells.every((cell): cell is TetrisCell => cell !== null) ? cells : null;
-  });
-  return board.every((row): row is TetrisCell[] => row !== null) ? board : null;
+  return parseFixedGrid(value, tetrisRows, tetrisColumns, parseCell);
 }
 
 function parseCell(value: unknown): TetrisCell | null {
@@ -458,9 +454,7 @@ function parseTetromino(value: unknown): Tetromino | null {
 }
 
 function parseBag(value: unknown): Tetromino[] | null {
-  if (!Array.isArray(value)) return null;
-  const bag = value.map(parseTetromino);
-  return bag.every((item): item is Tetromino => item !== null) ? bag : null;
+  return parseArray(value, parseTetromino);
 }
 
 function parseMode(value: unknown): Mode | null {

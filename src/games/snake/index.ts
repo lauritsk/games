@@ -25,7 +25,6 @@ import {
   resetGameProgress,
   required,
   setBoardGrid,
-  setIconLabel,
   syncChildren,
   type Difficulty,
   type Direction,
@@ -45,29 +44,13 @@ import {
   loadGameSave,
   saveGameSave,
 } from "@games/shared/game-state";
+import { createMultiplayerActionButtons } from "@features/multiplayer/multiplayer-actions";
+import { createMultiplayerGameClient } from "@features/multiplayer/multiplayer-game-client";
 import {
-  createMultiplayerCountdown,
-  multiplayerCountdownText,
-} from "@features/multiplayer/multiplayer-countdown";
-import {
-  canRequestMultiplayerRematch,
-  canStartMultiplayerMatch,
-  createMultiplayerActionButtons,
-  multiplayerRematchActionLabel,
-} from "@features/multiplayer/multiplayer-actions";
-import {
-  connectMultiplayerSession,
-  type MultiplayerConnection,
-  type MultiplayerConnectionStatus,
-} from "@features/multiplayer/multiplayer";
-import { renderMultiplayerPresence } from "@features/multiplayer/multiplayer-presence";
-import {
-  emptyMultiplayerSeatSnapshots,
   multiplayerJoinedSeatCount,
   multiplayerRematchStatusText,
   parseMultiplayerSeat,
   type MultiplayerRoomSnapshot,
-  type MultiplayerRoomStatus,
   type MultiplayerSeat,
   type MultiplayerSession,
 } from "@features/multiplayer/multiplayer-protocol";
@@ -204,17 +187,7 @@ export function mountSnake(target: HTMLElement): () => void {
   let state: State = "ready";
   let runId = createRunId();
   let startedAt: number | null = null;
-  let onlineSession: MultiplayerSession | null = null;
-  let onlineConnection: MultiplayerConnection | null = null;
-  let onlineSeat: MultiplayerSeat | null = null;
-  let onlineRevision = 0;
-  let onlineStatus: MultiplayerConnectionStatus = "closed";
-  let onlineRoomStatus: MultiplayerRoomStatus = "lobby";
-  let onlineCountdownEndsAt: number | undefined;
-  let onlineSeats = emptyMultiplayerSeatSnapshots();
   let onlineState: OnlineSnakeState | null = null;
-  let onlineResultRecorded = false;
-  let onlineError = "";
 
   const saved = loadGameSave(gameId, savePayloadVersion, parseSaveSnake);
   if (saved) {
@@ -256,7 +229,11 @@ export function mountSnake(target: HTMLElement): () => void {
 
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
-  const onlineCountdown = createMultiplayerCountdown(render);
+  const online = createMultiplayerGameClient({
+    game: snakeGameDefinition,
+    render,
+    applySnapshot: applyOnlineSnapshot,
+  });
   const wallModeControl = {
     get: () => wallMode,
     set: (next: WallMode) => {
@@ -285,7 +262,7 @@ export function mountSnake(target: HTMLElement): () => void {
     closeDialog: closeOnlineDialog,
   } = createMultiplayerActionButtons(actions, {
     game: snakeGameDefinition,
-    getSession: () => onlineSession,
+    getSession: () => online.session,
     onSession: startOnline,
     onStart: requestOnlineStart,
     onRematch: requestOnlineRematch,
@@ -294,8 +271,8 @@ export function mountSnake(target: HTMLElement): () => void {
   const requestReset = createResetControl(actions, shell, resetGame);
   onDocumentKeyDown(onKeyDown, scope);
   pauseGameOnRequest(shell, scope, {
-    canPause: () => !onlineSession && state === "playing",
-    isPaused: () => !onlineSession && state === "paused",
+    canPause: () => !online.session && state === "playing",
+    isPaused: () => !online.session && state === "paused",
     pause: togglePause,
   });
   addTouchGestureControls(
@@ -304,7 +281,7 @@ export function mountSnake(target: HTMLElement): () => void {
     { signal: scope.signal, touchAction: "none" },
   );
   pauseOnFocusLoss(scope, {
-    isActive: () => !onlineSession && state === "playing",
+    isActive: () => !online.session && state === "playing",
     pause: togglePause,
   });
   const autosave = createAutosave({ gameId, scope, save: saveCurrentGame });
@@ -327,7 +304,7 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function resetAfterSettingChange(): void {
-    if (onlineSession) {
+    if (online.session) {
       requestOnlineSettings();
       return;
     }
@@ -338,32 +315,18 @@ export function mountSnake(target: HTMLElement): () => void {
     const size = currentBoardSize();
     const boardRebuilt = prepareBoard(size);
     status.textContent = statusText();
-    renderMultiplayerPresence(onlinePresence, {
-      gameId,
-      session: onlineSession,
-      seat: onlineSeat,
-      status: onlineRoomStatus,
-      seats: onlineSeats,
-      countdown: onlineCountdownText(),
-    });
-    overlay.setVisible(!onlineSession && state === "paused");
+    online.renderPresence(onlinePresence);
+    overlay.setVisible(!online.session && state === "paused");
     setDifficultyControlIconLabel(difficultyButton, difficulty);
-    difficultyButton.disabled = Boolean(onlineSession && !canAdjustOnlineSettings());
+    difficultyButton.disabled = Boolean(online.session && !canAdjustOnlineSettings());
     setPlayerModeIconLabel(wallModeButton, wallModeLabel(wallMode));
-    wallModeButton.disabled = Boolean(onlineSession && !canAdjustOnlineSettings());
-    setIconLabel(onlineButton, "🌐", onlineSession ? "Online" : "Play online");
-    onlineButton.disabled = Boolean(onlineSession);
-    startOnlineButton.hidden = !onlineSession || onlineRoomStatus !== "lobby";
-    startOnlineButton.disabled = !canOnlineStart();
-    rematchButton.hidden = !isOnlineFinished() || !onlineSeat;
-    setIconLabel(
-      rematchButton,
-      onlineSeat === "p1" ? "▶" : "✓",
-      multiplayerRematchActionLabel(onlineSeat, currentSeatReady()),
+    wallModeButton.disabled = Boolean(online.session && !canAdjustOnlineSettings());
+    online.syncActionButtons(
+      { onlineButton, startOnlineButton, rematchButton },
+      isOnlineFinished(),
     );
-    rematchButton.disabled = onlineStatus !== "connected" || !canOnlineRematch();
 
-    const onlineCells = onlineSession ? onlineCellStates() : null;
+    const onlineCells = online.session ? onlineCellStates() : null;
     const body = new Set(snake.map(snakePointKey));
     const origins = previousSnake ? segmentOrigins(previousSnake) : new Map<string, SnakePoint>();
     const head = snakePointKey(required(snake[0]));
@@ -377,7 +340,7 @@ export function mountSnake(target: HTMLElement): () => void {
       const isFood = isOnline
         ? Boolean(
             onlineState &&
-            onlineRoomStatus === "playing" &&
+            online.roomStatus === "playing" &&
             snakePointsEqual(point, onlineState.food),
           )
         : snakePointsEqual(point, food);
@@ -394,7 +357,7 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (!onlineSession && event.key.toLowerCase() === "p") {
+    if (!online.session && event.key.toLowerCase() === "p") {
       event.preventDefault();
       togglePause();
       return;
@@ -403,11 +366,11 @@ export function mountSnake(target: HTMLElement): () => void {
       onDirection: handleDirectionInput,
       onActivate: activate,
       onNextDifficulty: () => {
-        if (!onlineSession || canAdjustOnlineSettings())
+        if (!online.session || canAdjustOnlineSettings())
           changeDifficulty(difficultyControl, "next");
       },
       onPreviousDifficulty: () => {
-        if (!onlineSession || canAdjustOnlineSettings())
+        if (!online.session || canAdjustOnlineSettings())
           changeDifficulty(difficultyControl, "previous");
       },
       onReset: requestReset,
@@ -415,12 +378,12 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function activate(): void {
-    if (onlineSession) requestOnlineStart();
+    if (online.session) requestOnlineStart();
     else start();
   }
 
   function handleDirectionInput(next: Direction): void {
-    if (onlineSession) {
+    if (online.session) {
       sendOnlineDirection(next);
       return;
     }
@@ -446,7 +409,7 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function togglePause(): void {
-    if (onlineSession) {
+    if (online.session) {
       invalidMove.trigger();
       return;
     }
@@ -519,7 +482,7 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function statusText(): string {
-    if (onlineSession) return onlineStatusText();
+    if (online.session) return onlineStatusText();
     if (state === "ready") return "Ready";
     if (state === "paused") return `Paused · ${snake.length}`;
     if (state === "won") return "Full";
@@ -532,7 +495,7 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function currentBoardSize(): number {
-    return onlineSession ? (onlineState?.size ?? config.size) : config.size;
+    return online.session ? (onlineState?.size ?? config.size) : config.size;
   }
 
   function labelFor(point: SnakePoint, next: SnakeCellState): string {
@@ -672,7 +635,7 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function saveCurrentGame(): void {
-    if (onlineSession) return;
+    if (online.session) return;
     if (startedAt === null) return;
     if (state === "won" || state === "lost") {
       clearGameSave(gameId);
@@ -712,140 +675,63 @@ export function mountSnake(target: HTMLElement): () => void {
     stopTimer();
     clearGameSave(gameId);
     resetGameProgress(shell);
-    onlineConnection?.close();
-    const spectator = session.role === "spectator";
-    onlineSession = session;
-    onlineSeat = spectator ? null : session.seat;
-    onlineRevision = 0;
-    onlineStatus = "connecting";
-    onlineRoomStatus = "lobby";
-    onlineCountdownEndsAt = undefined;
-    onlineSeats = emptyMultiplayerSeatSnapshots();
-    if (!spectator) onlineSeats[session.seat] = { joined: true, connected: false };
-    onlineState = null;
-    onlineResultRecorded = false;
-    onlineError = "";
-    runId = createRunId();
-    state = "ready";
-    onlineConnection = connectMultiplayerSession(session, {
-      onSnapshot: (message) =>
-        applyOnlineSnapshot(
-          message.room,
-          message.you.role === "spectator" ? null : message.you.seat,
-        ),
-      onError: (error, room) => {
-        onlineError = error;
-        if (room) applyOnlineSnapshot(room, onlineSeat);
-        else render();
-      },
-      onStatus: (connectionStatus) => {
-        onlineStatus = connectionStatus;
-        if (connectionStatus === "connected") onlineError = "";
-        render();
-      },
+    online.start(session, () => {
+      onlineState = null;
+      runId = createRunId();
+      state = "ready";
     });
-    render();
   }
 
   function requestOnlineStart(): void {
-    if (!onlineSession) return;
-    if (!canOnlineStart()) {
-      if (onlineRoomStatus === "lobby") invalidMove.trigger();
-      return;
-    }
-    onlineError = "Starting…";
-    onlineConnection?.requestStart(onlineRevision);
-    render();
+    online.requestStart(() => invalidMove.trigger());
   }
 
   function requestOnlineSettings(): void {
-    if (!canAdjustOnlineSettings()) return;
-    onlineError = "Updating settings…";
-    onlineConnection?.updateSettings(onlineRevision, onlineSettings());
-    render();
+    online.requestSettings(onlineSettings());
   }
 
   function requestOnlineRematch(): void {
-    if (!canOnlineRematch()) return;
-    onlineError = onlineSeat === "p1" ? "Starting rematch…" : "Ready for rematch…";
-    onlineConnection?.requestRematch(onlineRevision);
-    render();
+    online.requestRematch(isOnlineFinished());
   }
 
   function sendOnlineDirection(next: Direction): void {
-    const player = onlineSeat ? onlinePlayerFor(onlineSeat) : null;
-    if (onlineStatus !== "connected" || onlineRoomStatus !== "playing" || !player?.alive) {
+    const player = online.seat ? onlinePlayerFor(online.seat) : null;
+    if (
+      online.connectionStatus !== "connected" ||
+      online.roomStatus !== "playing" ||
+      !player?.alive
+    ) {
       invalidMove.trigger();
       return;
     }
-    onlineConnection?.sendAction(onlineRevision, { type: "direction", direction: next });
+    online.connection?.sendAction(online.revision, { type: "direction", direction: next });
     playSound("gameMove");
   }
 
-  function canOnlineStart(): boolean {
-    return canStartMultiplayerMatch({
-      session: onlineSession,
-      seat: onlineSeat,
-      connectionStatus: onlineStatus,
-      roomStatus: onlineRoomStatus,
-      seats: onlineSeats,
-    });
-  }
-
   function canAdjustOnlineSettings(): boolean {
-    return Boolean(
-      onlineSession &&
-      onlineSeat === "p1" &&
-      onlineStatus === "connected" &&
-      onlineRoomStatus === "lobby",
-    );
+    return online.canAdjustSettings();
   }
 
   function onlineSettings(): { difficulty: Difficulty; wallMode: WallMode } {
     return { difficulty, wallMode };
   }
 
-  function canOnlineRematch(): boolean {
-    return canRequestMultiplayerRematch(isOnlineFinished(), onlineSeat, currentSeatReady());
-  }
-
   function isOnlineFinished(): boolean {
-    return Boolean(onlineSession && onlineState?.winner);
-  }
-
-  function currentSeatReady(): boolean {
-    return onlineSeat ? onlineSeats[onlineSeat].ready === true : false;
+    return Boolean(online.session && onlineState?.winner);
   }
 
   function stopOnline(): void {
     closeOnlineDialog();
-    onlineConnection?.close();
-    onlineConnection = null;
-    onlineSession = null;
-    onlineSeat = null;
-    onlineRevision = 0;
-    onlineStatus = "closed";
-    onlineRoomStatus = "lobby";
-    onlineCountdownEndsAt = undefined;
-    onlineCountdown.cleanup();
-    onlineSeats = emptyMultiplayerSeatSnapshots();
+    online.stop();
     onlineState = null;
-    onlineResultRecorded = false;
-    onlineError = "";
   }
 
   function applyOnlineSnapshot(room: MultiplayerRoomSnapshot, seat: MultiplayerSeat | null): void {
     const snapshot = parseOnlineSnakeState(room.state);
     if (!snapshot || room.gameId !== gameId) return;
     const wasInFinishedOrStartedOnlineGame =
-      onlineResultRecorded || Boolean(onlineState?.winner) || (onlineState?.tick ?? 0) > 0;
-    onlineError = "";
-    onlineSeat = seat;
-    onlineRevision = room.revision;
-    onlineRoomStatus = room.status;
-    onlineCountdownEndsAt = room.countdownEndsAt;
-    onlineCountdown.update(room);
-    onlineSeats = room.seats;
+      online.resultRecorded || Boolean(onlineState?.winner) || (onlineState?.tick ?? 0) > 0;
+    online.applySnapshot(room, seat);
     onlineState = snapshot;
     difficulty = snapshot.difficulty;
     wallMode = snapshot.wallMode;
@@ -858,7 +744,7 @@ export function mountSnake(target: HTMLElement): () => void {
     ) {
       resetGameProgress(shell);
       runId = createRunId();
-      onlineResultRecorded = false;
+      online.resultRecorded = false;
     }
     if (room.status === "playing" && snapshot.players.length > 0) markGameStarted(shell);
     if (snapshot.winner) {
@@ -869,57 +755,50 @@ export function mountSnake(target: HTMLElement): () => void {
   }
 
   function onlineStatusText(): string {
-    if (onlineError) return onlineError;
-    if (onlineStatus === "connecting") return "Connecting…";
-    if (onlineStatus === "reconnecting") return "Reconnecting…";
-    if (!onlineSession) return "Online";
-    const joined = multiplayerJoinedSeatCount(onlineSeats);
-    if (onlineRoomStatus === "lobby") {
-      if (!onlineSeat) return `${joined}/4 · Spectating`;
-      if (onlineSeat === "p1") return `${joined}/4 · Start at 2`;
+    if (online.error) return online.error;
+    if (online.connectionStatus === "connecting") return "Connecting…";
+    if (online.connectionStatus === "reconnecting") return "Reconnecting…";
+    if (!online.session) return "Online";
+    const joined = multiplayerJoinedSeatCount(online.seats);
+    if (online.roomStatus === "lobby") {
+      if (!online.seat) return `${joined}/4 · Spectating`;
+      if (online.seat === "p1") return `${joined}/4 · Start at 2`;
       return `${joined}/4 · Waiting host`;
     }
-    if (onlineRoomStatus === "countdown") {
-      return onlineSeat
-        ? `Starting in ${onlineCountdownText()}`
-        : `Spectating · Starting in ${onlineCountdownText()}`;
+    if (online.roomStatus === "countdown") {
+      return online.seat
+        ? `Starting in ${online.countdownText()}`
+        : `Spectating · Starting in ${online.countdownText()}`;
     }
     const winner = onlineState?.winner ?? null;
     if (winner) {
       const result =
         winner === "draw"
           ? "Draw"
-          : winner === onlineSeat
+          : winner === online.seat
             ? "You win"
             : `${onlinePlayerLabel(winner)} wins`;
-      if (!onlineSeat) return `Spectating · ${result}`;
+      if (!online.seat) return `Spectating · ${result}`;
       return multiplayerRematchStatusText({
         result,
-        localSeat: onlineSeat,
-        seats: onlineSeats,
+        localSeat: online.seat,
+        seats: online.seats,
         maxPlayers: 4,
       });
     }
-    const player = onlineSeat ? onlinePlayerFor(onlineSeat) : null;
+    const player = online.seat ? onlinePlayerFor(online.seat) : null;
     if (!player) return "Watching";
     const alive = onlineState?.players.filter((entry) => entry.alive).length ?? 0;
     if (!player.alive) return `Crashed · ${alive} alive`;
     return `Length ${player.snake.length} · ${alive}/${onlineState?.players.length ?? joined} alive`;
   }
 
-  function onlineCountdownText(): string {
-    return multiplayerCountdownText({
-      status: onlineRoomStatus,
-      countdownEndsAt: onlineCountdownEndsAt,
-    });
-  }
-
   function recordOnlineFinished(snapshot: OnlineSnakeState): void {
-    if (onlineResultRecorded || !onlineSeat || !snapshot.winner) return;
-    onlineResultRecorded = true;
-    const player = onlinePlayerFor(onlineSeat, snapshot);
+    if (online.resultRecorded || !online.seat || !snapshot.winner) return;
+    online.resultRecorded = true;
+    const player = onlinePlayerFor(online.seat, snapshot);
     const outcome =
-      snapshot.winner === "draw" ? "draw" : snapshot.winner === onlineSeat ? "won" : "lost";
+      snapshot.winner === "draw" ? "draw" : snapshot.winner === online.seat ? "won" : "lost";
     recordGameResult({
       runId,
       gameId,
@@ -929,7 +808,7 @@ export function mountSnake(target: HTMLElement): () => void {
       durationMs: durationSince(snapshot.startedAt),
       metadata: {
         mode: "online",
-        seat: onlineSeat,
+        seat: online.seat,
         winner: snapshot.winner,
         players: snapshot.players.length,
         wallMode: snapshot.wallMode,
@@ -954,7 +833,7 @@ export function mountSnake(target: HTMLElement): () => void {
             owner: player.seat,
             head: index === 0,
             alive: player.alive,
-            yours: player.seat === onlineSeat,
+            yours: player.seat === online.seat,
           });
         }
       });
@@ -978,7 +857,6 @@ export function mountSnake(target: HTMLElement): () => void {
     invalidMove.cleanup();
     scope.cleanup();
     stopOnline();
-    onlineCountdown.cleanup();
     remove();
   };
 }

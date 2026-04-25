@@ -98,7 +98,3 @@ export type LeaderboardGameId = keyof typeof leaderboardGameConfigs;
 export function leaderboardConfigForGame(gameId: string): LeaderboardGameConfig | null {
   return (leaderboardGameConfigs as Record<string, LeaderboardGameConfig>)[gameId] ?? null;
 }
-
-export function leaderboardGameIds(): string[] {
-  return Object.keys(leaderboardGameConfigs);
-}

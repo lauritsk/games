@@ -107,22 +107,8 @@ export function normalizeMultiplayerCode(value: string): string {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-export function isMultiplayerSeat(value: unknown): value is MultiplayerSeat {
-  return parseMultiplayerSeat(value) !== null;
-}
-
-export function isMultiplayerSpectatorSession(
-  session: MultiplayerSession | null | undefined,
-): boolean {
-  return session?.role === "spectator";
-}
-
 export function parseMultiplayerSeat(value: unknown): MultiplayerSeat | null {
   return parseWithSchema(multiplayerSeatSchema, value);
-}
-
-export function isMultiplayerRoomStatus(value: unknown): value is MultiplayerRoomStatus {
-  return parseMultiplayerRoomStatus(value) !== null;
 }
 
 export function parseMultiplayerRoomStatus(value: unknown): MultiplayerRoomStatus | null {

@@ -742,14 +742,6 @@ export function multiplayerAdapterForGame(gameId: string): MultiplayerAdapter | 
   return adapters.get(gameId) ?? null;
 }
 
-export function supportedMultiplayerGameIds(): string[] {
-  return [...adapters.keys()];
-}
-
-export function oppositeSeat(seat: MultiplayerSeat): MultiplayerSeat {
-  return oppositeMultiplayerSeat(seat);
-}
-
 function newMemoryOnlineState(settings: MemoryOnlineSettings): MemoryOnlineState {
   const config = memoryConfigs[settings.difficulty];
   return {

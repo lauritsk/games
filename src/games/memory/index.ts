@@ -23,7 +23,6 @@ import {
   parseStartedAt,
   resetGameProgress,
   setBoardGrid,
-  setIconLabel,
   setSelected,
   syncChildren,
   type Difficulty,
@@ -44,29 +43,13 @@ import {
   loadGameSave,
   saveGameSave,
 } from "@games/shared/game-state";
+import { createMultiplayerActionButtons } from "@features/multiplayer/multiplayer-actions";
+import { createMultiplayerGameClient } from "@features/multiplayer/multiplayer-game-client";
 import {
-  createMultiplayerCountdown,
-  multiplayerCountdownText,
-} from "@features/multiplayer/multiplayer-countdown";
-import {
-  canRequestMultiplayerRematch,
-  canStartMultiplayerMatch,
-  createMultiplayerActionButtons,
-  multiplayerRematchActionLabel,
-} from "@features/multiplayer/multiplayer-actions";
-import {
-  connectMultiplayerSession,
-  type MultiplayerConnection,
-  type MultiplayerConnectionStatus,
-} from "@features/multiplayer/multiplayer";
-import { renderMultiplayerPresence } from "@features/multiplayer/multiplayer-presence";
-import {
-  emptyMultiplayerSeatSnapshots,
   multiplayerJoinedSeatCount,
   multiplayerRematchStatusText,
   parseMultiplayerSeat,
   type MultiplayerRoomSnapshot,
-  type MultiplayerRoomStatus,
   type MultiplayerSeat,
   type MultiplayerSession,
 } from "@features/multiplayer/multiplayer-protocol";
@@ -179,16 +162,6 @@ export function mountMemory(target: HTMLElement): () => void {
   let lock = false;
   let startedAt: number | null = null;
   let runId = createRunId();
-  let onlineSession: MultiplayerSession | null = null;
-  let onlineConnection: MultiplayerConnection | null = null;
-  let onlineSeat: MultiplayerSeat | null = null;
-  let onlineRevision = 0;
-  let onlineStatus: MultiplayerConnectionStatus = "closed";
-  let onlineRoomStatus: MultiplayerRoomStatus = "lobby";
-  let onlineCountdownEndsAt: number | undefined;
-  let onlineSeats = emptyMultiplayerSeatSnapshots();
-  let onlineResultRecorded = false;
-  let onlineError = "";
 
   const saved = loadGameSave(memory.id, savePayloadVersion, parseSaveMemory);
   if (saved) {
@@ -225,7 +198,11 @@ export function mountMemory(target: HTMLElement): () => void {
   const scope = createMountScope();
   const invalidMove = createInvalidMoveFeedback(shell);
   const pendingFlip = createDelayedAction();
-  const onlineCountdown = createMultiplayerCountdown(render);
+  const online = createMultiplayerGameClient({
+    game: memory,
+    render,
+    applySnapshot: applyOnlineSnapshot,
+  });
   const modeControl = {
     get: () => mode,
     set: (next: MemoryMode) => {
@@ -253,7 +230,7 @@ export function mountMemory(target: HTMLElement): () => void {
     closeDialog: closeOnlineDialog,
   } = createMultiplayerActionButtons(actions, {
     game: memory,
-    getSession: () => onlineSession,
+    getSession: () => online.session,
     onSession: startOnline,
     onStart: requestOnlineStart,
     onRematch: requestOnlineRematch,
@@ -288,7 +265,7 @@ export function mountMemory(target: HTMLElement): () => void {
   }
 
   function resetAfterDifficultyChange(): void {
-    if (onlineSession) {
+    if (online.session) {
       requestOnlineSettings();
       return;
     }
@@ -299,29 +276,15 @@ export function mountMemory(target: HTMLElement): () => void {
     setBoardGrid(grid, config.columns, config.rows);
     shell.dataset.turn = String(currentPlayer);
     status.textContent = statusText();
-    renderMultiplayerPresence(onlinePresence, {
-      gameId: memory.id,
-      session: onlineSession,
-      seat: onlineSeat,
-      status: onlineRoomStatus,
-      seats: onlineSeats,
-      countdown: onlineCountdownText(),
-    });
-    setPlayerModeIconLabel(modeButton, onlineSession ? "Online" : memoryModeLabel(mode));
-    modeButton.disabled = Boolean(onlineSession);
+    online.renderPresence(onlinePresence);
+    setPlayerModeIconLabel(modeButton, online.session ? "Online" : memoryModeLabel(mode));
+    modeButton.disabled = Boolean(online.session);
     setDifficultyControlIconLabel(difficultyButton, difficulty);
-    difficultyButton.disabled = Boolean(onlineSession && !canAdjustOnlineSettings());
-    setIconLabel(onlineButton, "🌐", onlineSession ? "Online" : "Play online");
-    onlineButton.disabled = Boolean(onlineSession);
-    startOnlineButton.hidden = !onlineSession || onlineRoomStatus !== "lobby";
-    startOnlineButton.disabled = !canOnlineStart();
-    rematchButton.hidden = !isOnlineFinished() || !onlineSeat;
-    setIconLabel(
-      rematchButton,
-      onlineSeat === "p1" ? "▶" : "✓",
-      multiplayerRematchActionLabel(onlineSeat, currentSeatReady()),
+    difficultyButton.disabled = Boolean(online.session && !canAdjustOnlineSettings());
+    online.syncActionButtons(
+      { onlineButton, startOnlineButton, rematchButton },
+      isOnlineFinished(),
     );
-    rematchButton.disabled = onlineStatus !== "connected" || !canOnlineRematch();
 
     const tiles = syncChildren(grid, cards.length, (index) => {
       const tile = el("button", { className: "game-cell memory-card", type: "button" });
@@ -351,18 +314,18 @@ export function mountMemory(target: HTMLElement): () => void {
     if (isConfirmOpen()) return;
     if (event.key.toLowerCase() === "m") {
       event.preventDefault();
-      if (!onlineSession) toggleMode(modeControl);
+      if (!online.session) toggleMode(modeControl);
       return;
     }
     handleStandardGameKey(event, {
       onDirection: moveSelection,
       onActivate: () => flip(selected),
       onNextDifficulty: () => {
-        if (!onlineSession || canAdjustOnlineSettings())
+        if (!online.session || canAdjustOnlineSettings())
           changeDifficulty(difficultyControl, "next");
       },
       onPreviousDifficulty: () => {
-        if (!onlineSession || canAdjustOnlineSettings())
+        if (!online.session || canAdjustOnlineSettings())
           changeDifficulty(difficultyControl, "previous");
       },
       onReset: requestReset,
@@ -381,8 +344,8 @@ export function mountMemory(target: HTMLElement): () => void {
       invalidMove.trigger();
       return;
     }
-    if (onlineSession) {
-      onlineConnection?.sendAction(onlineRevision, { type: "flip", index });
+    if (online.session) {
+      online.connection?.sendAction(online.revision, { type: "flip", index });
       return;
     }
     flipLocal(index);
@@ -436,7 +399,7 @@ export function mountMemory(target: HTMLElement): () => void {
   }
 
   function statusText(): string {
-    if (onlineSession) return onlineStatusText();
+    if (online.session) return onlineStatusText();
     if (mode === "local") {
       if (winner === "draw") return `Draw · ${scoreText()}`;
       if (winner) return `P${winner} wins · ${scoreText()}`;
@@ -450,14 +413,14 @@ export function mountMemory(target: HTMLElement): () => void {
   }
 
   function isLocked(): boolean {
-    if (onlineSession) {
+    if (online.session) {
       return (
-        onlineStatus !== "connected" ||
-        onlineRoomStatus !== "playing" ||
-        !onlineSeat ||
+        online.connectionStatus !== "connected" ||
+        online.roomStatus !== "playing" ||
+        !online.seat ||
         winner !== null ||
         lock ||
-        currentPlayer !== playerForSeat(onlineSeat)
+        currentPlayer !== playerForSeat(online.seat)
       );
     }
     return lock || (mode === "local" && winner !== null) || allMemoryMatched(cards);
@@ -489,7 +452,7 @@ export function mountMemory(target: HTMLElement): () => void {
   }
 
   function saveCurrentGame(): void {
-    if (onlineSession || startedAt === null) return;
+    if (online.session || startedAt === null) return;
     if (allMemoryMatched(cards)) {
       clearGameSave(memory.id);
       return;
@@ -532,122 +495,47 @@ export function mountMemory(target: HTMLElement): () => void {
     pendingFlip.clear();
     clearGameSave(memory.id);
     resetGameProgress(shell);
-    onlineConnection?.close();
-    const spectator = session.role === "spectator";
-    onlineSession = session;
-    onlineSeat = spectator ? null : session.seat;
-    onlineRevision = 0;
-    onlineStatus = "connecting";
-    onlineRoomStatus = "lobby";
-    onlineCountdownEndsAt = undefined;
-    onlineSeats = emptyMultiplayerSeatSnapshots();
-    if (!spectator) onlineSeats[session.seat] = { joined: true, connected: false };
-    onlineResultRecorded = false;
-    onlineError = "";
-    runId = createRunId();
-    config = memoryConfigs[difficulty];
-    cards = newMemoryDeck(config.pairs);
-    selected = 0;
-    moves = 0;
-    currentPlayer = 1;
-    scores = newScores();
-    winner = null;
-    lock = false;
-    startedAt = null;
-    onlineConnection = connectMultiplayerSession(session, {
-      onSnapshot: (message) =>
-        applyOnlineSnapshot(
-          message.room,
-          message.you.role === "spectator" ? null : message.you.seat,
-        ),
-      onError: (error, room) => {
-        onlineError = error;
-        if (room) applyOnlineSnapshot(room, onlineSeat);
-        else render();
-      },
-      onStatus: (status) => {
-        onlineStatus = status;
-        if (status === "connected") onlineError = "";
-        render();
-      },
+    online.start(session, () => {
+      runId = createRunId();
+      config = memoryConfigs[difficulty];
+      cards = newMemoryDeck(config.pairs);
+      selected = 0;
+      moves = 0;
+      currentPlayer = 1;
+      scores = newScores();
+      winner = null;
+      lock = false;
+      startedAt = null;
     });
-    render();
   }
 
   function requestOnlineStart(): void {
-    if (!onlineSession) return;
-    if (!canOnlineStart()) {
-      if (onlineRoomStatus === "lobby") invalidMove.trigger();
-      return;
-    }
-    onlineError = "Starting…";
-    onlineConnection?.requestStart(onlineRevision);
-    render();
+    online.requestStart(() => invalidMove.trigger());
   }
 
   function requestOnlineSettings(): void {
-    if (!canAdjustOnlineSettings()) return;
-    onlineError = "Updating settings…";
-    onlineConnection?.updateSettings(onlineRevision, onlineSettings());
-    render();
+    online.requestSettings(onlineSettings());
   }
 
   function requestOnlineRematch(): void {
-    if (!canOnlineRematch()) return;
-    onlineError = onlineSeat === "p1" ? "Starting rematch…" : "Ready for rematch…";
-    onlineConnection?.requestRematch(onlineRevision);
-    render();
-  }
-
-  function canOnlineStart(): boolean {
-    return canStartMultiplayerMatch({
-      session: onlineSession,
-      seat: onlineSeat,
-      connectionStatus: onlineStatus,
-      roomStatus: onlineRoomStatus,
-      seats: onlineSeats,
-    });
+    online.requestRematch(isOnlineFinished());
   }
 
   function canAdjustOnlineSettings(): boolean {
-    return Boolean(
-      onlineSession &&
-      onlineSeat === "p1" &&
-      onlineStatus === "connected" &&
-      onlineRoomStatus === "lobby",
-    );
+    return online.canAdjustSettings();
   }
 
   function onlineSettings(): { difficulty: Difficulty } {
     return { difficulty };
   }
 
-  function canOnlineRematch(): boolean {
-    return canRequestMultiplayerRematch(isOnlineFinished(), onlineSeat, currentSeatReady());
-  }
-
   function isOnlineFinished(): boolean {
-    return Boolean(onlineSession && winner);
-  }
-
-  function currentSeatReady(): boolean {
-    return onlineSeat ? onlineSeats[onlineSeat].ready === true : false;
+    return Boolean(online.session && winner);
   }
 
   function stopOnline(): void {
     closeOnlineDialog();
-    onlineConnection?.close();
-    onlineConnection = null;
-    onlineSession = null;
-    onlineSeat = null;
-    onlineRevision = 0;
-    onlineStatus = "closed";
-    onlineRoomStatus = "lobby";
-    onlineCountdownEndsAt = undefined;
-    onlineCountdown.cleanup();
-    onlineSeats = emptyMultiplayerSeatSnapshots();
-    onlineError = "";
-    onlineResultRecorded = false;
+    online.stop();
   }
 
   function applyOnlineSnapshot(room: MultiplayerRoomSnapshot, seat: MultiplayerSeat | null): void {
@@ -655,18 +543,12 @@ export function mountMemory(target: HTMLElement): () => void {
     if (!state || room.gameId !== memory.id) return;
     const nextConfig = configForCardCount(state.cards.length);
     if (!nextConfig) return;
-    const wasInFinishedOrStartedOnlineGame = onlineResultRecorded || winner !== null || moves > 0;
-    onlineError = "";
-    onlineSeat = seat;
-    onlineRevision = room.revision;
-    onlineRoomStatus = room.status;
-    onlineCountdownEndsAt = room.countdownEndsAt;
-    onlineSeats = room.seats;
-    onlineCountdown.update(room);
+    const wasInFinishedOrStartedOnlineGame = online.resultRecorded || winner !== null || moves > 0;
+    online.applySnapshot(room, seat);
     if (wasInFinishedOrStartedOnlineGame && state.moves === 0 && !state.winner) {
       resetGameProgress(shell);
       runId = createRunId();
-      onlineResultRecorded = false;
+      online.resultRecorded = false;
       startedAt = null;
     }
     difficulty = state.difficulty;
@@ -689,62 +571,56 @@ export function mountMemory(target: HTMLElement): () => void {
   }
 
   function onlineStatusText(): string {
-    if (onlineError) return onlineError;
-    if (onlineStatus === "connecting") return "Connecting…";
-    if (onlineStatus === "reconnecting") return "Reconnecting…";
-    if (!onlineSession) return "Online";
-    if (!onlineSeat) return spectatorStatusText();
-    if (onlineRoomStatus === "countdown") return `Starting in ${onlineCountdownText()}`;
-    if (onlineRoomStatus === "lobby") {
-      const joined = multiplayerJoinedSeatCount(onlineSeats);
-      if (onlineSeat === "p1") return `${joined}/2 · Start at 2`;
+    if (online.error) return online.error;
+    if (online.connectionStatus === "connecting") return "Connecting…";
+    if (online.connectionStatus === "reconnecting") return "Reconnecting…";
+    if (!online.session) return "Online";
+    if (!online.seat) return spectatorStatusText();
+    if (online.roomStatus === "countdown") return `Starting in ${online.countdownText()}`;
+    if (online.roomStatus === "lobby") {
+      const joined = multiplayerJoinedSeatCount(online.seats);
+      if (online.seat === "p1") return `${joined}/2 · Start at 2`;
       return "Waiting host";
     }
     if (winner === "draw") {
       return multiplayerRematchStatusText({
         result: `Draw · ${scoreText()}`,
-        localSeat: onlineSeat,
-        seats: onlineSeats,
+        localSeat: online.seat,
+        seats: online.seats,
       });
     }
     if (winner) {
-      const result = winner === playerForSeat(onlineSeat) ? "You win" : "Opponent wins";
+      const result = winner === playerForSeat(online.seat) ? "You win" : "Opponent wins";
       return multiplayerRematchStatusText({
         result: `${result} · ${scoreText()}`,
-        localSeat: onlineSeat,
-        seats: onlineSeats,
+        localSeat: online.seat,
+        seats: online.seats,
       });
     }
-    if (onlineRevision === 0) return "Waiting";
+    if (online.revision === 0) return "Waiting";
     if (lock) return `Settling · ${scoreText()}`;
-    return currentPlayer === playerForSeat(onlineSeat)
+    return currentPlayer === playerForSeat(online.seat)
       ? `Your turn · ${scoreText()}`
       : `Opponent turn · ${scoreText()}`;
   }
 
   function spectatorStatusText(): string {
-    if (!onlineSession) return "Spectating";
-    if (onlineRoomStatus === "countdown")
-      return `Spectating · Starting in ${onlineCountdownText()}`;
-    if (onlineRoomStatus === "lobby") return "Spectating";
+    if (!online.session) return "Spectating";
+    if (online.roomStatus === "countdown")
+      return `Spectating · Starting in ${online.countdownText()}`;
+    if (online.roomStatus === "lobby") return "Spectating";
     if (winner === "draw") return `Spectating · Draw · ${scoreText()}`;
     if (winner) return `Spectating · P${winner} wins · ${scoreText()}`;
-    if (onlineRevision === 0) return "Spectating";
+    if (online.revision === 0) return "Spectating";
     if (lock) return `Spectating · Settling · ${scoreText()}`;
     return `Spectating · P${currentPlayer} turn · ${scoreText()}`;
   }
 
-  function onlineCountdownText(): string {
-    return multiplayerCountdownText({
-      status: onlineRoomStatus,
-      countdownEndsAt: onlineCountdownEndsAt,
-    });
-  }
-
   function recordOnlineFinished(state: OnlineMemoryState): void {
-    if (onlineResultRecorded || !onlineSeat || !state.winner) return;
-    onlineResultRecorded = true;
-    const outcome = state.winner === "draw" ? "draw" : state.winner === onlineSeat ? "won" : "lost";
+    if (online.resultRecorded || !online.seat || !state.winner) return;
+    online.resultRecorded = true;
+    const outcome =
+      state.winner === "draw" ? "draw" : state.winner === online.seat ? "won" : "lost";
     recordGameResult({
       runId,
       gameId: memory.id,
@@ -753,7 +629,7 @@ export function mountMemory(target: HTMLElement): () => void {
       moves: state.moves,
       metadata: {
         mode: "online",
-        seat: onlineSeat,
+        seat: online.seat,
         winner: state.winner,
         p1Pairs: state.scores.p1,
         p2Pairs: state.scores.p2,
@@ -776,7 +652,6 @@ export function mountMemory(target: HTMLElement): () => void {
     pendingFlip.clear();
     invalidMove.cleanup();
     stopOnline();
-    onlineCountdown.cleanup();
     scope.cleanup();
     remove();
   };

@@ -40,28 +40,12 @@ import {
   type GameDefinition,
 } from "@shared/core";
 import { createInvalidMoveFeedback } from "@ui/feedback";
+import { createMultiplayerActionButtons } from "@features/multiplayer/multiplayer-actions";
+import { createMultiplayerGameClient } from "@features/multiplayer/multiplayer-game-client";
 import {
-  createMultiplayerCountdown,
-  multiplayerCountdownText,
-} from "@features/multiplayer/multiplayer-countdown";
-import {
-  canRequestMultiplayerRematch,
-  canStartMultiplayerMatch,
-  createMultiplayerActionButtons,
-  multiplayerRematchActionLabel,
-} from "@features/multiplayer/multiplayer-actions";
-import {
-  connectMultiplayerSession,
-  type MultiplayerConnection,
-  type MultiplayerConnectionStatus,
-} from "@features/multiplayer/multiplayer";
-import { renderMultiplayerPresence } from "@features/multiplayer/multiplayer-presence";
-import {
-  emptyMultiplayerSeatSnapshots,
   multiplayerJoinedSeatCount,
   multiplayerRematchStatusText,
   type MultiplayerRoomSnapshot,
-  type MultiplayerRoomStatus,
   type MultiplayerSeat,
   type MultiplayerSession,
 } from "@features/multiplayer/multiplayer-protocol";
@@ -172,17 +156,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   let loop: FixedStepLoop | null = null;
   let runId = createRunId();
   let startedAt: number | null = null;
-  let onlineSession: MultiplayerSession | null = null;
-  let onlineConnection: MultiplayerConnection | null = null;
-  let onlineSeat: MultiplayerSeat | null = null;
-  let onlineRevision = 0;
-  let onlineStatus: MultiplayerConnectionStatus = "closed";
-  let onlineRoomStatus: MultiplayerRoomStatus = "lobby";
-  let onlineCountdownEndsAt: number | undefined;
-  let onlineSeats = emptyMultiplayerSeatSnapshots();
   let onlineState: OnlineInvaderState | null = null;
-  let onlineResultRecorded = false;
-  let onlineError = "";
   let lastOnlineMove: -1 | 0 | 1 = 0;
   let lastOnlineAimX: number | null = null;
 
@@ -215,10 +189,14 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   const invalidMove = createInvalidMoveFeedback(shell);
   const autosave = createAutosave({ gameId: spaceInvaders.id, scope, save: saveCurrentGame });
   const waveAdvance = createDelayedAction();
-  const onlineCountdown = createMultiplayerCountdown(render);
+  const online = createMultiplayerGameClient({
+    game: spaceInvaders,
+    render,
+    applySnapshot: applyOnlineSnapshot,
+  });
   const input = createHeldKeyInput(scope, (direction) => {
     if (isConfirmOpen() || (direction !== "left" && direction !== "right")) return;
-    if (onlineSession) syncOnlineControlFromInput();
+    if (online.session) syncOnlineControlFromInput();
     else start();
   });
   const players = el("div", { className: "invader-players" });
@@ -273,7 +251,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     closeDialog: closeOnlineDialog,
   } = createMultiplayerActionButtons(actions, {
     game: spaceInvaders,
-    getSession: () => onlineSession,
+    getSession: () => online.session,
     onSession: startOnline,
     onStart: requestOnlineStart,
     onRematch: requestOnlineRematch,
@@ -284,12 +262,12 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   onDocumentKeyDown(onKeyDown, scope);
   document.addEventListener("keyup", onKeyUp, { signal: scope.signal });
   pauseGameOnRequest(shell, scope, {
-    canPause: () => !onlineSession && mode === "playing",
-    isPaused: () => !onlineSession && mode === "paused",
+    canPause: () => !online.session && mode === "playing",
+    isPaused: () => !online.session && mode === "paused",
     pause: togglePause,
   });
   pauseOnFocusLoss(scope, {
-    isActive: () => !onlineSession && mode === "playing",
+    isActive: () => !online.session && mode === "playing",
     pause: togglePause,
   });
   board.addEventListener(
@@ -329,7 +307,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function resetAfterDifficultyChange(): void {
-    if (onlineSession) {
+    if (online.session) {
       requestOnlineSettings();
       return;
     }
@@ -337,7 +315,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function start(): void {
-    if (onlineSession) {
+    if (online.session) {
       requestOnlineStart();
       return;
     }
@@ -345,7 +323,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function togglePause(): void {
-    if (onlineSession) {
+    if (online.session) {
       invalidMove.trigger();
       return;
     }
@@ -373,13 +351,13 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
 
   function onKeyUp(event: KeyboardEvent): void {
     const direction = keyDirection(event);
-    if (!onlineSession || (direction !== "left" && direction !== "right")) return;
+    if (!online.session || (direction !== "left" && direction !== "right")) return;
     syncOnlineControlFromInput();
   }
 
   function moveByDirection(direction: Direction): void {
     if (direction !== "left" && direction !== "right") return;
-    if (onlineSession) {
+    if (online.session) {
       sendOnlineMove(direction === "left" ? -1 : 1);
       return;
     }
@@ -403,12 +381,12 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function touchMoveByDirection(direction: Direction): void {
-    if (onlineSession) sendOnlineMoveStep(direction);
+    if (online.session) sendOnlineMoveStep(direction);
     else moveByDirection(direction);
   }
 
   function fire(): void {
-    if (onlineSession) {
+    if (online.session) {
       sendOnlineFire();
       return;
     }
@@ -455,7 +433,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     const rect = board.getBoundingClientRect();
     const current = currentInvaderState();
     const center = ((event.clientX - rect.left) / rect.width) * current.width;
-    if (onlineSession) {
+    if (online.session) {
       if (event.type === "pointerdown" || event.buttons > 0) sendOnlineAim(center);
       return;
     }
@@ -466,35 +444,21 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
 
   function render(): void {
     const current = currentInvaderState();
-    renderMultiplayerPresence(onlinePresence, {
-      gameId: spaceInvaders.id,
-      session: onlineSession,
-      seat: onlineSeat,
-      status: onlineRoomStatus,
-      seats: onlineSeats,
-      countdown: onlineCountdownText(),
-    });
+    online.renderPresence(onlinePresence);
     setDifficultyIconLabel(difficultyButton, difficulty);
-    difficultyButton.disabled = Boolean(onlineSession && !canAdjustOnlineSettings());
+    difficultyButton.disabled = Boolean(online.session && !canAdjustOnlineSettings());
     setIconLabel(
       pauseButton,
       mode === "paused" ? "▶" : "⏸",
       mode === "paused" ? "Resume" : "Pause",
     );
-    pauseButton.hidden = Boolean(onlineSession);
-    setIconLabel(onlineButton, "🌐", onlineSession ? "Online" : "Play online");
-    onlineButton.disabled = Boolean(onlineSession);
-    startOnlineButton.hidden = !onlineSession || onlineRoomStatus !== "lobby";
-    startOnlineButton.disabled = !canOnlineStart();
-    rematchButton.hidden = !isOnlineFinished() || !onlineSeat;
-    setIconLabel(
-      rematchButton,
-      onlineSeat === "p1" ? "▶" : "✓",
-      multiplayerRematchActionLabel(onlineSeat, currentSeatReady()),
+    pauseButton.hidden = Boolean(online.session);
+    online.syncActionButtons(
+      { onlineButton, startOnlineButton, rematchButton },
+      isOnlineFinished(),
     );
-    rematchButton.disabled = onlineStatus !== "connected" || !canOnlineRematch();
     status.textContent = statusText();
-    overlay.setVisible(!onlineSession && mode === "paused");
+    overlay.setVisible(!online.session && mode === "paused");
     syncPlayers(current);
     syncAliens(current);
     syncBarriers(current);
@@ -512,10 +476,10 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
         if (!player) return;
         position(child, player.x, player.y, player.width, player.height);
         child.dataset.player = player.id;
-        child.dataset.yours = String(player.id === onlineSeat);
+        child.dataset.yours = String(player.id === online.seat);
         child.setAttribute(
           "aria-label",
-          onlineSeat === player.id ? "Your cannon" : `${player.id.toUpperCase()} cannon`,
+          online.seat === player.id ? "Your cannon" : `${player.id.toUpperCase()} cannon`,
         );
       },
     );
@@ -597,7 +561,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function statusText(): string {
-    if (onlineSession) return onlineStatusText();
+    if (online.session) return onlineStatusText();
     if (mode === "ready") return "Ready";
     if (mode === "paused") return "Paused";
     if (mode === "wave") return `Wave ${state.wave + 1}`;
@@ -637,7 +601,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function saveCurrentGame(): void {
-    if (onlineSession) return;
+    if (online.session) return;
     if (startedAt === null) return;
     if (mode === "lost") {
       clearGameSave(spaceInvaders.id);
@@ -664,68 +628,27 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     waveAdvance.clear();
     clearGameSave(spaceInvaders.id);
     resetGameProgress(shell);
-    onlineConnection?.close();
-    const spectator = session.role === "spectator";
-    onlineSession = session;
-    onlineSeat = spectator ? null : session.seat;
-    onlineRevision = 0;
-    onlineStatus = "connecting";
-    onlineRoomStatus = "lobby";
-    onlineCountdownEndsAt = undefined;
-    onlineSeats = emptyMultiplayerSeatSnapshots();
-    if (!spectator) onlineSeats[session.seat] = { joined: true, connected: false };
-    onlineState = null;
-    onlineResultRecorded = false;
-    onlineError = "";
-    lastOnlineMove = 0;
-    lastOnlineAimX = null;
-    runId = createRunId();
-    startedAt = null;
-    mode = "ready";
-    input.clear();
-    onlineConnection = connectMultiplayerSession(session, {
-      onSnapshot: (message) =>
-        applyOnlineSnapshot(
-          message.room,
-          message.you.role === "spectator" ? null : message.you.seat,
-        ),
-      onError: (error, room) => {
-        onlineError = error;
-        if (room) applyOnlineSnapshot(room, onlineSeat);
-        else render();
-      },
-      onStatus: (connectionStatus) => {
-        onlineStatus = connectionStatus;
-        if (connectionStatus === "connected") onlineError = "";
-        render();
-      },
+    online.start(session, () => {
+      onlineState = null;
+      lastOnlineMove = 0;
+      lastOnlineAimX = null;
+      runId = createRunId();
+      startedAt = null;
+      mode = "ready";
+      input.clear();
     });
-    render();
   }
 
   function requestOnlineStart(): void {
-    if (!onlineSession) return;
-    if (!canOnlineStart()) {
-      if (onlineRoomStatus === "lobby") invalidMove.trigger();
-      return;
-    }
-    onlineError = "Starting…";
-    onlineConnection?.requestStart(onlineRevision);
-    render();
+    online.requestStart(() => invalidMove.trigger());
   }
 
   function requestOnlineSettings(): void {
-    if (!canAdjustOnlineSettings()) return;
-    onlineError = "Updating settings…";
-    onlineConnection?.updateSettings(onlineRevision, onlineSettings());
-    render();
+    online.requestSettings(onlineSettings());
   }
 
   function requestOnlineRematch(): void {
-    if (!canOnlineRematch()) return;
-    onlineError = onlineSeat === "p1" ? "Starting rematch…" : "Ready for rematch…";
-    onlineConnection?.requestRematch(onlineRevision);
-    render();
+    online.requestRematch(isOnlineFinished());
   }
 
   function syncOnlineControlFromInput(): void {
@@ -733,19 +656,24 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function sendOnlineMove(move: -1 | 0 | 1): void {
-    if (!onlineSeat || onlineStatus !== "connected" || onlineRoomStatus !== "playing") return;
+    if (!online.seat || online.connectionStatus !== "connected" || online.roomStatus !== "playing")
+      return;
     if (move === lastOnlineMove) return;
     lastOnlineMove = move;
-    onlineConnection?.sendAction(onlineRevision, { type: "move", move });
+    online.connection?.sendAction(online.revision, { type: "move", move });
   }
 
   function sendOnlineMoveStep(direction: Direction): void {
     if (direction !== "left" && direction !== "right") return;
-    if (!onlineSeat || onlineStatus !== "connected" || onlineRoomStatus !== "playing") {
+    if (
+      !online.seat ||
+      online.connectionStatus !== "connected" ||
+      online.roomStatus !== "playing"
+    ) {
       invalidMove.trigger();
       return;
     }
-    onlineConnection?.sendAction(onlineRevision, {
+    online.connection?.sendAction(online.revision, {
       type: "step",
       move: direction === "left" ? -1 : 1,
     });
@@ -753,68 +681,36 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function sendOnlineFire(): void {
-    if (!onlineSeat || onlineStatus !== "connected" || onlineRoomStatus !== "playing") return;
-    onlineConnection?.sendAction(onlineRevision, { type: "fire" });
+    if (!online.seat || online.connectionStatus !== "connected" || online.roomStatus !== "playing")
+      return;
+    online.connection?.sendAction(online.revision, { type: "fire" });
     playSound("uiToggle");
   }
 
   function sendOnlineAim(centerX: number): void {
-    if (!onlineSeat || onlineStatus !== "connected" || onlineRoomStatus !== "playing") return;
+    if (!online.seat || online.connectionStatus !== "connected" || online.roomStatus !== "playing")
+      return;
     if (lastOnlineAimX !== null && Math.abs(centerX - lastOnlineAimX) < 1.2) return;
     lastOnlineAimX = centerX;
-    onlineConnection?.sendAction(onlineRevision, { type: "aim", x: centerX });
-  }
-
-  function canOnlineStart(): boolean {
-    return canStartMultiplayerMatch({
-      session: onlineSession,
-      seat: onlineSeat,
-      connectionStatus: onlineStatus,
-      roomStatus: onlineRoomStatus,
-      seats: onlineSeats,
-    });
+    online.connection?.sendAction(online.revision, { type: "aim", x: centerX });
   }
 
   function canAdjustOnlineSettings(): boolean {
-    return Boolean(
-      onlineSession &&
-      onlineSeat === "p1" &&
-      onlineStatus === "connected" &&
-      onlineRoomStatus === "lobby",
-    );
+    return online.canAdjustSettings();
   }
 
   function onlineSettings(): { difficulty: Difficulty } {
     return { difficulty };
   }
 
-  function canOnlineRematch(): boolean {
-    return canRequestMultiplayerRematch(isOnlineFinished(), onlineSeat, currentSeatReady());
-  }
-
   function isOnlineFinished(): boolean {
-    return Boolean(onlineSession && onlineState?.lost);
-  }
-
-  function currentSeatReady(): boolean {
-    return onlineSeat ? onlineSeats[onlineSeat].ready === true : false;
+    return Boolean(online.session && onlineState?.lost);
   }
 
   function stopOnline(): void {
     closeOnlineDialog();
-    onlineConnection?.close();
-    onlineConnection = null;
-    onlineSession = null;
-    onlineSeat = null;
-    onlineRevision = 0;
-    onlineStatus = "closed";
-    onlineRoomStatus = "lobby";
-    onlineCountdownEndsAt = undefined;
-    onlineCountdown.cleanup();
-    onlineSeats = emptyMultiplayerSeatSnapshots();
+    online.stop();
     onlineState = null;
-    onlineResultRecorded = false;
-    onlineError = "";
     lastOnlineMove = 0;
     lastOnlineAimX = null;
   }
@@ -824,18 +720,12 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     if (!snapshot || room.gameId !== spaceInvaders.id) return;
     const previous = onlineState;
     const wasInFinishedOrStartedOnlineGame =
-      onlineResultRecorded || Boolean(previous?.lost) || (previous?.tick ?? 0) > 0;
-    onlineError = "";
-    onlineSeat = seat;
-    onlineRevision = room.revision;
-    onlineRoomStatus = room.status;
-    onlineCountdownEndsAt = room.countdownEndsAt;
-    onlineSeats = room.seats;
-    onlineCountdown.update(room);
+      online.resultRecorded || Boolean(previous?.lost) || (previous?.tick ?? 0) > 0;
+    online.applySnapshot(room, seat);
     if (wasInFinishedOrStartedOnlineGame && snapshot.tick === 0 && !snapshot.lost) {
       resetGameProgress(shell);
       runId = createRunId();
-      onlineResultRecorded = false;
+      online.resultRecorded = false;
       startedAt = null;
     }
     if (previous && snapshot.score > previous.score) playSound("gameGood");
@@ -851,46 +741,39 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
   }
 
   function onlineStatusText(): string {
-    if (onlineError) return onlineError;
-    if (onlineStatus === "connecting") return "Connecting…";
-    if (onlineStatus === "reconnecting") return "Reconnecting…";
-    if (!onlineSession) return "Online";
-    if (onlineRoomStatus === "countdown") {
-      return onlineSeat
-        ? `Starting in ${onlineCountdownText()}`
-        : `Spectating · Starting in ${onlineCountdownText()}`;
+    if (online.error) return online.error;
+    if (online.connectionStatus === "connecting") return "Connecting…";
+    if (online.connectionStatus === "reconnecting") return "Reconnecting…";
+    if (!online.session) return "Online";
+    if (online.roomStatus === "countdown") {
+      return online.seat
+        ? `Starting in ${online.countdownText()}`
+        : `Spectating · Starting in ${online.countdownText()}`;
     }
-    if (onlineRoomStatus === "lobby") {
-      const joined = multiplayerJoinedSeatCount(onlineSeats);
-      if (!onlineSeat) return "Spectating";
-      if (onlineSeat === "p1") return `${joined}/2 · Start at 2`;
+    if (online.roomStatus === "lobby") {
+      const joined = multiplayerJoinedSeatCount(online.seats);
+      if (!online.seat) return "Spectating";
+      if (online.seat === "p1") return `${joined}/2 · Start at 2`;
       return "Waiting host";
     }
     const snapshot = onlineState;
     if (!snapshot) return "Waiting";
     if (snapshot.lost) {
       const result = `Over · ${snapshot.score}`;
-      if (!onlineSeat) return `Spectating · ${result}`;
+      if (!online.seat) return `Spectating · ${result}`;
       return multiplayerRematchStatusText({
         result,
-        localSeat: onlineSeat,
-        seats: onlineSeats,
+        localSeat: online.seat,
+        seats: online.seats,
       });
     }
     const summary = `${snapshot.score} · W${snapshot.wave} · ${"♥".repeat(snapshot.lives)} · Co-op`;
-    return onlineSeat ? summary : `Spectating · ${summary}`;
-  }
-
-  function onlineCountdownText(): string {
-    return multiplayerCountdownText({
-      status: onlineRoomStatus,
-      countdownEndsAt: onlineCountdownEndsAt,
-    });
+    return online.seat ? summary : `Spectating · ${summary}`;
   }
 
   function recordOnlineFinished(snapshot: OnlineInvaderState): void {
-    if (onlineResultRecorded || !onlineSeat) return;
-    onlineResultRecorded = true;
+    if (online.resultRecorded || !online.seat) return;
+    online.resultRecorded = true;
     recordGameResult({
       runId,
       gameId: spaceInvaders.id,
@@ -899,7 +782,7 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
       score: snapshot.score,
       level: snapshot.wave,
       durationMs: durationMs(),
-      metadata: { mode: "online", seat: onlineSeat, lives: snapshot.lives },
+      metadata: { mode: "online", seat: online.seat, lives: snapshot.lives },
     });
   }
 
@@ -911,7 +794,6 @@ export function mountSpaceInvaders(target: HTMLElement): () => void {
     stopTimer();
     waveAdvance.clear();
     stopOnline();
-    onlineCountdown.cleanup();
     invalidMove.cleanup();
     input.destroy();
     scope.cleanup();

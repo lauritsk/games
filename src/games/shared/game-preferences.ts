@@ -35,13 +35,6 @@ export function saveGamePreferences(gameId: string, preferences: GamePreferences
   if (writeStored(preferencesKey, PREFERENCES_SCHEMA_VERSION, all)) notifySyncChanged();
 }
 
-export function updateGamePreferences(
-  gameId: string,
-  updater: (current: GamePreferences) => GamePreferences,
-): void {
-  saveGamePreferences(gameId, updater(loadGamePreferences(gameId)));
-}
-
 export function parseDifficulty(value: unknown): Difficulty | null {
   return parseWithSchema(difficultySchema, value);
 }

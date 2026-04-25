@@ -56,24 +56,12 @@ export function parseFixedGrid<T>(
   return parseFixedArray(value, rows, (row) => parseFixedArray(row, columns, parseItem));
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return v.is(unknownRecordSchema, value);
-}
-
 export function isFiniteNumber(value: unknown): value is number {
   return v.is(finiteNumberSchema, value);
 }
 
 export function isInteger(value: unknown): value is number {
   return v.is(integerSchema, value);
-}
-
-export function isNonNegativeInteger(value: unknown): value is number {
-  return v.is(nonNegativeIntegerSchema, value);
-}
-
-export function isPositiveInteger(value: unknown): value is number {
-  return v.is(positiveIntegerSchema, value);
 }
 
 export function integerRangeSchema(min: number, maxExclusive: number) {

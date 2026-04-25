@@ -17,6 +17,7 @@ import {
   markGameStarted,
   moveGridPoint,
   onDocumentKeyDown,
+  parseFixedGrid,
   parseStartedAt,
   resetGameProgress,
   setBoardGrid,
@@ -476,13 +477,7 @@ function parseConfig(value: unknown, expected: MinesweeperConfig): MinesweeperCo
 }
 
 function parseBoard(value: unknown, rows: number, columns: number): MinesweeperCell[][] | null {
-  if (!Array.isArray(value) || value.length !== rows) return null;
-  const board = value.map((row) => {
-    if (!Array.isArray(row) || row.length !== columns) return null;
-    const cells = row.map(parseCell);
-    return cells.every((cell): cell is MinesweeperCell => cell !== null) ? cells : null;
-  });
-  return board.every((row): row is MinesweeperCell[] => row !== null) ? board : null;
+  return parseFixedGrid(value, rows, columns, parseCell);
 }
 
 function parseCell(value: unknown): MinesweeperCell | null {

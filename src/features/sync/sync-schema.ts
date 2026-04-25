@@ -1,14 +1,6 @@
 import * as v from "valibot";
 import { parseDifficulty } from "@games/shared/game-preferences";
-import type {
-  SyncPreference,
-  SyncPush,
-  SyncResult,
-  SyncResultClear,
-  SyncSave,
-  SyncSaveTombstone,
-  SyncSnapshot,
-} from "@features/sync/sync-types";
+import type { SyncPush, SyncResult, SyncSnapshot } from "@features/sync/sync-types";
 import {
   finiteNumberSchema,
   parseWithSchema,
@@ -99,22 +91,6 @@ export function parseSyncPush(value: unknown): SyncPush | null {
   const snapshot = parseSyncSnapshot(value);
   if (!snapshot) return null;
   return { deviceId: base.deviceId, ...snapshot };
-}
-
-export function parseSyncPreference(value: unknown): SyncPreference | null {
-  return parseWithSchema(syncPreferenceSchema, value);
-}
-
-export function parseSyncSave(value: unknown): SyncSave | null {
-  return parseWithSchema(syncSaveSchema, value);
-}
-
-export function parseSyncSaveTombstone(value: unknown): SyncSaveTombstone | null {
-  return parseWithSchema(syncSaveTombstoneSchema, value);
-}
-
-export function parseSyncResultClear(value: unknown): SyncResultClear | null {
-  return parseWithSchema(syncResultClearSchema, value);
 }
 
 export function parseSyncResult(value: unknown): SyncResult | null {
