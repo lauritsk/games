@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 declare global {
   interface Window {
@@ -21,6 +21,20 @@ async function openGame(page: Page, name: string): Promise<void> {
   await page.goto("/");
   await page.getByRole("link", { name }).click();
   await expect(page.getByRole("link", { name: "← Selection" })).toBeVisible();
+}
+
+async function expectElementsNotToOverlap(a: Locator, b: Locator): Promise<void> {
+  const aBox = await a.boundingBox();
+  const bBox = await b.boundingBox();
+  expect(aBox).not.toBeNull();
+  expect(bBox).not.toBeNull();
+
+  const overlaps =
+    aBox!.x < bBox!.x + bBox!.width &&
+    aBox!.x + aBox!.width > bBox!.x &&
+    aBox!.y < bBox!.y + bBox!.height &&
+    aBox!.y + aBox!.height > bBox!.y;
+  expect(overlaps).toBe(false);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -51,17 +65,38 @@ test("game header controls do not overlap the appearance toggle", async ({ page 
   await expect(history).toBeVisible();
   await expect(appearance).toBeVisible();
 
-  const historyBox = await history.boundingBox();
-  const appearanceBox = await appearance.boundingBox();
-  expect(historyBox).not.toBeNull();
-  expect(appearanceBox).not.toBeNull();
+  await expectElementsNotToOverlap(history, appearance);
+  await page.evaluate(() => window.assertNoClientErrors());
+});
 
-  const overlaps =
-    historyBox!.x < appearanceBox!.x + appearanceBox!.width &&
-    historyBox!.x + historyBox!.width > appearanceBox!.x &&
-    historyBox!.y < appearanceBox!.y + appearanceBox!.height &&
-    historyBox!.y + historyBox!.height > appearanceBox!.y;
-  expect(overlaps).toBe(false);
+test("mobile game navigation remains tappable below the appearance toggle", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await openGame(page, "Tic-Tac-Toe");
+
+  const appearance = page.getByRole("radiogroup", { name: "Color theme" });
+  const history = page.getByRole("button", { name: "History" });
+  const leaderboard = page.getByRole("button", { name: "Leaderboard" });
+  await expect(appearance).toBeVisible();
+  await expect(history).toBeVisible();
+  await expect(leaderboard).toBeVisible();
+
+  await expectElementsNotToOverlap(history, appearance);
+  await expectElementsNotToOverlap(leaderboard, appearance);
+  await leaderboard.click();
+  await expect(page.getByRole("dialog", { name: "Tic-Tac-Toe leaderboard" })).toBeVisible();
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
+test("minesweeper keeps mobile cells touch sized", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await openGame(page, "Minesweeper");
+
+  const firstCell = page.locator(".mine-cell").first();
+  await expect(firstCell).toBeVisible();
+  const box = await firstCell.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.width).toBeGreaterThanOrEqual(44);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
   await page.evaluate(() => window.assertNoClientErrors());
 });
 

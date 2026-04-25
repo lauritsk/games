@@ -37,7 +37,7 @@ export const gameLayouts = {
   scrollGrid: {
     mode: "scroll",
     maxInline: "900px",
-    cellSize: "30px",
+    cellSize: "44px",
   },
 } satisfies Record<string, GameLayout>;
 

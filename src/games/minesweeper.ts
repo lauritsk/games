@@ -49,9 +49,9 @@ import {
 type State = "playing" | "won" | "lost";
 
 const configs: Record<Difficulty, MinesweeperConfig> = {
-  Easy: { rows: 8, columns: 8, mines: 8, layout: "fit" },
-  Medium: { rows: 12, columns: 12, mines: 24, layout: "fit" },
-  Hard: { rows: 16, columns: 16, mines: 56, layout: "fit" },
+  Easy: { rows: 8, columns: 8, mines: 8, layout: "scroll" },
+  Medium: { rows: 12, columns: 12, mines: 24, layout: "scroll" },
+  Hard: { rows: 16, columns: 16, mines: 56, layout: "scroll" },
 };
 const savePayloadVersion = 1;
 

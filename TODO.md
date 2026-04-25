@@ -1,5 +1,6 @@
 # TODO
 
+- [x] Apply web design review to current project.
 - [x] Refactor maintainability hotspots.
 - [x] Update TypeScript to v6.
 - [x] Design bot win-streak leaderboards for Tic-Tac-Toe and Connect 4 before implementation.
