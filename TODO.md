@@ -2,6 +2,7 @@
 
 ## Maintenance
 
+- [x] Extract shared array/grid parsing helpers for save-state parsers.
 - [x] Pin Dockerfile Bun images to current digests.
 - [x] Review Bun v1.3.13 feature opportunities.
 - [x] Adopt Bun v1.3.13 opportunities.
@@ -9,7 +10,7 @@
 - [x] Integrate Valibot runtime schemas.
 - [x] Integrate Drizzle ORM for SQLite.
 - [x] Use Drizzle migrations as SQLite bootstrap.
-- [ ] Add shared Valibot helpers for fixed arrays/grids and safe JSON parsing if parser duplication grows.
+- [ ] Add safe JSON parsing helper if parser duplication grows.
 - [x] Add a typed API contract layer using shared Valibot request/response schemas.
 - [x] Generate OpenAPI documentation from Valibot schemas if the API surface grows.
 - [x] Run a Bun SQLite performance pass for sync, leaderboard, and multiplayer persistence paths.

@@ -1,6 +1,7 @@
 import * as v from "valibot";
 
 export type SchemaOutput<TSchema extends v.GenericSchema> = v.InferOutput<TSchema>;
+export type ValueParser<T> = (value: unknown) => T | null;
 
 export type PicklistValues = v.PicklistOptions;
 
@@ -19,6 +20,40 @@ export function parseWithSchema<const TSchema extends v.GenericSchema>(
 ): v.InferOutput<TSchema> | null {
   const result = v.safeParse(schema, value);
   return result.success ? result.output : null;
+}
+
+export function parseArray<T>(value: unknown, parseItem: ValueParser<T>): T[] | null {
+  if (!Array.isArray(value)) return null;
+  const items: T[] = [];
+  for (const item of value) {
+    const parsed = parseItem(item);
+    if (parsed === null) return null;
+    items.push(parsed);
+  }
+  return items;
+}
+
+export function parseFixedArray<T>(
+  value: unknown,
+  length: number,
+  parseItem: ValueParser<T>,
+): T[] | null {
+  if (!Array.isArray(value) || value.length !== length) return null;
+  return parseArray(value, parseItem);
+}
+
+export function parseNonEmptyArray<T>(value: unknown, parseItem: ValueParser<T>): T[] | null {
+  const items = parseArray(value, parseItem);
+  return items && items.length > 0 ? items : null;
+}
+
+export function parseFixedGrid<T>(
+  value: unknown,
+  rows: number,
+  columns: number,
+  parseItem: ValueParser<T>,
+): T[][] | null {
+  return parseFixedArray(value, rows, (row) => parseFixedArray(row, columns, parseItem));
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

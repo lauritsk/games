@@ -8,6 +8,7 @@ import {
   handleStandardGameKey,
   finiteNumberSchema,
   nonNegativeFiniteNumberSchema,
+  parseFixedGrid,
   parseWithSchema,
   markGameFinished,
   markGameStarted,
@@ -249,12 +250,7 @@ function parseSave2048(value: unknown): Save2048 | null {
 }
 
 function parseBoard2048(value: unknown, size: number): Board2048 | null {
-  if (!Array.isArray(value) || value.length !== size) return null;
-  const board = value.map((row) => {
-    if (!Array.isArray(row) || row.length !== size) return null;
-    const cells = row.map((cell) => parseWithSchema(nonNegativeFiniteNumberSchema, cell));
-    if (cells.some((cell) => cell === null)) return null;
-    return cells as number[];
-  });
-  return board.every((row): row is number[] => row !== null) ? board : null;
+  return parseFixedGrid(value, size, size, (cell) =>
+    parseWithSchema(nonNegativeFiniteNumberSchema, cell),
+  );
 }

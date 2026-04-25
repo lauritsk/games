@@ -12,6 +12,8 @@ import {
   integerBetweenSchema,
   integerRangeSchema,
   integerSchema,
+  parseArray,
+  parseNonEmptyArray,
   parseWithSchema,
   picklistSchema,
   markGameFinished,
@@ -1027,11 +1029,10 @@ function parseOnlineSnakeState(value: unknown): OnlineSnakeState | null {
   const food = parsePoint(parsed.food, parsed.size);
   const winner = parseOnlineWinner(parsed.winner);
   const players = Array.isArray(parsed.players)
-    ? parsed.players.map((player) => parseOnlineSnakePlayer(player, parsed.size))
+    ? parseArray(parsed.players, (player) => parseOnlineSnakePlayer(player, parsed.size))
     : [];
   const startedAt = parseStartedAt(parsed.startedAt);
-  if (!food || winner === undefined || startedAt === undefined) return null;
-  if (!players.every((player): player is OnlineSnakePlayer => player !== null)) return null;
+  if (!food || !players || winner === undefined || startedAt === undefined) return null;
   return {
     difficulty,
     wallMode,
@@ -1066,9 +1067,7 @@ function parseConfig(value: unknown, expected: Config): Config | null {
 }
 
 function parseSnake(value: unknown, size: number): SnakePoint[] | null {
-  if (!Array.isArray(value) || value.length === 0) return null;
-  const snake = value.map((point) => parsePoint(point, size));
-  return snake.every((point): point is SnakePoint => point !== null) ? snake : null;
+  return parseNonEmptyArray(value, (point) => parsePoint(point, size));
 }
 
 function parsePoint(value: unknown, size: number): SnakePoint | null {

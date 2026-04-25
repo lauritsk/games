@@ -9,6 +9,10 @@ import {
   moveGridIndex,
   moveGridPoint,
   nextDifficulty,
+  parseArray,
+  parseFixedArray,
+  parseFixedGrid,
+  parseNonEmptyArray,
   parseOneOf,
   parseStartedAt,
   pauseGameOnRequest,
@@ -84,6 +88,34 @@ describe("shared guards and clocks", () => {
     expect(durationSince(null, 150)).toBeUndefined();
     expect(durationSince(100, 150)).toBe(50);
     expect(durationSince(200, 150)).toBe(0);
+  });
+
+  test("parses arrays only when every item is valid", () => {
+    expect(parseArray([1, 2, 3], parseNumber)).toEqual([1, 2, 3]);
+    expect(parseArray([1, "2", 3], parseNumber)).toBeNull();
+    expect(parseArray("not-array", parseNumber)).toBeNull();
+    expect(parseNonEmptyArray([1], parseNumber)).toEqual([1]);
+    expect(parseNonEmptyArray([], parseNumber)).toBeNull();
+  });
+
+  test("enforces fixed arrays and grid dimensions", () => {
+    expect(parseFixedArray([1, 2], 2, parseNumber)).toEqual([1, 2]);
+    expect(parseFixedArray([1], 2, parseNumber)).toBeNull();
+    expect(
+      parseFixedGrid(
+        [
+          [1, 2],
+          [3, 4],
+        ],
+        2,
+        2,
+        parseNumber,
+      ),
+    ).toEqual([
+      [1, 2],
+      [3, 4],
+    ]);
+    expect(parseFixedGrid([[1], [2]], 2, 2, parseNumber)).toBeNull();
   });
 });
 
@@ -200,6 +232,10 @@ test("delayed actions can be rescheduled and cleared", async () => {
   await sleep(40);
   expect(value).toBe(2);
 });
+
+function parseNumber(value: unknown): number | null {
+  return typeof value === "number" ? value : null;
+}
 
 function restoreGlobal(
   name: "window" | "document",

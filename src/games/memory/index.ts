@@ -13,6 +13,7 @@ import {
   integerRangeSchema,
   integerSchema,
   nonNegativeIntegerSchema,
+  parseFixedArray,
   parseWithSchema,
   picklistSchema,
   markGameFinished,
@@ -853,9 +854,7 @@ function parseSaveMemory(value: unknown): SaveMemory | null {
 }
 
 function parseCards(value: unknown, length: number): MemoryCard[] | null {
-  if (!Array.isArray(value) || value.length !== length) return null;
-  const cards = value.map(parseCard);
-  return cards.every((card): card is MemoryCard => card !== null) ? cards : null;
+  return parseFixedArray(value, length, parseCard);
 }
 
 function parseCard(value: unknown): MemoryCard | null {
