@@ -87,6 +87,14 @@ export const leaderboardGameConfigs = {
     maxMetricValue: 100_000_000,
     allowedOutcomes: ["lost"],
   },
+  "maze-chase": {
+    gameId: "maze-chase",
+    metric: "score",
+    direction: "max",
+    label: "score",
+    maxMetricValue: 100_000_000,
+    allowedOutcomes: ["won", "lost"],
+  },
   tictactoe: {
     gameId: "tictactoe",
     metric: "streak",

@@ -53,6 +53,6 @@
 - [x] Add Asteroids.
 - [x] Tune Asteroids Medium difficulty before commit/push.
 - [x] Add Frogger.
-- [ ] Add Pac-Man style maze chase.
+- [x] Add Pac-Man style maze chase.
 - [ ] Add Checkers.
 - [ ] Add Solitaire.

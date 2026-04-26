@@ -414,6 +414,17 @@ test("frogger opens and responds to keyboard movement", async ({ page }) => {
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
+test("maze chase opens and starts on movement", async ({ page }) => {
+  await openGame(page, "Maze Chase");
+  await expect(page.locator(".maze-chase-cell")).toHaveCount(15 * 15);
+
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByLabel("Game status")).toContainText("♥");
+  await expect(page.locator(".maze-chase-player")).toBeVisible();
+  await expect(page.locator(".maze-chase-ghost")).toHaveCount(3);
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
 test("arcade games pause when the page loses focus", async ({ page }) => {
   await openGame(page, "Tetris");
   await page.keyboard.press("ArrowLeft");
