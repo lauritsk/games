@@ -404,6 +404,16 @@ test("difficulty changes during active games reset to the selected difficulty", 
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
+test("frogger opens and responds to keyboard movement", async ({ page }) => {
+  await openGame(page, "Frogger");
+  await expect(page.locator(".frogger-cell")).toHaveCount(13 * 13);
+
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByLabel("Game status")).toContainText("♥");
+  await expect(page.locator(".frogger-frog")).toBeVisible();
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
 test("arcade games pause when the page loses focus", async ({ page }) => {
   await openGame(page, "Tetris");
   await page.keyboard.press("ArrowLeft");

@@ -115,6 +115,11 @@ export const games = [
     () => import("@games/asteroids"),
     "asteroids",
   ),
+  entry(
+    summary("frogger", "Frogger", "Hop lanes. Ride logs. Reach home.", "Solo", "deep-forest"),
+    () => import("@games/frogger"),
+    "frogger",
+  ),
 ] satisfies GameEntry[];
 
 export function gameById(id: string): GameEntry | null {

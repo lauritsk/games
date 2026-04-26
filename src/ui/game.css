@@ -222,10 +222,22 @@
     position: relative;
   }
 
-  :is(.board--breakout, .board--invaders, .board--ballz, .board--asteroids) {
+  :is(.board--breakout, .board--invaders, .board--ballz, .board--asteroids, .board--frogger) {
     position: relative;
     display: block;
     touch-action: none;
+  }
+
+  .board--frogger {
+    padding: 0;
+    background:
+      radial-gradient(
+        circle at 50% 92%,
+        color-mix(in srgb, var(--accent), transparent 78%),
+        transparent 36%
+      ),
+      linear-gradient(180deg, color-mix(in srgb, var(--color-cyan), transparent 88%), transparent),
+      color-mix(in srgb, var(--bg), var(--accent) 10%);
   }
 
   :is(.board-overlay, .online-presence-host) {
@@ -371,6 +383,207 @@
     color: var(--muted);
     font-size: var(--font-size-2xs);
     font-weight: var(--font-weight-strong);
+  }
+
+  .frogger-cells,
+  .frogger-objects {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .frogger-cells {
+    display: grid;
+    grid-template-columns: repeat(var(--board-columns), minmax(0, 1fr));
+    grid-template-rows: repeat(var(--board-rows), minmax(0, 1fr));
+    overflow: hidden;
+    border-radius: inherit;
+  }
+
+  .frogger-cell {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid color-mix(in srgb, var(--line), transparent 58%);
+    color: var(--accent);
+    font-size: clamp(0.55rem, 2.1vmin, 0.95rem);
+    font-weight: var(--font-weight-black);
+    line-height: 1;
+  }
+
+  .frogger-cell[data-lane="goal"],
+  .frogger-cell[data-lane="safe"] {
+    background:
+      radial-gradient(
+        circle at 35% 35%,
+        color-mix(in srgb, var(--accent), transparent 74%),
+        transparent 32%
+      ),
+      color-mix(in srgb, var(--accent), var(--bg) 72%);
+  }
+
+  .frogger-cell[data-lane="water"] {
+    background:
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--color-cyan), transparent 88%) 0 12%,
+        transparent 12% 28%,
+        color-mix(in srgb, var(--color-cyan), transparent 90%) 28% 42%,
+        transparent 42% 100%
+      ),
+      color-mix(in srgb, var(--color-blue), var(--bg) 48%);
+  }
+
+  .frogger-cell[data-lane="road"] {
+    background:
+      linear-gradient(
+        90deg,
+        transparent 0 44%,
+        color-mix(in srgb, var(--color-gold), transparent 54%) 44% 56%,
+        transparent 56% 100%
+      ),
+      color-mix(in srgb, var(--bg), white 8%);
+  }
+
+  .frogger-cell[data-home="open"]::after,
+  .frogger-cell[data-home="filled"]::after {
+    content: "";
+    position: absolute;
+    inset: 18%;
+    border: 2px solid color-mix(in srgb, var(--ink), transparent 38%);
+    border-radius: 50% 50% 42% 42%;
+    background: color-mix(in srgb, var(--bg), transparent 24%);
+  }
+
+  .frogger-cell[data-home="filled"] {
+    color: var(--ink);
+    text-shadow: 0 0 10px color-mix(in srgb, var(--accent), transparent 28%);
+  }
+
+  .frogger-cell[data-home="filled"]::after {
+    background: color-mix(in srgb, var(--accent), transparent 18%);
+    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--ink), transparent 68%);
+  }
+
+  .frogger-objects {
+    z-index: 2;
+    overflow: hidden;
+    border-radius: inherit;
+  }
+
+  .frogger-object {
+    border-radius: var(--radius-xs);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.34),
+      inset 0 -4px 0 rgba(0, 0, 0, 0.18),
+      0 0 12px color-mix(in srgb, var(--frogger-object-color), transparent 64%);
+    transform: scale(0.88, 0.62);
+    transform-origin: 50% 50%;
+    transition:
+      left 120ms linear,
+      top 120ms linear;
+  }
+
+  .frogger-object[data-kind="car"] {
+    --frogger-object-color: var(--color-danger);
+    background: linear-gradient(180deg, var(--color-danger-contrast), var(--color-danger));
+    border-radius: var(--radius-sm) var(--radius-sm) var(--radius-xs) var(--radius-xs);
+  }
+
+  .frogger-object[data-kind="truck"] {
+    --frogger-object-color: var(--color-gold);
+    background: linear-gradient(180deg, var(--color-gold), var(--color-orange));
+    border-radius: var(--radius-xs);
+  }
+
+  .frogger-object[data-kind="log"] {
+    --frogger-object-color: var(--color-orange);
+    background:
+      linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.2) 0 6%,
+        transparent 6% 20%,
+        rgba(0, 0, 0, 0.16) 20% 26%,
+        transparent 26% 100%
+      ),
+      color-mix(in srgb, var(--color-orange), var(--bg) 12%);
+    border-radius: var(--round);
+  }
+
+  .frogger-object[data-kind="turtle"] {
+    --frogger-object-color: var(--color-cyan);
+    background:
+      radial-gradient(
+        circle at 28% 50%,
+        color-mix(in srgb, var(--ink), transparent 28%) 0 12%,
+        transparent 13%
+      ),
+      radial-gradient(
+        circle at 50% 50%,
+        color-mix(in srgb, var(--ink), transparent 34%) 0 12%,
+        transparent 13%
+      ),
+      radial-gradient(
+        circle at 72% 50%,
+        color-mix(in srgb, var(--ink), transparent 28%) 0 12%,
+        transparent 13%
+      ),
+      color-mix(in srgb, var(--color-cyan), var(--bg) 18%);
+    border-radius: var(--round);
+  }
+
+  .frogger-frog {
+    --arcade-entity-color: var(--accent);
+    z-index: 3;
+    border-radius: 50% 50% 44% 44%;
+    background:
+      radial-gradient(circle at 35% 30%, var(--ink) 0 7%, transparent 8%),
+      radial-gradient(circle at 65% 30%, var(--ink) 0 7%, transparent 8%),
+      radial-gradient(
+        circle at 50% 68%,
+        color-mix(in srgb, var(--bg), transparent 74%) 0 18%,
+        transparent 19%
+      ),
+      var(--accent);
+    box-shadow:
+      inset 0 -5px 0 color-mix(in srgb, var(--bg), transparent 74%),
+      0 0 18px color-mix(in srgb, var(--accent), transparent 38%);
+    transform: scale(0.72);
+    transform-origin: 50% 50%;
+    transition:
+      left 90ms cubic-bezier(0.2, 0.8, 0.2, 1.35),
+      top 90ms cubic-bezier(0.2, 0.8, 0.2, 1.35);
+  }
+
+  .frogger-frog[data-riding="true"] {
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-cyan), transparent 30%));
+  }
+
+  .frogger-game[data-life-lost="true"] .board--frogger::after {
+    content: "Try again";
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: grid;
+    place-items: center;
+    background: var(--overlay-backdrop);
+    color: var(--color-danger-contrast);
+    font-size: clamp(1.2rem, 6vmin, 3rem);
+    font-weight: var(--font-weight-black);
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+    animation: life-lost-flash 820ms ease both;
+    pointer-events: none;
+  }
+
+  .frogger-game[data-life-lost="true"] .frogger-frog {
+    animation: frogger-hop-lost 820ms ease both;
+  }
+
+  .board--frogger[data-timer="low"] .frogger-cell[data-lane="goal"] {
+    animation: frogger-time-warn 520ms ease-in-out infinite alternate;
   }
 
   .touch-controls {
@@ -1085,6 +1298,30 @@
     100% {
       opacity: 1;
       transform: scale(1);
+    }
+  }
+
+  @keyframes frogger-hop-lost {
+    0% {
+      opacity: 1;
+      transform: scale(0.72);
+    }
+    35% {
+      opacity: 0.12;
+      transform: scale(1.2) rotate(-12deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(0.72);
+    }
+  }
+
+  @keyframes frogger-time-warn {
+    from {
+      filter: brightness(1);
+    }
+    to {
+      filter: brightness(1.18) saturate(1.2);
     }
   }
 
