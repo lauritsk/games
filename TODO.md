@@ -2,6 +2,7 @@
 
 ## Maintenance
 
+- [x] Apply refactor skill to current project maintainability hot spots.
 - [x] Audit current codebase for removable dead code.
 - [x] Refactor current project maintainability hot spots.
 - [x] Add fast-check property-based test coverage.

@@ -50,6 +50,7 @@ import {
   multiplayerJoinedSeatCount,
   multiplayerRematchStatusText,
   parseMultiplayerSeat,
+  parseMultiplayerWinner,
   type MultiplayerRoomSnapshot,
   type MultiplayerSeat,
   type MultiplayerSession,
@@ -899,7 +900,7 @@ function parseOnlineSnakeState(value: unknown): OnlineSnakeState | null {
   const wallMode = parseWallMode(parsed.wallMode);
   if (!difficulty || !wallMode) return null;
   const food = parsePoint(parsed.food, parsed.size);
-  const winner = parseOnlineWinner(parsed.winner);
+  const winner = parseMultiplayerWinner(parsed.winner);
   const players = Array.isArray(parsed.players)
     ? parseArray(parsed.players, (player) => parseOnlineSnakePlayer(player, parsed.size))
     : [];
@@ -926,11 +927,6 @@ function parseOnlineSnakePlayer(value: unknown, size: number): OnlineSnakePlayer
   const queuedDirection = parseDirection(parsed.queuedDirection);
   if (!seat || !snake || !direction || !queuedDirection) return null;
   return { seat, snake, direction, queuedDirection, alive: parsed.alive, score: parsed.score };
-}
-
-function parseOnlineWinner(value: unknown): MultiplayerSeat | "draw" | null | undefined {
-  if (value === null || value === "draw") return value;
-  return parseMultiplayerSeat(value) ?? undefined;
 }
 
 function parseConfig(value: unknown, expected: Config): Config | null {

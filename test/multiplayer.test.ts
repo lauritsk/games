@@ -8,6 +8,7 @@ import {
 import {
   emptyMultiplayerSeatSnapshots,
   multiplayerJoinedSeatCount,
+  parseMultiplayerWinner,
   type MultiplayerSession,
 } from "@features/multiplayer/multiplayer-protocol";
 import { MultiplayerHub, type MultiplayerSocketData } from "@server/multiplayer";
@@ -48,6 +49,13 @@ function lastSentJson(socket: TestSocket): Record<string, unknown> {
 }
 
 describe("multiplayer client helpers", () => {
+  test("parses shared multiplayer winners", () => {
+    expect(parseMultiplayerWinner("p1")).toBe("p1");
+    expect(parseMultiplayerWinner("draw")).toBe("draw");
+    expect(parseMultiplayerWinner(null)).toBeNull();
+    expect(parseMultiplayerWinner("bad-seat")).toBeUndefined();
+  });
+
   test("gate start and rematch actions from shared room state", () => {
     const seats = emptyMultiplayerSeatSnapshots();
     const session = {

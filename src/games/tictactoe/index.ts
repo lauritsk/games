@@ -39,6 +39,7 @@ import {
   multiplayerJoinedSeatCount,
   multiplayerRematchStatusText,
   parseMultiplayerSeat,
+  parseMultiplayerWinner,
   type MultiplayerRoomSnapshot,
   type MultiplayerSeat,
   type MultiplayerSession,
@@ -536,17 +537,12 @@ function parseOnlineTicTacToeState(value: unknown): OnlineTicTacToeState | null 
   if (!parsed) return null;
   const board = parseBoard(parsed.board);
   const current = parseMultiplayerSeat(parsed.current);
-  const winner = parseOnlineWinner(parsed.winner);
+  const winner = parseMultiplayerWinner(parsed.winner);
   if (!board || !current || winner === undefined) return null;
   const winLine = Array.isArray(parsed.winLine)
     ? parsed.winLine.filter((index): index is number => typeof index === "number")
     : [];
   return { board, current, winner, winLine, moves: parsed.moves };
-}
-
-function parseOnlineWinner(value: unknown): MultiplayerSeat | "draw" | null | undefined {
-  if (value === null || value === "draw") return value;
-  return parseMultiplayerSeat(value) ?? undefined;
 }
 
 function markForSeat(seat: MultiplayerSeat): Mark {
