@@ -45,9 +45,13 @@ export function snakeOutOfBounds(point: SnakePoint, size: number): boolean {
 
 export function wrapSnakePoint(point: SnakePoint, size: number): SnakePoint {
   return {
-    row: (point.row + size) % size,
-    column: (point.column + size) % size,
+    row: wrapCoordinate(point.row, size),
+    column: wrapCoordinate(point.column, size),
   };
+}
+
+function wrapCoordinate(value: number, size: number): number {
+  return ((value % size) + size) % size;
 }
 
 export function snakePointsEqual(a: SnakePoint, b: SnakePoint): boolean {

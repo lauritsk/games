@@ -2,6 +2,7 @@
 
 ## Maintenance
 
+- [x] Add fast-check property-based test coverage.
 - [x] Fix Frogger movement wrap glitches and smooth lane motion.
 - [x] Simplify Frogger MVP presentation.
 - [x] Keep arcade circular entities round on non-square boards.

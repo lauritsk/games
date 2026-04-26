@@ -79,7 +79,8 @@ export function clamp(value: number, min: number, max: number): number {
 export function wrap(value: number, min: number, max: number): number {
   const size = max - min;
   if (size <= 0) return min;
-  return ((((value - min) % size) + size) % size) + min;
+  const wrapped = ((((value - min) % size) + size) % size) + min;
+  return wrapped < min || wrapped >= max ? min : wrapped;
 }
 
 export function rectsOverlap(a: Rect, b: Rect): boolean {

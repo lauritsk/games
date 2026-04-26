@@ -104,7 +104,7 @@ export function clampBallzAim(vector: Vector, speed: number): Vector {
   if (Math.abs(vector.x) < 0.001 && vector.y >= 0) return { x: 0, y: -speed };
 
   const length = Math.hypot(vector.x, vector.y);
-  if (length <= 0) return { x: 0, y: -speed };
+  if (length <= 0.001) return { x: 0, y: -speed };
 
   let x = vector.x / length;
   let y = vector.y / length;
