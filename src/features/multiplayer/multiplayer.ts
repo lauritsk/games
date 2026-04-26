@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import {
+  multiplayerSeats,
   normalizeMultiplayerCode,
   parseMultiplayerRoomStatus,
   parseMultiplayerSeat,
@@ -256,11 +257,8 @@ function parseSnapshotYou(value: unknown): MultiplayerSnapshotMessage["you"] {
 function parseRoom(value: unknown): MultiplayerRoomSnapshot | null {
   const parsed = parseWithSchema(roomBaseSchema, value);
   if (!parsed) return null;
-  const p1 = parseSeat(parsed.seats.p1);
-  const p2 = parseSeat(parsed.seats.p2);
-  const p3 = parseSeat(parsed.seats.p3);
-  const p4 = parseSeat(parsed.seats.p4);
-  if (!p1 || !p2 || !p3 || !p4) return null;
+  const seats = parseRoomSeats(parsed.seats);
+  if (!seats) return null;
   const countdownEndsAt = parseWithSchema(finiteNumberSchema, parsed.countdownEndsAt);
   const spectatorCount = parseWithSchema(integerSchema, parsed.spectatorCount);
   return {
@@ -268,12 +266,22 @@ function parseRoom(value: unknown): MultiplayerRoomSnapshot | null {
     gameId: parsed.gameId,
     status: parseMultiplayerRoomStatus(parsed.status) ?? "lobby",
     revision: parsed.revision,
-    seats: { p1, p2, p3, p4 },
+    seats,
     state: parsed.state,
     ...("settings" in parsed ? { settings: parsed.settings } : {}),
     ...(countdownEndsAt !== null ? { countdownEndsAt } : {}),
     ...(spectatorCount !== null ? { spectatorCount: Math.max(0, spectatorCount) } : {}),
   };
+}
+
+function parseRoomSeats(value: Record<string, unknown>): MultiplayerRoomSnapshot["seats"] | null {
+  const seats = {} as MultiplayerRoomSnapshot["seats"];
+  for (const seat of multiplayerSeats) {
+    const parsed = parseSeat(value[seat]);
+    if (!parsed) return null;
+    seats[seat] = parsed;
+  }
+  return seats;
 }
 
 function parseSeat(value: unknown): { joined: boolean; connected: boolean; ready: boolean } | null {

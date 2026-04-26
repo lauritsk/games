@@ -1,5 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import {
+  mapMultiplayerSeats,
   multiplayerCodeAlphabet,
   multiplayerCodeLength,
   multiplayerSeats,
@@ -716,12 +717,7 @@ function connectedSpectatorCount(room: Room): number {
 }
 
 function roomSeatSnapshots(room: Room): MultiplayerRoomSnapshot["seats"] {
-  return {
-    p1: seatSnapshot(room.players.p1, room.rematchReady.p1),
-    p2: seatSnapshot(room.players.p2, room.rematchReady.p2),
-    p3: seatSnapshot(room.players.p3, room.rematchReady.p3),
-    p4: seatSnapshot(room.players.p4, room.rematchReady.p4),
-  };
+  return mapMultiplayerSeats((seat) => seatSnapshot(room.players[seat], room.rematchReady[seat]));
 }
 
 function seatSnapshot(player: PlayerState | undefined, ready = false) {

@@ -55,6 +55,7 @@ import {
   type TicTacToeCell,
 } from "@games/tictactoe/logic";
 import {
+  mapMultiplayerSeats,
   oppositeMultiplayerSeat,
   type MultiplayerSeat,
 } from "@features/multiplayer/multiplayer-protocol";
@@ -748,7 +749,7 @@ function newMemoryOnlineState(settings: MemoryOnlineSettings): MemoryOnlineState
     difficulty: settings.difficulty,
     cards: newMemoryDeck(config.pairs),
     current: "p1",
-    scores: { p1: 0, p2: 0, p3: 0, p4: 0 },
+    scores: mapMultiplayerSeats(() => 0),
     moves: 0,
     winner: null,
     pendingCloseAt: null,
@@ -821,7 +822,7 @@ function newSpaceInvadersOnlineState(
   return {
     ...newInvaderState(spaceInvadersOnlineConfig(settings.difficulty), 1, newInvaderPlayers(2)),
     difficulty: settings.difficulty,
-    moveControls: { p1: 0, p2: 0, p3: 0, p4: 0 },
+    moveControls: mapMultiplayerSeats<-1 | 0 | 1>(() => 0),
   };
 }
 

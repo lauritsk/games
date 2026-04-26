@@ -13,6 +13,15 @@ export const multiplayerSeats = [
   "p4",
 ] as const satisfies readonly MultiplayerSeat[];
 
+export function mapMultiplayerSeats<T>(
+  valueForSeat: (seat: MultiplayerSeat) => T,
+): Record<MultiplayerSeat, T> {
+  return Object.fromEntries(multiplayerSeats.map((seat) => [seat, valueForSeat(seat)])) as Record<
+    MultiplayerSeat,
+    T
+  >;
+}
+
 const multiplayerSeatSchema = picklistSchema(multiplayerSeats);
 const multiplayerRoomStatusSchema = picklistSchema([
   "lobby",
@@ -116,12 +125,7 @@ export function parseMultiplayerRoomStatus(value: unknown): MultiplayerRoomStatu
 }
 
 export function emptyMultiplayerSeatSnapshots(): Record<MultiplayerSeat, MultiplayerSeatSnapshot> {
-  return {
-    p1: { joined: false, connected: false, ready: false },
-    p2: { joined: false, connected: false, ready: false },
-    p3: { joined: false, connected: false, ready: false },
-    p4: { joined: false, connected: false, ready: false },
-  };
+  return mapMultiplayerSeats(() => ({ joined: false, connected: false, ready: false }));
 }
 
 export function multiplayerJoinedSeatCount(
