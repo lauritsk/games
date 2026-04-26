@@ -2,6 +2,7 @@
 
 ## Maintenance
 
+- [x] Make popup panels more opaque across all viewport sizes.
 - [x] Add Ansible warning suppression config.
 - [x] Add Ansible host-key verification bypass config.
 - [x] Add production deploy GitHub Actions workflow.
