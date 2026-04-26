@@ -49,6 +49,7 @@ import {
   multiplayerJoinedSeatCount,
   multiplayerRematchStatusText,
   parseMultiplayerSeat,
+  parseMultiplayerWinner,
   type MultiplayerRoomSnapshot,
   type MultiplayerSeat,
   type MultiplayerSession,
@@ -753,7 +754,7 @@ function parseOnlineMemoryState(value: unknown): OnlineMemoryState | null {
   const cards = parseCards(parsed.cards, config.pairs * 2);
   const current = parseMultiplayerSeat(parsed.current);
   const scores = parseOnlineScores(parsed.scores);
-  const winner = parseOnlineWinner(parsed.winner);
+  const winner = parseMultiplayerWinner(parsed.winner);
   if (!cards || !current || !scores || winner === undefined) return null;
   const pendingCloseAt = parseWithSchema(finiteNumberSchema, parsed.pendingCloseAt);
   return {
@@ -769,9 +770,4 @@ function parseOnlineMemoryState(value: unknown): OnlineMemoryState | null {
 
 function parseOnlineScores(value: unknown): Record<MultiplayerSeat, number> | null {
   return parseWithSchema(onlineScoresSchema, value);
-}
-
-function parseOnlineWinner(value: unknown): MultiplayerSeat | "draw" | null | undefined {
-  if (value === null || value === "draw") return value;
-  return parseMultiplayerSeat(value) ?? undefined;
 }

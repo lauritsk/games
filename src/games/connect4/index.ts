@@ -40,6 +40,7 @@ import {
   multiplayerJoinedSeatCount,
   multiplayerRematchStatusText,
   parseMultiplayerSeat,
+  parseMultiplayerWinner,
   type MultiplayerRoomSnapshot,
   type MultiplayerSeat,
   type MultiplayerSession,
@@ -572,7 +573,7 @@ function parseOnlineConnect4State(value: unknown): OnlineConnect4State | null {
   if (!parsed) return null;
   const board = parseBoard(parsed.board);
   const current = parseMultiplayerSeat(parsed.current);
-  const winner = parseOnlineWinner(parsed.winner);
+  const winner = parseMultiplayerWinner(parsed.winner);
   if (!board || !current || winner === undefined) return null;
   const winningLine = Array.isArray(parsed.winningLine)
     ? parsed.winningLine.flatMap((point): Connect4WinLine => {
@@ -582,11 +583,6 @@ function parseOnlineConnect4State(value: unknown): OnlineConnect4State | null {
       })
     : [];
   return { board, current, winner, winningLine, moves: parsed.moves };
-}
-
-function parseOnlineWinner(value: unknown): MultiplayerSeat | "draw" | null | undefined {
-  if (value === null || value === "draw") return value;
-  return parseMultiplayerSeat(value) ?? undefined;
 }
 
 function playerForSeat(seat: MultiplayerSeat): Connect4Player {

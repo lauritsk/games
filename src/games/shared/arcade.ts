@@ -237,8 +237,10 @@ export function createArcadeModeController<TMode extends string>(
   return { start, togglePause };
 }
 
+type HeldAxisDirection = Extract<Direction, "left" | "right" | "up" | "down">;
+
 export type HeldKeyInput = {
-  isHeld(direction: "left" | "right" | "up" | "down"): boolean;
+  isHeld(direction: HeldAxisDirection): boolean;
   horizontal(): -1 | 0 | 1;
   vertical(): -1 | 0 | 1;
   clear(): void;
@@ -273,11 +275,22 @@ export function createHeldKeyInput(
 
   return {
     isHeld: (direction) => held.has(direction),
-    horizontal: () => (held.has("left") === held.has("right") ? 0 : held.has("left") ? -1 : 1),
-    vertical: () => (held.has("up") === held.has("down") ? 0 : held.has("up") ? -1 : 1),
+    horizontal: () => axisFromHeld(held, "left", "right"),
+    vertical: () => axisFromHeld(held, "up", "down"),
     clear,
     destroy: clear,
   };
+}
+
+function axisFromHeld(
+  held: ReadonlySet<Direction>,
+  negative: HeldAxisDirection,
+  positive: HeldAxisDirection,
+): -1 | 0 | 1 {
+  const isNegativeHeld = held.has(negative);
+  const isPositiveHeld = held.has(positive);
+  if (isNegativeHeld === isPositiveHeld) return 0;
+  return isNegativeHeld ? -1 : 1;
 }
 
 export function keyDirection(event: KeyboardEvent): Direction | null {
@@ -343,19 +356,20 @@ export function createPauseButton(actions: HTMLElement, onToggle: () => void): H
   return pauseButton;
 }
 
+const touchControlActions = [
+  ["left", "◀"],
+  ["up", "▲"],
+  ["fire", "●"],
+  ["right", "▶"],
+  ["down", "▼"],
+] as const satisfies ReadonlyArray<readonly [Direction | "fire", string]>;
+
 export function createTouchControls(
   target: HTMLElement,
   handlers: Partial<Record<Direction | "fire", () => void>>,
 ): HTMLElement {
   const controls = el("div", { className: "touch-controls" });
-  const entries: Array<[Direction | "fire", string]> = [
-    ["left", "◀"],
-    ["up", "▲"],
-    ["fire", "●"],
-    ["right", "▶"],
-    ["down", "▼"],
-  ];
-  for (const [action, label] of entries) {
+  for (const [action, label] of touchControlActions) {
     if (!handlers[action]) continue;
     const control = button(label, uiClass.touchAction);
     control.addEventListener("pointerdown", (event) => {

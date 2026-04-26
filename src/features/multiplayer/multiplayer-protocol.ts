@@ -1,6 +1,7 @@
 import { parseWithSchema, picklistSchema } from "@shared/validation";
 
 export type MultiplayerSeat = "p1" | "p2" | "p3" | "p4";
+export type MultiplayerWinner = MultiplayerSeat | "draw" | null;
 export type MultiplayerSessionRole = "player" | "spectator";
 export type MultiplayerRoomStatus = "lobby" | "countdown" | "playing" | "finished";
 
@@ -118,6 +119,11 @@ export function normalizeMultiplayerCode(value: string): string {
 
 export function parseMultiplayerSeat(value: unknown): MultiplayerSeat | null {
   return parseWithSchema(multiplayerSeatSchema, value);
+}
+
+export function parseMultiplayerWinner(value: unknown): MultiplayerWinner | undefined {
+  if (value === null || value === "draw") return value;
+  return parseMultiplayerSeat(value) ?? undefined;
 }
 
 export function parseMultiplayerRoomStatus(value: unknown): MultiplayerRoomStatus | null {
