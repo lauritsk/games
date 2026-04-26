@@ -120,6 +120,11 @@ export const games = [
     () => import("@games/frogger"),
     "frogger",
   ),
+  entry(
+    summary("maze-chase", "Maze Chase", "Dots, ghosts, power turns.", "Solo", "deep-ocean"),
+    () => import("@games/maze-chase"),
+    "mazeChase",
+  ),
 ] satisfies GameEntry[];
 
 export function gameById(id: string): GameEntry | null {

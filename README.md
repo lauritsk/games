@@ -10,7 +10,7 @@
 
 ## Features
 
-- 12 games: Connect 4, Minesweeper, 2048, Tic-Tac-Toe, Snake, Memory, Tetris, Breakout, Ballz, Space Invaders, Asteroids, and Frogger.
+- 13 games: Connect 4, Minesweeper, 2048, Tic-Tac-Toe, Snake, Memory, Tetris, Breakout, Ballz, Space Invaders, Asteroids, Frogger, and Maze Chase.
 - No framework runtime: simple TypeScript modules, DOM helpers, and CSS themes.
 - Keyboard-first play with mouse/touch support where it fits each game.
 - Shared arcade helpers for fixed-step loops, collisions, held-key input, pause overlays, and touch controls.
@@ -48,6 +48,7 @@ Open <http://localhost:3000>.
 | Space Invaders | Cannon, waves, barriers, descending alien formation, and online 2-player co-op. |
 | Asteroids | Thrust, drift, wrap, and split space rocks across endless waves. |
 | Frogger | Hop across traffic, ride river lanes, fill home slots, and beat the timer. |
+| Maze Chase | Clear dots, dodge ghosts, and turn the tables with power pellets. |
 
 ## Commands
 

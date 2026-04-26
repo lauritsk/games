@@ -222,7 +222,14 @@
     position: relative;
   }
 
-  :is(.board--breakout, .board--invaders, .board--ballz, .board--asteroids, .board--frogger) {
+  :is(
+    .board--breakout,
+    .board--invaders,
+    .board--ballz,
+    .board--asteroids,
+    .board--frogger,
+    .board--maze-chase
+  ) {
     position: relative;
     display: block;
     touch-action: none;
@@ -231,6 +238,17 @@
   .board--frogger {
     padding: 0;
     background: color-mix(in srgb, var(--bg), var(--accent) 8%);
+  }
+
+  .board--maze-chase {
+    padding: 0;
+    background:
+      radial-gradient(
+        circle at 50% 50%,
+        color-mix(in srgb, var(--accent), transparent 86%),
+        transparent 42%
+      ),
+      color-mix(in srgb, var(--bg), var(--color-blue) 12%);
   }
 
   :is(.board-overlay, .online-presence-host) {
@@ -488,6 +506,105 @@
 
   .board--frogger[data-timer="low"] {
     outline: 2px solid var(--color-danger);
+    outline-offset: -2px;
+  }
+
+  .maze-chase-cells,
+  .maze-chase-actors,
+  .maze-chase-ghosts {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .maze-chase-cells {
+    display: grid;
+    grid-template-columns: repeat(var(--board-columns), minmax(0, 1fr));
+    grid-template-rows: repeat(var(--board-rows), minmax(0, 1fr));
+    overflow: hidden;
+    border-radius: inherit;
+  }
+
+  .maze-chase-cell {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    background: color-mix(in srgb, var(--bg), black 16%);
+  }
+
+  .maze-chase-cell[data-cell="wall"] {
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-blue), white 18%),
+      color-mix(in srgb, var(--color-blue), var(--bg) 36%)
+    );
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-cyan), transparent 62%);
+  }
+
+  :is(.maze-chase-cell[data-cell="dot"], .maze-chase-cell[data-cell="power"])::after {
+    content: "";
+    position: absolute;
+    inset: 42%;
+    border-radius: 50%;
+    background: var(--color-gold);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-gold), transparent 35%);
+  }
+
+  .maze-chase-cell[data-cell="power"]::after {
+    inset: 31%;
+    background: var(--color-orange);
+  }
+
+  .maze-chase-actors {
+    z-index: 2;
+  }
+
+  .maze-chase-player {
+    --arcade-entity-color: var(--color-gold);
+    z-index: 3;
+    border: 0;
+    border-radius: 50%;
+    background: conic-gradient(from 35deg, transparent 0 16%, var(--color-gold) 0 100%);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--color-gold), transparent 35%);
+    transform: scale(0.76);
+    transition:
+      left 110ms linear,
+      top 110ms linear;
+  }
+
+  .maze-chase-player[data-power="true"] {
+    filter: drop-shadow(0 0 10px var(--color-orange));
+  }
+
+  .maze-chase-ghost {
+    z-index: 2;
+    border-radius: 50% 50% 40% 40%;
+    background: var(--maze-chase-ghost-color, var(--color-danger));
+    box-shadow: 0 0 12px
+      color-mix(in srgb, var(--maze-chase-ghost-color, var(--color-danger)), transparent 42%);
+    transform: scale(0.72);
+    transition:
+      left 130ms linear,
+      top 130ms linear,
+      background-color 120ms ease;
+  }
+
+  .maze-chase-ghost[data-ghost="2"] {
+    --maze-chase-ghost-color: var(--color-cyan);
+  }
+
+  .maze-chase-ghost[data-ghost="3"] {
+    --maze-chase-ghost-color: var(--color-pink);
+  }
+
+  .maze-chase-ghost[data-frightened="true"] {
+    --maze-chase-ghost-color: var(--color-blue);
+    outline: 2px solid var(--color-cyan);
+    outline-offset: -2px;
+  }
+
+  .board--maze-chase[data-power="true"] {
+    outline: 2px solid var(--color-orange);
     outline-offset: -2px;
   }
 
