@@ -115,6 +115,29 @@ export function positionPercent(element: HTMLElement, rect: Rect): void {
   element.style.height = `${rect.height}%`;
 }
 
+export function circlePercentRect(circle: Circle, aspectRatio = 1): Rect {
+  const diameter = circle.radius * 2;
+  const height = diameter * aspectRatio;
+  return {
+    x: circle.x - circle.radius,
+    y: circle.y - height / 2,
+    width: diameter,
+    height,
+  };
+}
+
+export function positionCirclePercent(element: HTMLElement, circle: Circle): void {
+  positionPercent(element, circlePercentRect(circle, parentAspectRatio(element)));
+}
+
+function parentAspectRatio(element: HTMLElement): number {
+  const parent = element.parentElement;
+  if (!parent) return 1;
+  const rect = parent.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return 1;
+  return rect.width / rect.height;
+}
+
 export function syncPositionedChildren(
   container: HTMLElement,
   count: number,

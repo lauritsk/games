@@ -95,6 +95,11 @@ export const games = [
     "breakout",
   ),
   entry(
+    summary("ballz", "Ballz", "Aim the volley. Break the numbers.", "Solo", "deep-cave"),
+    () => import("@games/ballz"),
+    "ballz",
+  ),
+  entry(
     summary(
       "space-invaders",
       "Space Invaders",

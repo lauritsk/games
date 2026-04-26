@@ -10,7 +10,7 @@
 
 ## Features
 
-- 9 games: Connect 4, Minesweeper, 2048, Tic-Tac-Toe, Snake, Memory, Tetris, Breakout, and Space Invaders.
+- 10 games: Connect 4, Minesweeper, 2048, Tic-Tac-Toe, Snake, Memory, Tetris, Breakout, Ballz, and Space Invaders.
 - No framework runtime: simple TypeScript modules, DOM helpers, and CSS themes.
 - Keyboard-first play with mouse/touch support where it fits each game.
 - Shared arcade helpers for fixed-step loops, collisions, held-key input, pause overlays, and touch controls.
@@ -44,6 +44,7 @@ Open <http://localhost:3000>.
 | Memory | Concentration card matching with variable pair count. |
 | Tetris | Bag pieces, rotation, line clears, levels, pause, and next preview. |
 | Breakout | Paddle-and-brick arcade play with level progression. |
+| Ballz | Aim-and-launch brick breaker with numbered blocks, pickups, and rising pressure. |
 | Space Invaders | Cannon, waves, barriers, descending alien formation, and online 2-player co-op. |
 
 ## Commands

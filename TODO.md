@@ -2,6 +2,7 @@
 
 ## Maintenance
 
+- [x] Keep arcade circular entities round on non-square boards.
 - [x] Fix mobile game settings bar wrapping caused by intrinsic action widths.
 - [x] Make popup panels more opaque across all viewport sizes.
 - [x] Add Ansible warning suppression config.
@@ -42,7 +43,7 @@
 
 ## New games
 
-- [ ] Add Ballz / Bricks n Balls.
+- [x] Add Ballz / Bricks n Balls.
 - [ ] Add Asteroids.
 - [ ] Add Frogger.
 - [ ] Add Pac-Man style maze chase.

@@ -1,6 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { canMove2048, merge2048Line, slide2048 } from "@games/2048/logic";
 import {
+  advanceBallzRound,
+  ballzAimVector,
+  launchBallzVolley,
+  newBallzState,
+  stepBallz,
+  type BallzConfig,
+  type BallzState,
+} from "@games/ballz/logic";
+import {
   newBreakoutState,
   moveBreakoutPaddle,
   stepBreakout,
@@ -102,6 +111,164 @@ describe("2048 logic", () => {
     ).toBe(false);
   });
 });
+
+describe("ballz logic", () => {
+  const config: BallzConfig = {
+    columns: 4,
+    startingBalls: 2,
+    ballSpeed: 2,
+    launchInterval: 0,
+    spawnDensity: 0,
+    pickupChance: 0,
+    hpScale: 1,
+    hpVariance: 0,
+    dangerY: 80,
+    rowStep: 10,
+    brickGap: 1,
+    horizontalMargin: 5,
+    topMargin: 10,
+    brickHeight: 6,
+  };
+
+  test("clamps aim upward and starts a staggered volley", () => {
+    const state = newBallzState(config, () => 0);
+    const straight = ballzAimVector({ x: 50, y: 94 }, { x: 50, y: 120 }, config.ballSpeed);
+    expect(straight).toEqual({ x: 0, y: -2 });
+
+    const shallow = ballzAimVector({ x: 50, y: 94 }, { x: 100, y: 94 }, config.ballSpeed);
+    expect(Math.hypot(shallow.x, shallow.y)).toBeCloseTo(config.ballSpeed);
+    expect(shallow.y).toBeLessThan(-0.5);
+
+    const launched = launchBallzVolley(state, straight, config);
+    expect(launched.phase).toBe("running");
+    expect(launched.launch?.remaining).toBe(2);
+
+    const stepped = stepBallz(launched, config, () => 0);
+    expect(stepped.balls).toHaveLength(1);
+    expect(stepped.launch?.remaining).toBe(1);
+  });
+
+  test("bounces off walls and damages numbered bricks", () => {
+    const state = blankBallzState(config);
+    const wall = stepBallz(
+      {
+        ...state,
+        balls: [{ id: 1, x: 0.6, y: 50, vx: -2, vy: 0, radius: 1.05 }],
+      },
+      config,
+      () => 0,
+    );
+    expect(wall.balls[0]?.vx).toBeGreaterThan(0);
+
+    const brick = { id: 2, x: 45, y: 40, width: 10, height: 6, hp: 2, maxHp: 2 };
+    const hit = stepBallz(
+      {
+        ...state,
+        balls: [{ id: 3, x: 50, y: 47.5, vx: 0, vy: -2, radius: 1.05 }],
+        bricks: [brick],
+      },
+      config,
+      () => 0,
+    );
+    expect(hit.score).toBe(1);
+    expect(hit.bricks[0]?.hp).toBe(1);
+    expect(hit.balls[0]?.vy).toBeGreaterThan(0);
+
+    const destroyed = stepBallz(
+      {
+        ...state,
+        balls: [{ id: 4, x: 50, y: 47.5, vx: 0, vy: -2, radius: 1.05 }],
+        bricks: [{ ...brick, hp: 1, maxHp: 1 }],
+      },
+      config,
+      () => 0,
+    );
+    expect(destroyed.bricks).toHaveLength(0);
+
+    const multiHit = stepBallz(
+      {
+        ...state,
+        balls: [
+          { id: 5, x: 25, y: 47.5, vx: 0, vy: -2, radius: 1.05 },
+          { id: 6, x: 65, y: 47.5, vx: 0, vy: -2, radius: 1.05 },
+        ],
+        bricks: [
+          { id: 7, x: 20, y: 40, width: 10, height: 6, hp: 1, maxHp: 1 },
+          { id: 8, x: 60, y: 40, width: 10, height: 6, hp: 1, maxHp: 1 },
+        ],
+      },
+      config,
+      () => 0,
+    );
+    expect(multiHit.score).toBe(2);
+    expect(multiHit.bricks).toHaveLength(0);
+  });
+
+  test("collects pickups and advances round from first settled ball", () => {
+    const state = blankBallzState(config);
+    const picked = stepBallz(
+      {
+        ...state,
+        balls: [{ id: 1, x: 50, y: 50, vx: 0, vy: 0, radius: 1.05 }],
+        pickups: [{ id: 2, x: 50, y: 50, radius: 1.25 }],
+      },
+      config,
+      () => 0,
+    );
+    expect(picked.collectedBalls).toBe(1);
+    expect(picked.pickups).toHaveLength(0);
+
+    const advanced = stepBallz(
+      {
+        ...state,
+        balls: [{ id: 3, x: 42, y: 93, vx: 0, vy: 2, radius: 1.05 }],
+        collectedBalls: 1,
+      },
+      config,
+      () => 0,
+    );
+    expect(advanced.phase).toBe("aiming");
+    expect(advanced.launcherX).toBe(42);
+    expect(advanced.ballCount).toBe(3);
+    expect(advanced.round).toBe(2);
+    expect(advanced.bricks).toHaveLength(1);
+  });
+
+  test("loses when descending bricks cross the danger line", () => {
+    const state = blankBallzState(config);
+    const lost = advanceBallzRound(
+      {
+        ...state,
+        bricks: [{ id: 1, x: 45, y: 65, width: 10, height: 6, hp: 1, maxHp: 1 }],
+      },
+      config,
+      () => 0,
+    );
+    expect(lost.lost).toBe(true);
+    expect(lost.phase).toBe("lost");
+  });
+});
+
+function blankBallzState(config: BallzConfig): BallzState {
+  return {
+    width: 100,
+    height: 100,
+    launcherX: 50,
+    launcherY: 94,
+    balls: [],
+    bricks: [],
+    pickups: [],
+    ballCount: config.startingBalls,
+    collectedBalls: 0,
+    round: 1,
+    score: 0,
+    phase: "running",
+    launch: null,
+    firstSettledX: null,
+    nextId: 1,
+    lost: false,
+  };
+}
 
 describe("breakout logic", () => {
   const config = { brickRows: 1, brickColumns: 2, lives: 2, ballSpeed: 1.2, paddleWidth: 20 };

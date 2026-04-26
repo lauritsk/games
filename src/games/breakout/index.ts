@@ -5,6 +5,7 @@ import {
   createPauseButton,
   createPauseOverlay,
   parseRect,
+  positionCirclePercent,
   positionPercent,
   startFixedStepLoop,
   syncPositionedChildren,
@@ -341,14 +342,7 @@ export function mountBreakout(target: HTMLElement): () => void {
   }
 
   function positionBall(): void {
-    const diameter = state.ball.radius * 2;
-    const visualDiameterY = diameter * 0.8;
-    positionPercent(ball, {
-      x: state.ball.x - state.ball.radius,
-      y: state.ball.y - visualDiameterY / 2,
-      width: diameter,
-      height: visualDiameterY,
-    });
+    positionCirclePercent(ball, state.ball);
   }
 
   function position(

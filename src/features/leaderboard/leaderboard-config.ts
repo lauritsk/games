@@ -63,6 +63,14 @@ export const leaderboardGameConfigs = {
     maxMetricValue: 100_000_000,
     allowedOutcomes: ["won", "lost"],
   },
+  ballz: {
+    gameId: "ballz",
+    metric: "score",
+    direction: "max",
+    label: "score",
+    maxMetricValue: 100_000_000,
+    allowedOutcomes: ["lost"],
+  },
   "space-invaders": {
     gameId: "space-invaders",
     metric: "score",

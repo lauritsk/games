@@ -222,7 +222,7 @@
     position: relative;
   }
 
-  :is(.board--breakout, .board--invaders) {
+  :is(.board--breakout, .board--invaders, .board--ballz) {
     position: relative;
     display: block;
     touch-action: none;
@@ -385,7 +385,7 @@
     font-weight: var(--font-weight-black);
   }
 
-  :is(.board--breakout, .board--invaders) {
+  :is(.board--breakout, .board--invaders, .board--ballz) {
     --arcade-glow-y: 90%;
     --arcade-glow-end: 38%;
     --arcade-bg: color-mix(in srgb, var(--bg), var(--accent) 8%);
@@ -396,6 +396,32 @@
         transparent var(--arcade-glow-end)
       ),
       var(--arcade-bg);
+  }
+
+  .board--ballz {
+    --arcade-glow-y: 96%;
+    --arcade-glow-end: 46%;
+    --arcade-bg:
+      linear-gradient(180deg, color-mix(in srgb, var(--accent), transparent 90%), transparent 34%),
+      color-mix(in srgb, var(--bg), var(--accent) 10%);
+  }
+
+  .board--ballz::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(color-mix(in srgb, var(--accent), transparent 92%) 1px, transparent 1px),
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--accent), transparent 94%) 1px,
+        transparent 1px
+      );
+    background-size:
+      100% 8%,
+      12.5% 100%;
+    opacity: 0.5;
+    pointer-events: none;
   }
 
   .board--invaders {
@@ -681,6 +707,104 @@
     background: var(--ink);
   }
 
+  :is(.ballz-bricks, .ballz-pickups, .ballz-balls) {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .ballz-bricks {
+    z-index: 1;
+  }
+  .ballz-pickups {
+    z-index: 2;
+  }
+  .ballz-balls {
+    z-index: 3;
+  }
+
+  .ballz-danger-line {
+    position: absolute;
+    left: 4%;
+    right: 4%;
+    z-index: 1;
+    border-block-start: 2px dashed color-mix(in srgb, var(--color-danger), transparent 38%);
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-danger), transparent 42%));
+    pointer-events: none;
+  }
+
+  .ballz-aim-guide {
+    position: absolute;
+    z-index: 3;
+    height: 3px;
+    border-radius: var(--round);
+    background: linear-gradient(
+      90deg,
+      var(--ink),
+      color-mix(in srgb, var(--ink), transparent 100%)
+    );
+    box-shadow: 0 0 14px color-mix(in srgb, var(--ink), transparent 28%);
+    opacity: 0.86;
+    transform-origin: 0 50%;
+    pointer-events: none;
+  }
+
+  .ballz-launcher {
+    --arcade-entity-color: var(--ink);
+    z-index: 3;
+    border-radius: 50%;
+    background: var(--ink);
+  }
+
+  .ballz-ball {
+    --arcade-entity-color: var(--ink);
+    z-index: 3;
+    border-radius: 50%;
+    background: var(--ink);
+  }
+
+  .ballz-pickup {
+    --arcade-entity-color: var(--color-lime);
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--color-lime);
+  }
+
+  .ballz-pickup::after {
+    content: "+";
+    color: var(--bg);
+    font-size: clamp(0.5rem, 1.7vmin, 0.78rem);
+    font-weight: var(--font-weight-black);
+    line-height: 1;
+  }
+
+  .ballz-brick {
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-xs);
+    background: linear-gradient(180deg, var(--color-gold), var(--color-orange));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.38),
+      inset 0 -4px 0 rgba(0, 0, 0, 0.16),
+      0 6px 14px rgba(0, 0, 0, 0.24);
+    color: var(--bg);
+    font-size: clamp(0.58rem, 2.1vmin, 0.96rem);
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--font-weight-black);
+    line-height: 1;
+  }
+
+  .ballz-brick[data-critical="true"] {
+    background: linear-gradient(180deg, var(--color-danger-contrast), var(--color-danger));
+    color: #1b0a0a;
+    animation: ballz-critical 900ms ease-in-out infinite alternate;
+  }
+
+  .board--ballz[data-phase="running"] .ballz-aim-guide {
+    opacity: 0;
+  }
+
   .breakout-paddle {
     --arcade-entity-glow: 16px;
     border-radius: var(--round);
@@ -818,6 +942,17 @@
     100% {
       opacity: 1;
       transform: scale(1);
+    }
+  }
+
+  @keyframes ballz-critical {
+    from {
+      filter: saturate(1) brightness(1);
+      transform: scale(1);
+    }
+    to {
+      filter: saturate(1.2) brightness(1.08);
+      transform: scale(1.025);
     }
   }
 

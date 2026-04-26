@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   circleIntersectsRect,
+  circlePercentRect,
   clamp,
   createArcadeModeController,
   parseRect,
@@ -30,6 +31,15 @@ describe("arcade helpers", () => {
       height: 4,
     });
     expect(parseRect({ x: 1, y: 2, width: Number.NaN, height: 4 })).toBeNull();
+  });
+
+  test("positions circles as round shapes on non-square parents", () => {
+    expect(circlePercentRect({ x: 50, y: 94, radius: 2 }, 400 / 500)).toEqual({
+      x: 48,
+      y: 92.4,
+      width: 4,
+      height: 3.2,
+    });
   });
 
   test("clamps, wraps, and moves vectors", () => {
