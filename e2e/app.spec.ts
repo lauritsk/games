@@ -122,6 +122,19 @@ test("mobile game navigation remains tappable below the appearance toggle", asyn
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
+test("snake mobile settings stay on one row with longer labels", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await openGame(page, "Snake");
+
+  await page.getByRole("button", { name: "Fatal walls" }).click();
+  await expect(page.getByRole("button", { name: "Teleport walls" })).toBeVisible();
+
+  const topBar = await page.locator(".game__top").boundingBox();
+  expect(topBar).not.toBeNull();
+  expect(topBar!.height).toBeLessThanOrEqual(56);
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
 test("minesweeper keeps mobile cells touch sized", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
   await openGame(page, "Minesweeper");

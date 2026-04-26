@@ -2,6 +2,7 @@
 
 ## Maintenance
 
+- [x] Fix mobile game settings bar wrapping caused by intrinsic action widths.
 - [x] Make popup panels more opaque across all viewport sizes.
 - [x] Add Ansible warning suppression config.
 - [x] Add Ansible host-key verification bypass config.

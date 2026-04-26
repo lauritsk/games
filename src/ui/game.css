@@ -32,7 +32,7 @@
   }
 
   .game__actions {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-width: 0;
     max-width: 100%;
     justify-content: end;
@@ -89,14 +89,16 @@
     display: grid;
     align-items: center;
     justify-items: start;
-    min-width: 10ch;
+    min-width: 0;
     width: max-content;
-    overflow: visible;
+    max-width: 100%;
+    overflow: hidden;
     color: var(--ink);
     font-variant-numeric: tabular-nums;
     font-weight: var(--font-weight-strong);
     letter-spacing: -0.01em;
     text-align: left;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
