@@ -2,6 +2,8 @@
 
 ## Maintenance
 
+- [x] Fix Frogger movement wrap glitches and smooth lane motion.
+- [x] Simplify Frogger MVP presentation.
 - [x] Keep arcade circular entities round on non-square boards.
 - [x] Fix mobile game settings bar wrapping caused by intrinsic action widths.
 - [x] Make popup panels more opaque across all viewport sizes.

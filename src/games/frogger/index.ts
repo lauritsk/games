@@ -81,13 +81,14 @@ type SaveFrogger = {
   startedAt: number | null;
 };
 
-const ticksPerSecond = 8;
+const ticksPerSecond = 30;
+const laneSpeedScale = 8 / ticksPerSecond;
 const savePayloadVersion = 1;
 const configs: Record<Difficulty, FroggerConfig> = {
   Easy: {
     lives: 5,
     timeLimitTicks: 72 * ticksPerSecond,
-    speedMultiplier: 0.78,
+    speedMultiplier: 0.78 * laneSpeedScale,
     levelSpeedGrowth: 0.06,
     maxLevel: 3,
     laneProfiles: baseFroggerLaneProfiles,
@@ -95,7 +96,7 @@ const configs: Record<Difficulty, FroggerConfig> = {
   Medium: {
     lives: 4,
     timeLimitTicks: 60 * ticksPerSecond,
-    speedMultiplier: 1,
+    speedMultiplier: 1 * laneSpeedScale,
     levelSpeedGrowth: 0.08,
     maxLevel: 4,
     laneProfiles: baseFroggerLaneProfiles,
@@ -103,7 +104,7 @@ const configs: Record<Difficulty, FroggerConfig> = {
   Hard: {
     lives: 3,
     timeLimitTicks: 50 * ticksPerSecond,
-    speedMultiplier: 1.22,
+    speedMultiplier: 1.22 * laneSpeedScale,
     levelSpeedGrowth: 0.1,
     maxLevel: 5,
     laneProfiles: baseFroggerLaneProfiles,
