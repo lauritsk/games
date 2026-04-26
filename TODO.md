@@ -44,7 +44,8 @@
 ## New games
 
 - [x] Add Ballz / Bricks n Balls.
-- [ ] Add Asteroids.
+- [x] Add Asteroids.
+- [x] Tune Asteroids Medium difficulty before commit/push.
 - [ ] Add Frogger.
 - [ ] Add Pac-Man style maze chase.
 - [ ] Add Checkers.

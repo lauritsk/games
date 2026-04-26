@@ -349,8 +349,10 @@ export function createTouchControls(
   const controls = el("div", { className: "touch-controls" });
   const entries: Array<[Direction | "fire", string]> = [
     ["left", "◀"],
+    ["up", "▲"],
     ["fire", "●"],
     ["right", "▶"],
+    ["down", "▼"],
   ];
   for (const [action, label] of entries) {
     if (!handlers[action]) continue;

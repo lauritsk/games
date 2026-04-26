@@ -110,6 +110,11 @@ export const games = [
     () => import("@games/space-invaders"),
     "spaceInvaders",
   ),
+  entry(
+    summary("asteroids", "Asteroids", "Drift, dodge, split the rocks.", "Solo", "outer-space"),
+    () => import("@games/asteroids"),
+    "asteroids",
+  ),
 ] satisfies GameEntry[];
 
 export function gameById(id: string): GameEntry | null {

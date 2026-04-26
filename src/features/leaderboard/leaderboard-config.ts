@@ -79,6 +79,14 @@ export const leaderboardGameConfigs = {
     maxMetricValue: 100_000_000,
     allowedOutcomes: ["lost"],
   },
+  asteroids: {
+    gameId: "asteroids",
+    metric: "score",
+    direction: "max",
+    label: "score",
+    maxMetricValue: 100_000_000,
+    allowedOutcomes: ["lost"],
+  },
   tictactoe: {
     gameId: "tictactoe",
     metric: "streak",
