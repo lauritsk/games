@@ -92,6 +92,37 @@ describe("leaderboard submission parsing", () => {
     }
   });
 
+  test("accepts Wordle wins as fewest-guess payloads", () => {
+    const parsed = parseLeaderboardSubmission(
+      validSubmission({
+        gameId: "wordle",
+        outcome: "won",
+        score: undefined,
+        moves: 3,
+        level: undefined,
+        metadata: { wordLength: 5 },
+      }),
+    );
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.metric).toBe("moves");
+      expect(parsed.value.metricValue).toBe(3);
+      expect(parsed.value.moves).toBe(3);
+      expect(parsed.value.difficulty).toBe("Hard");
+    }
+
+    expect(
+      parseLeaderboardSubmission(
+        validSubmission({
+          gameId: "wordle",
+          difficulty: undefined,
+          outcome: "won",
+          moves: 3,
+        }),
+      ).ok,
+    ).toBe(false);
+  });
+
   test("accepts bot win streak payloads and rejects local streaks", () => {
     const parsed = parseLeaderboardSubmission(
       validSubmission({
@@ -141,6 +172,14 @@ describe("leaderboard submission parsing", () => {
       parseLeaderboardSubmission(
         validSubmission({ gameId: "memory", outcome: "won", durationMs: 1_000 }),
       ).ok,
+    ).toBe(false);
+    expect(
+      parseLeaderboardSubmission(validSubmission({ gameId: "wordle", outcome: "lost", moves: 3 }))
+        .ok,
+    ).toBe(false);
+    expect(
+      parseLeaderboardSubmission(validSubmission({ gameId: "wordle", outcome: "won", moves: 7 }))
+        .ok,
     ).toBe(false);
   });
 });

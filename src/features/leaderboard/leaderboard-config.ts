@@ -55,6 +55,15 @@ export const leaderboardGameConfigs = {
     maxMetricValue: 86_400_000,
     allowedOutcomes: ["completed"],
   },
+  wordle: {
+    gameId: "wordle",
+    metric: "moves",
+    direction: "min",
+    label: "guesses",
+    maxMetricValue: 6,
+    allowedOutcomes: ["won"],
+    requireDifficulty: true,
+  },
   breakout: {
     gameId: "breakout",
     metric: "score",

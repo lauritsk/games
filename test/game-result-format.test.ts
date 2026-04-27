@@ -56,6 +56,17 @@ describe("game result formatting", () => {
         metadata: { mode: "bot" },
       }),
     ).toEqual(["Score 40", "12 moves", "Level 3", "Streak 2 wins", "1m 1s", "Hard", "Vs bot"]);
+    expect(
+      resultDetails({
+        id: "result-wordle",
+        runId: "run-wordle",
+        gameId: "wordle",
+        finishedAt: "now",
+        outcome: "won",
+        moves: 1,
+        difficulty: "Medium",
+      }),
+    ).toEqual(["1 guess", "Medium"]);
   });
 
   test("selects best-result metrics by game", () => {
@@ -63,6 +74,11 @@ describe("game result formatting", () => {
       metric: "moves",
       direction: "min",
       label: "moves",
+    });
+    expect(bestConfigForGame("wordle")).toEqual({
+      metric: "moves",
+      direction: "min",
+      label: "guesses",
     });
     expect(bestConfigForGame("minesweeper")).toEqual({
       metric: "durationMs",
@@ -85,12 +101,13 @@ describe("game result formatting", () => {
     recordGameResult({ runId: "run-a", gameId: "memory", outcome: "completed", moves: 18 });
     recordGameResult({ runId: "run-b", gameId: "memory", outcome: "completed", moves: 12 });
     recordGameResult({ runId: "run-c", gameId: "minesweeper", outcome: "won", durationMs: 91_000 });
-
     recordGameResult({ runId: "run-d", gameId: "tictactoe", outcome: "won", streak: 3 });
+    recordGameResult({ runId: "run-e", gameId: "wordle", outcome: "won", moves: 3 });
 
     expect(bestSummaryText("memory")).toBe("Best moves: 12");
     expect(bestSummaryText("minesweeper")).toBe("Best time: 1m 31s");
     expect(bestSummaryText("tictactoe")).toBe("Best streak: 3 wins");
+    expect(bestSummaryText("wordle")).toBe("Best guesses: 3");
     expect(bestSummaryText("unknown")).toBeNull();
   });
 });

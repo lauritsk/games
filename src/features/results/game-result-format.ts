@@ -20,6 +20,7 @@ export function bestSummaryText(gameId: string): string | null {
 
 export function bestConfigForGame(gameId: string): BestResultConfig {
   if (gameId === "memory") return { metric: "moves", direction: "min", label: "moves" };
+  if (gameId === "wordle") return { metric: "moves", direction: "min", label: "guesses" };
   if (gameId === "minesweeper") return { metric: "durationMs", direction: "min", label: "time" };
   if (gameId === "connect4" || gameId === "tictactoe") {
     return { metric: "streak", direction: "max", label: "streak" };
@@ -33,7 +34,8 @@ export function resultDetails(result: GameResult): string[] {
     details.push(`Score ${formatMetric("score", result.score)}`);
   }
   if (typeof result.moves === "number") {
-    details.push(`${formatMetric("moves", result.moves)} moves`);
+    const label = result.gameId === "wordle" ? guessLabel(result.moves) : moveLabel(result.moves);
+    details.push(`${formatMetric("moves", result.moves)} ${label}`);
   }
   if (typeof result.level === "number") {
     details.push(`Level ${formatMetric("level", result.level)}`);
@@ -49,6 +51,14 @@ export function resultDetails(result: GameResult): string[] {
   if (mode === "bot") details.push("Vs bot");
   else if (mode === "local") details.push("2 players");
   return details;
+}
+
+function guessLabel(value: number): string {
+  return value === 1 ? "guess" : "guesses";
+}
+
+function moveLabel(value: number): string {
+  return value === 1 ? "move" : "moves";
 }
 
 export function formatMetric(metric: ResultMetric, value: number): string {
