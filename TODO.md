@@ -60,5 +60,5 @@
 - [ ] Add Sudoku.
 - [ ] Add Reversi / Othello.
 - [ ] Add Battleship.
-- [ ] Add Wordle-style word puzzle.
+- [x] Add Wordle-style word puzzle.
 - [ ] Add Bomberman-style arena game.

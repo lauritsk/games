@@ -425,6 +425,25 @@ test("maze chase opens and starts on movement", async ({ page }) => {
   await page.evaluate(() => window.assertNoClientErrors());
 });
 
+test("wordle opens and solves deterministic target", async ({ page }) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0;
+  });
+  await openGame(page, "Wordle");
+  await expect(page.locator(".wordle-cell")).toHaveCount(5 * 6);
+
+  await page.keyboard.type("APPLE");
+  await page.keyboard.press("Enter");
+
+  await expect(page.getByLabel("Game status")).toHaveText("Solved · APPLE");
+  await expect(page.locator('.wordle-cell[data-state="correct"]')).toHaveCount(5);
+  await expect(page.locator('.wordle-key[data-key="Enter"]')).toBeDisabled();
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Game status")).toHaveText("Solved · APPLE");
+  await expect(page.getByRole("dialog", { name: "Wordle result history" })).toBeVisible();
+  await page.evaluate(() => window.assertNoClientErrors());
+});
+
 test("arcade games pause when the page loses focus", async ({ page }) => {
   await openGame(page, "Tetris");
   await page.keyboard.press("ArrowLeft");

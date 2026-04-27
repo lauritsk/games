@@ -74,6 +74,13 @@ import {
   type TicTacToeCell,
 } from "@games/tictactoe/logic";
 import {
+  evaluateWordleGuess,
+  isValidWordleGuess,
+  pickWordleTarget,
+  wordleConfigs,
+  wordleKeyboardState,
+} from "@games/wordle/logic";
+import {
   connect4MultiplayerAdapter,
   memoryMultiplayerAdapter,
   snakeMultiplayerAdapter,
@@ -803,6 +810,40 @@ describe("multiplayer adapters", () => {
     if (!second.ok) return;
     expect(second.finished).toEqual({ winner: "p1" });
     expect(second.state.winner).toBe("p1");
+  });
+});
+
+describe("wordle logic", () => {
+  test("evaluates exact, present, and absent letters with repeats", () => {
+    expect(evaluateWordleGuess("ALLEY", "APPLE")).toEqual([
+      "correct",
+      "present",
+      "absent",
+      "present",
+      "absent",
+    ]);
+    expect(evaluateWordleGuess("ERROR", "ROTOR")).toEqual([
+      "absent",
+      "present",
+      "absent",
+      "correct",
+      "correct",
+    ]);
+  });
+
+  test("validates length and picks deterministic targets", () => {
+    expect(isValidWordleGuess("CRANE", wordleConfigs.Medium)).toBe(true);
+    expect(isValidWordleGuess("TOO", wordleConfigs.Medium)).toBe(false);
+    expect(pickWordleTarget(wordleConfigs.Easy, () => 0)).toBe("BIRD");
+  });
+
+  test("keeps strongest keyboard state", () => {
+    expect(
+      wordleKeyboardState([
+        { word: "CARTS", evaluation: ["absent", "present", "absent", "absent", "absent"] },
+        { word: "ALARM", evaluation: ["correct", "absent", "correct", "absent", "absent"] },
+      ]),
+    ).toMatchObject({ A: "correct", C: "absent", L: "absent" });
   });
 });
 

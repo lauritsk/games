@@ -85,6 +85,11 @@ export const games = [
     "memory",
   ),
   entry(
+    summary("wordle", "Wordle", "Guess the hidden word.", "Solo", "deep-cave"),
+    () => import("@games/wordle"),
+    "wordle",
+  ),
+  entry(
     summary("tetris", "Tetris", "Stack, rotate, clear lines.", "Solo", "outer-space"),
     () => import("@games/tetris"),
     "tetris",
