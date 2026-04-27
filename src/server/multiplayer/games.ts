@@ -318,6 +318,31 @@ const snakeStartDirections = {
   p4: "up",
 } satisfies Record<MultiplayerSeat, Direction>;
 
+type SnakeStartAnchors = { size: number; oneThird: number; twoThird: number };
+
+const snakeStartBodies = {
+  p1: ({ oneThird }) => [
+    { row: oneThird, column: 3 },
+    { row: oneThird, column: 2 },
+    { row: oneThird, column: 1 },
+  ],
+  p2: ({ size, twoThird }) => [
+    { row: twoThird, column: size - 4 },
+    { row: twoThird, column: size - 3 },
+    { row: twoThird, column: size - 2 },
+  ],
+  p3: ({ twoThird }) => [
+    { row: 3, column: twoThird },
+    { row: 2, column: twoThird },
+    { row: 1, column: twoThird },
+  ],
+  p4: ({ size, oneThird }) => [
+    { row: size - 4, column: oneThird },
+    { row: size - 3, column: oneThird },
+    { row: size - 2, column: oneThird },
+  ],
+} satisfies Record<MultiplayerSeat, (anchors: SnakeStartAnchors) => SnakePoint[]>;
+
 export const snakeMultiplayerAdapter: MultiplayerAdapter<
   SnakeOnlineState,
   SnakeAction,
@@ -774,34 +799,11 @@ function newSnakeOnlinePlayer(size: number, seat: MultiplayerSeat): SnakeOnlineP
 }
 
 function startSnakeBodyForSeat(size: number, seat: MultiplayerSeat): SnakePoint[] {
-  const oneThird = Math.floor(size / 3);
-  const twoThird = Math.floor((size * 2) / 3);
-  if (seat === "p1") {
-    return [
-      { row: oneThird, column: 3 },
-      { row: oneThird, column: 2 },
-      { row: oneThird, column: 1 },
-    ];
-  }
-  if (seat === "p2") {
-    return [
-      { row: twoThird, column: size - 4 },
-      { row: twoThird, column: size - 3 },
-      { row: twoThird, column: size - 2 },
-    ];
-  }
-  if (seat === "p3") {
-    return [
-      { row: 3, column: twoThird },
-      { row: 2, column: twoThird },
-      { row: 1, column: twoThird },
-    ];
-  }
-  return [
-    { row: size - 4, column: oneThird },
-    { row: size - 3, column: oneThird },
-    { row: size - 2, column: oneThird },
-  ];
+  return snakeStartBodies[seat]({
+    size,
+    oneThird: Math.floor(size / 3),
+    twoThird: Math.floor((size * 2) / 3),
+  });
 }
 
 function parseSnakeOnlineSettings(value: unknown): SnakeOnlineSettings | null {
