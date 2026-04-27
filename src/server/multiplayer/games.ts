@@ -93,10 +93,13 @@ export type MultiplayerAdapter<TState = unknown, TAction = unknown, TSettings = 
   publicSnapshot(state: TState): unknown;
 };
 
-type TicTacToeOnlineState = {
-  board: TicTacToeCell[];
+type TurnBasedState = {
   current: MultiplayerSeat;
   winner: MultiplayerSeat | "draw" | null;
+};
+
+type TicTacToeOnlineState = TurnBasedState & {
+  board: TicTacToeCell[];
   winLine: readonly number[];
   moves: number;
 };
@@ -159,8 +162,8 @@ export const ticTacToeMultiplayerAdapter: MultiplayerAdapter<
     return parseWithSchema(ticTacToeActionSchema, value);
   },
   applyAction(state, seat, action) {
-    if (state.winner) return { ok: false, error: "Game already finished" };
-    if (state.current !== seat) return { ok: false, error: "Not your turn" };
+    const error = turnError(state, seat);
+    if (error) return { ok: false, error };
     if (state.board[action.index]) return { ok: false, error: "Invalid move" };
     const board = [...state.board];
     board[action.index] = marks[seat];
@@ -189,10 +192,8 @@ export const ticTacToeMultiplayerAdapter: MultiplayerAdapter<
   publicSnapshot: (state) => ({ ...state }),
 };
 
-type Connect4OnlineState = {
+type Connect4OnlineState = TurnBasedState & {
   board: Connect4Cell[][];
-  current: MultiplayerSeat;
-  winner: MultiplayerSeat | "draw" | null;
   winningLine: Connect4WinLine;
   moves: number;
 };
@@ -221,8 +222,8 @@ export const connect4MultiplayerAdapter: MultiplayerAdapter<Connect4OnlineState,
     return parseWithSchema(connect4ActionSchema, value);
   },
   applyAction(state, seat, action) {
-    if (state.winner) return { ok: false, error: "Game already finished" };
-    if (state.current !== seat) return { ok: false, error: "Not your turn" };
+    const error = turnError(state, seat);
+    if (error) return { ok: false, error };
     if (state.board[0]?.[action.column] !== 0) return { ok: false, error: "Invalid move" };
     const board = state.board.map((row) => [...row]);
     const player = players[seat];
@@ -766,6 +767,12 @@ const adapters = new Map<string, MultiplayerAdapter>(
 
 export function multiplayerAdapterForGame(gameId: string): MultiplayerAdapter | null {
   return adapters.get(gameId) ?? null;
+}
+
+function turnError(state: TurnBasedState, seat: MultiplayerSeat): string | null {
+  if (state.winner) return "Game already finished";
+  if (state.current !== seat) return "Not your turn";
+  return null;
 }
 
 function newMemoryOnlineState(settings: MemoryOnlineSettings): MemoryOnlineState {
