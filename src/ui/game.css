@@ -224,6 +224,7 @@
 
   :is(
     .board--breakout,
+    .board--pong,
     .board--invaders,
     .board--ballz,
     .board--asteroids,
@@ -620,7 +621,7 @@
     font-weight: var(--font-weight-black);
   }
 
-  :is(.board--breakout, .board--invaders, .board--ballz, .board--asteroids) {
+  :is(.board--breakout, .board--pong, .board--invaders, .board--ballz, .board--asteroids) {
     --arcade-glow-y: 90%;
     --arcade-glow-end: 38%;
     --arcade-bg: color-mix(in srgb, var(--bg), var(--accent) 8%);
@@ -639,6 +640,27 @@
     --arcade-bg:
       linear-gradient(180deg, color-mix(in srgb, var(--accent), transparent 90%), transparent 34%),
       color-mix(in srgb, var(--bg), var(--accent) 10%);
+  }
+
+  .board--pong {
+    --arcade-glow-y: 50%;
+    --arcade-glow-end: 60%;
+    --arcade-bg:
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--accent), transparent 88%),
+        transparent 34% 66%,
+        color-mix(in srgb, var(--color-cyan), transparent 90%)
+      ),
+      color-mix(in srgb, var(--bg), var(--color-blue) 12%);
+  }
+
+  .board--pong::before {
+    content: "";
+    position: absolute;
+    inset: 6% 4%;
+    border-block: 1px solid color-mix(in srgb, var(--ink), transparent 78%);
+    pointer-events: none;
   }
 
   .board--ballz::before {
@@ -1104,6 +1126,40 @@
     background: var(--accent);
   }
 
+  .pong-net {
+    position: absolute;
+    inset-block: 6%;
+    left: 50%;
+    z-index: 1;
+    width: 2px;
+    background: repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--ink), transparent 35%) 0 8px,
+      transparent 8px 17px
+    );
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .pong-paddle {
+    --arcade-entity-glow: 18px;
+    z-index: 3;
+    border-radius: var(--round);
+    background: var(--accent);
+  }
+
+  .pong-opponent {
+    --arcade-entity-color: var(--color-cyan);
+    background: var(--color-cyan);
+  }
+
+  .pong-ball {
+    --arcade-entity-color: var(--ink);
+    z-index: 4;
+    border-radius: 50%;
+    background: var(--ink);
+  }
+
   .breakout-brick {
     border-radius: var(--radius-xs);
     background: linear-gradient(180deg, var(--color-gold), var(--color-orange));
@@ -1266,6 +1322,27 @@
     --shot-color: var(--color-danger);
   }
 
+  .pong-game[data-point="true"] .board--pong::after {
+    content: "Point";
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    place-items: center;
+    background: var(--overlay-backdrop);
+    color: var(--ink);
+    font-size: clamp(1.4rem, 7vmin, 3.2rem);
+    font-weight: var(--font-weight-black);
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+    animation: point-flash 800ms ease both;
+    pointer-events: none;
+  }
+
+  .pong-game[data-point="true"] .status {
+    color: var(--accent);
+  }
+
   .breakout-game[data-life-lost="true"] .board--breakout::after {
     content: "Life lost";
     position: absolute;
@@ -1290,6 +1367,22 @@
   .breakout-game[data-life-lost="true"] .status {
     color: var(--color-danger-contrast);
     animation: invalid-shake 260ms ease;
+  }
+
+  @keyframes point-flash {
+    0% {
+      opacity: 0;
+      transform: scale(0.92);
+    }
+    20%,
+    72% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.06);
+    }
   }
 
   @keyframes life-lost-flash {
