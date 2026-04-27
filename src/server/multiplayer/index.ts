@@ -5,6 +5,7 @@ import {
   multiplayerCodeLength,
   multiplayerSeats,
   normalizeMultiplayerCode,
+  type MultiplayerActionMessage,
   type MultiplayerClientMessage,
   type MultiplayerRoomSnapshot,
   type MultiplayerSeat,
@@ -38,17 +39,14 @@ export type MultiplayerSocketData = {
   role?: MultiplayerSessionRole;
 };
 
-type PlayerState = {
+type ParticipantState = {
   id: string;
   tokenHash: string;
   connectedCount: number;
 };
 
-type SpectatorState = {
-  id: string;
-  tokenHash: string;
-  connectedCount: number;
-};
+type PlayerState = ParticipantState;
+type SpectatorState = ParticipantState;
 
 type Room = {
   code: string;
@@ -197,11 +195,7 @@ export class MultiplayerHub {
       createdAt: now,
       lastActivityAt: now,
       players: {
-        p1: {
-          id: session.playerId,
-          tokenHash: await hashToken(session.playerToken),
-          connectedCount: 0,
-        },
+        p1: await this.createParticipantState(session),
       },
       spectators: new Map(),
       rematchReady: {},
@@ -225,11 +219,7 @@ export class MultiplayerHub {
     if (!seat) return { ok: false, error: "Room not found or unavailable" };
 
     const session = await this.createPlayerSession(room.code, room.gameId, seat);
-    room.players[seat] = {
-      id: session.playerId,
-      tokenHash: await hashToken(session.playerToken),
-      connectedCount: 0,
-    };
+    room.players[seat] = await this.createParticipantState(session);
     room.lastActivityAt = Date.now();
     room.revision += 1;
 
@@ -245,11 +235,7 @@ export class MultiplayerHub {
     }
 
     const session = await this.createPlayerSession(room.code, room.gameId, "p1", "spectator");
-    room.spectators.set(session.playerId, {
-      id: session.playerId,
-      tokenHash: await hashToken(session.playerToken),
-      connectedCount: 0,
-    });
+    room.spectators.set(session.playerId, await this.createParticipantState(session));
     room.lastActivityAt = Date.now();
 
     return { ok: true, session };
@@ -309,19 +295,8 @@ export class MultiplayerHub {
       ws.close(1008, "Room unavailable");
       return;
     }
-    if (
-      !checkRateLimit(`multiplayer-action:${room.code}:${ws.data.playerId}`, {
-        windowMs: 10_000,
-        max: 50,
-      })
-    ) {
-      this.sendError(ws, "Too many actions");
-      return;
-    }
-    if (ws.data.role === "spectator") {
-      this.sendError(ws, "Spectators cannot act", room);
-      return;
-    }
+    if (!this.canAcceptPlayerMessage(ws, room)) return;
+
     const parsed = parseClientMessage(message);
     if (!parsed) {
       this.sendError(ws, "Invalid message", room);
@@ -331,23 +306,56 @@ export class MultiplayerHub {
       this.sendError(ws, "Stale game state", room);
       return;
     }
-    if (parsed.type === "start") {
+    this.handleClientMessage(ws, room, parsed);
+  }
+
+  private canAcceptPlayerMessage(ws: ServerWebSocket<MultiplayerSocketData>, room: Room): boolean {
+    if (
+      !checkRateLimit(`multiplayer-action:${room.code}:${ws.data.playerId}`, {
+        windowMs: 10_000,
+        max: 50,
+      })
+    ) {
+      this.sendError(ws, "Too many actions");
+      return false;
+    }
+    if (ws.data.role === "spectator") {
+      this.sendError(ws, "Spectators cannot act", room);
+      return false;
+    }
+    return true;
+  }
+
+  private handleClientMessage(
+    ws: ServerWebSocket<MultiplayerSocketData>,
+    room: Room,
+    message: MultiplayerClientMessage,
+  ): void {
+    if (message.type === "start") {
       this.handleStart(ws, room);
       return;
     }
-    if (parsed.type === "rematch") {
+    if (message.type === "rematch") {
       this.handleRematch(ws, room);
       return;
     }
-    if (parsed.type === "settings") {
-      this.handleSettings(ws, room, parsed.settings);
+    if (message.type === "settings") {
+      this.handleSettings(ws, room, message.settings);
       return;
     }
+    this.handleAction(ws, room, message);
+  }
+
+  private handleAction(
+    ws: ServerWebSocket<MultiplayerSocketData>,
+    room: Room,
+    message: MultiplayerActionMessage,
+  ): void {
     if (room.status !== "playing") {
       this.sendError(ws, "Room is not ready", room);
       return;
     }
-    const action = room.adapter.parseAction(parsed.action);
+    const action = room.adapter.parseAction(message.action);
     if (!action) {
       this.sendError(ws, "Invalid action", room);
       return;
@@ -388,6 +396,16 @@ export class MultiplayerHub {
       playerId: crypto.randomUUID(),
       playerToken: randomToken(),
       ...(role === "spectator" ? { role } : {}),
+    };
+  }
+
+  private async createParticipantState(
+    session: Pick<MultiplayerSession, "playerId" | "playerToken">,
+  ): Promise<ParticipantState> {
+    return {
+      id: session.playerId,
+      tokenHash: await hashToken(session.playerToken),
+      connectedCount: 0,
     };
   }
 

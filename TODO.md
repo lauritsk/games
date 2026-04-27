@@ -2,6 +2,7 @@
 
 ## Maintenance
 
+- [x] Apply refactor skill to current project maintainability hot spots (current pass).
 - [x] Apply fresh refactor skill pass to current project maintainability hot spots.
 - [x] Apply refactor skill to current project maintainability hot spots.
 - [x] Audit current codebase for removable dead code.
