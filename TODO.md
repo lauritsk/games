@@ -56,3 +56,9 @@
 - [x] Add Pac-Man style maze chase.
 - [ ] Add Checkers.
 - [ ] Add Solitaire.
+- [ ] Add Pong.
+- [ ] Add Sudoku.
+- [ ] Add Reversi / Othello.
+- [ ] Add Battleship.
+- [ ] Add Wordle-style word puzzle.
+- [ ] Add Bomberman-style arena game.
