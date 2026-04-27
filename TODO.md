@@ -56,7 +56,7 @@
 - [x] Add Pac-Man style maze chase.
 - [ ] Add Checkers.
 - [ ] Add Solitaire.
-- [ ] Add Pong.
+- [x] Add Pong.
 - [ ] Add Sudoku.
 - [ ] Add Reversi / Othello.
 - [ ] Add Battleship.
