@@ -1,3 +1,6 @@
+overrides:
+  esbuild: 0.25.12
+
 allowBuilds:
   better-sqlite3: true
   esbuild: true
