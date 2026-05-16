@@ -3,7 +3,6 @@ import type { Difficulty } from "@shared/types";
 import { takeGroupedItems } from "@shared/collections";
 import { readStored, storageKey, writeStored } from "@shared/storage";
 import { parseDifficulty } from "@games/shared/game-preferences";
-import { notifySyncChanged, recordResultsClearedForSync } from "@features/sync/sync-local";
 import {
   numericResultFields,
   type ResultMetric,
@@ -61,9 +60,7 @@ export function recordGameResult(result: Omit<GameResult, "id" | "finishedAt">):
     id: createResultId(),
     finishedAt: new Date().toISOString(),
   };
-  if (writeStored(resultsKey, RESULTS_SCHEMA_VERSION, pruneResults([next, ...current]))) {
-    notifySyncChanged();
-  }
+  writeStored(resultsKey, RESULTS_SCHEMA_VERSION, pruneResults([next, ...current]));
   dispatchResultRecorded(next);
 }
 
@@ -73,15 +70,13 @@ export function listGameResults(gameId?: string): GameResult[] {
 }
 
 export function clearGameResults(gameId?: string): void {
-  const written = !gameId
-    ? writeStored(resultsKey, RESULTS_SCHEMA_VERSION, [])
-    : writeStored(
-        resultsKey,
-        RESULTS_SCHEMA_VERSION,
-        listGameResults().filter((result) => result.gameId !== gameId),
-      );
-  if (!written) return;
-  recordResultsClearedForSync(gameId);
+  if (!gameId) writeStored(resultsKey, RESULTS_SCHEMA_VERSION, []);
+  else
+    writeStored(
+      resultsKey,
+      RESULTS_SCHEMA_VERSION,
+      listGameResults().filter((result) => result.gameId !== gameId),
+    );
 }
 
 export function bestGameResult(

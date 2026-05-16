@@ -27,29 +27,13 @@ run = "vp run install:ci"
 description = "Install dependencies with pnpm's frozen lockfile"
 run = "vp run install:ci"
 
-[tasks."db:migrate"]
-description = "Create or migrate the SQLite sync database"
-run = "vp run db:migrate"
-
-[tasks."db:generate"]
-description = "Generate Drizzle SQLite migrations"
-run = "vp run db:generate"
-
 [tasks.build]
 description = "Build the web app"
 run = "vp run build"
 
-[tasks."build:analyze"]
-description = "Build the web app and write bundle reports"
-run = "vp run build:analyze"
-
 [tasks."build:production"]
 description = "Build the fullstack Node production bundle"
 run = "vp run build:production"
-
-[tasks."build:single"]
-description = "Build the web app as one standalone HTML file"
-run = "vp run build:single"
 
 [tasks."build:server"]
 description = "Build the Node server bundle into a temporary directory"
@@ -71,10 +55,6 @@ run = "vp run typecheck"
 description = "Run tests"
 run = "vp run test"
 
-[tasks."test:changed"]
-description = "Run tests affected by changed files"
-run = "vp run test:changed"
-
 [tasks."test:coverage"]
 description = "Run tests with coverage reports"
 run = "vp run test:coverage"
@@ -92,17 +72,13 @@ description = "Run Playwright browser tests"
 depends = ["build"]
 run = "vp run test:e2e"
 
-[tasks."test:watch"]
-description = "Run tests in watch mode"
-run = "vp run test:watch"
-
 [tasks."docker:push"]
 description = "Build and push latest multi-arch Docker image to Docker Hub"
-run = "docker buildx build --platform linux/amd64,linux/arm64 --build-arg NODE_VERSION=$(mise current node) -t docker.io/lauritsk/games:latest --push ."
+run = "docker buildx build --platform linux/amd64,linux/arm64 -t docker.io/lauritsk/games:latest --push ."
 
 [tasks."docker:up"]
-description = "Run Docker Compose with Node version from mise"
-run = "NODE_VERSION=$(mise current node) docker compose up --build"
+description = "Run Docker Compose"
+run = "docker compose up --build"
 
 [tasks.check]
 description = "Run version check, hk checks, tests, and build"

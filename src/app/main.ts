@@ -29,7 +29,6 @@ import { createLeaderboardDialog } from "@features/leaderboard/leaderboard-dialo
 import { hasLeaderboard, isLeaderboardEligible } from "@features/leaderboard/leaderboard";
 import { initializePwa } from "@ui/pwa";
 import { playSound, unlockSound } from "@ui/sound";
-import { initializeSync } from "@features/sync/sync";
 
 const defaultTheme = "deep-cave" satisfies GameDefinition["theme"];
 const themeColors = {
@@ -84,12 +83,10 @@ app.append(page);
 
 window.addEventListener("hashchange", renderRoute);
 window.addEventListener("games:result-recorded", onResultRecorded);
-window.addEventListener("games:sync-merged", onSyncMerged);
 window.addEventListener("pointerdown", unlockSound, { capture: true });
 window.addEventListener("keydown", unlockSound, { capture: true });
 initializeAppearance();
 initializePwa();
-initializeSync();
 onAppearanceChange(() => {
   updateAppearanceControl(topBar.appearance);
   updateThemeColor();
@@ -349,10 +346,6 @@ function onResultRecorded(event: Event): void {
   const game = getRouteGame();
   if (!game || !result || result.gameId !== game.id) return;
   historyDialog.show(game, result);
-}
-
-function onSyncMerged(): void {
-  if (!getRouteGame()) renderRoute();
 }
 
 function cleanupGame(): void {

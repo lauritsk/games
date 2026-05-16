@@ -1,11 +1,6 @@
 import * as v from "valibot";
 import type { MountScope } from "@shared/lifecycle";
 import { readStored, removeStored, storageKey, writeStored } from "@shared/storage";
-import {
-  notifySyncChanged,
-  recordSaveDeletedForSync,
-  recordSaveWrittenForSync,
-} from "@features/sync/sync-local";
 import { integerSchema, parseWithSchema, picklistSchema } from "@shared/validation";
 
 export type SaveStatus = "ready" | "playing" | "paused";
@@ -47,24 +42,18 @@ export function saveGameSave<T>(
   payloadVersion: number,
   save: Omit<GameSave<T>, "gameId" | "payloadVersion" | "savedAt">,
 ): void {
-  if (
-    writeStored(saveKey(gameId), SAVE_SCHEMA_VERSION, {
-      gameId,
-      payloadVersion,
-      runId: save.runId,
-      savedAt: new Date().toISOString(),
-      status: save.status,
-      payload: save.payload,
-    } satisfies GameSave<T>)
-  ) {
-    recordSaveWrittenForSync(gameId);
-    notifySyncChanged();
-  }
+  writeStored(saveKey(gameId), SAVE_SCHEMA_VERSION, {
+    gameId,
+    payloadVersion,
+    runId: save.runId,
+    savedAt: new Date().toISOString(),
+    status: save.status,
+    payload: save.payload,
+  } satisfies GameSave<T>);
 }
 
 export function clearGameSave(gameId: string): void {
   removeStored(saveKey(gameId));
-  recordSaveDeletedForSync(gameId);
 }
 
 export function hasGameSave(gameId: string): boolean {

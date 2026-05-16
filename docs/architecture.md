@@ -18,25 +18,21 @@ Use this map to find likely edit points quickly.
   - Preferences/difficulty parsing: `game-preferences.ts`
   - Board layout/progress/input/time helpers: `layout.ts`, `progress.ts`, `game-input.ts`, `game-time.ts`
 - Individual games: `src/games/<game>/`
-  - UI/controller: `index.ts`
-  - Pure rules: `logic.ts`
+  - Keep `index.ts` as the UI/controller wiring.
+  - Put deterministic rules, movement, scoring, collision, parsing helpers, and other testable code in `logic.ts` before adding new shared abstractions.
 
 ## Features
 
 - Local result history and formatting: `src/features/results/`
-- Public leaderboards: `src/features/leaderboard/`
-- Local/remote sync: `src/features/sync/`
+- Browser-local leaderboards: `src/features/leaderboard/`
 - Online multiplayer client flow/protocol/countdown: `src/features/multiplayer/`
 - Bot streak state: `src/features/bot-streaks/`
 
 ## Server
 
 - Node server entrypoint: `src/server/index.ts`
-- API routes: `src/server/api.ts`
-- SQLite wrapper/migrations/schema: `src/server/db.ts`, `src/server/migrate.ts`, `src/server/schema.ts`
-- Server-side leaderboard validation/types: `src/server/leaderboard/`
 - Server-side multiplayer rooms/adapters: `src/server/multiplayer/`
-- Request utilities: `src/server/rate-limit.ts`, `src/server/username.ts`, `src/server/profanity.ts`
+- Request utilities: `src/server/http.ts`, `src/server/rate-limit.ts`
 
 ## Tests
 

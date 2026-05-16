@@ -2,14 +2,5 @@ services:
   games:
     build:
       context: .
-      args:
-        NODE_VERSION: ${NODE_VERSION:-26.1.0}
-    environment:
-      GAMES_DB_PATH: /app/data/games.sqlite
     ports:
       - "3000:3000"
-    volumes:
-      - games-data:/app/data
-
-volumes:
-  games-data:

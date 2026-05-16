@@ -22,8 +22,7 @@
 - Shared arcade helpers for fixed-step loops, collisions, held-key input, pause overlays, and touch controls.
 - Unit tests for game logic plus Playwright coverage for browser behavior.
 - Static builds and a Docker image for simple deployment.
-- Local-first saves/results with optional SQLite sync when served by the included Node server.
-- Public leaderboards for scores, fastest times, and bot win streaks when the Node server is available.
+- Browser-local saves, preferences, result history, and leaderboards using `localStorage`.
 - Live private-room multiplayer for Tic-Tac-Toe, Connect 4, Snake, Memory, and 2-player Space Invaders co-op, with spectator room-code viewing when the Node server is available.
 
 ## Demo locally
@@ -61,18 +60,12 @@ Open <http://localhost:3000>.
 | Command | Description |
 | --- | --- |
 | `mise run dev` | Start the Node/Vite+ dev server at <http://localhost:3000>. |
-| `mise run db:migrate` | Create or migrate the SQLite sync database. |
-| `mise run db:generate` | Generate Drizzle SQLite migrations from the typed schema. |
 | `mise run build` | Build the static app into `dist/` with Vite+. |
-| `mise run build:analyze` | Build with Vite+ analyze mode. |
 | `mise run build:production` | Build the fullstack Node production bundle used by Docker. |
 | `mise run build:server` | Build the Node server bundle into a temporary directory. |
-| `mise run build:single` | Build a standalone single-file browser artifact into `dist-single/` with PWA disabled. |
 | `mise run test` | Run Vite+ unit tests. |
-| `mise run test:changed` | Run Vite+ tests affected by changed files. |
 | `mise run test:coverage` | Run Vite+ unit tests with text and LCOV coverage output. |
 | `mise run test:e2e` | Build and run Playwright browser tests. |
-| `mise run test:watch` | Run unit tests in watch mode. |
 | `mise run lint` | Run hk-managed format/lint checks. |
 | `mise run fix` | Run hk-managed fixers. |
 | `mise run audit` | Run pnpm package audit. |
@@ -88,11 +81,11 @@ Open <http://localhost:3000>.
 ├── index.html              # Vite+ HTML entrypoint
 ├── src/
 │   ├── app/                # Browser app shell, hash routing, game selection
-│   ├── features/           # Results, leaderboards, sync, multiplayer, bot streaks
+│   ├── features/           # Results, local leaderboards, multiplayer, bot streaks
 │   ├── games/              # Game registry plus one folder per game
 │   │   ├── shared/         # Game-only helpers: arcade, controls, layout, saves
 │   │   └── <game>/         # `index.ts` UI and `logic.ts` pure rules
-│   ├── server/             # Node API/server, DB, leaderboard, multiplayer rooms
+│   ├── server/             # Node server and in-memory multiplayer rooms
 │   ├── shared/             # Generic DOM, modal, keyboard, storage, type helpers
 │   └── ui/                 # Theme/assets/styles/PWA/sound/visual feedback
 ├── test/                   # Vite+ unit tests
@@ -116,23 +109,11 @@ See `docs/architecture.md` for a quick "where do I edit?" map.
 
 Themes are shared tokens in `src/ui/styles.css` and selected by each game's `theme` field. Current theme names include `deep-cave`, `deep-ocean`, `outer-space`, and `deep-forest`.
 
-## State and sync
+## State
 
-The browser keeps game preferences, saves, and result history in `localStorage` first. When served by `src/server/index.ts`, the app also syncs that local data to SQLite through `/api/sync`.
+The browser keeps game preferences, saves, result history, bot streaks, and leaderboard submissions in `localStorage`. There is no server database and no cross-device sync.
 
-Default database path:
-
-```bash
-GAMES_DB_PATH=data/games.sqlite
-```
-
-Create the database manually, or let the server create it on first request:
-
-```bash
-mise run db:migrate
-```
-
-Static hosting still works, but sync, public leaderboards, and live multiplayer are disabled because there is no API server.
+Static hosting still works for local play and local leaderboards, but live multiplayer requires the included Node/WebSocket server.
 
 ## Live multiplayer
 
@@ -145,37 +126,21 @@ When served by `src/server/index.ts`, supported games offer casual live private 
 
 Room codes use a cryptographically random ambiguity-safe base32 alphabet such as `K7P9Q2`. Each player also receives a separate high-entropy session token that is required for the WebSocket connection and reconnects. The server enforces room capacity, turn order, move validation, short request rate limits, and room cleanup TTLs.
 
-Multiplayer rooms are process-local memory only in v1. They disappear when the Node server restarts, and they are intended for friendly private games rather than strong anti-cheat. Online results can appear in local history but are not eligible for public leaderboards.
+Multiplayer rooms are process-local memory only. They disappear when the Node server restarts, and they are intended for friendly private games rather than strong anti-cheat. Online results can appear in local history but are not eligible for local leaderboards.
 
 Static builds cannot host live multiplayer because they have no WebSocket/API server.
 
 ## Leaderboards
 
-When served by `src/server/index.ts`, games can publish one primary leaderboard metric per game:
+The browser-local leaderboard stores one primary metric per game:
 
 - Score leaderboards rank higher values first.
 - Fastest-time leaderboards rank lower durations first.
 - Bot win-streak leaderboards rank consecutive wins against the bot, separated by game and difficulty.
 
-Tic-Tac-Toe and Connect 4 streaks are only eligible in `Vs bot` mode. A bot win increments the current streak for that game and difficulty. A bot loss, draw, or abandoned active bot game resets the current streak; leaving a saved game to resume later does not. Current streak state is device-local; submitted result history can still sync. Local two-player results stay in history but are not public-leaderboard eligible.
+Tic-Tac-Toe and Connect 4 streaks are only eligible in `Vs bot` mode. A bot win increments the current streak for that game and difficulty. A bot loss, draw, or abandoned active bot game resets the current streak; leaving a saved game to resume later does not. Local two-player and online results stay in history but are not leaderboard-eligible.
 
-Leaderboard submissions use a display name plus the local device/run id to prevent duplicate submissions for the same finished run. They are intended as casual, friendly rankings: the server validates payload shape, ranges, allowed outcomes, duplicate runs, and basic moderation rules, but it does not provide strong anti-cheat.
-
-### Moderation and cleanup
-
-Leaderboard rows live in the `leaderboard_scores` SQLite table. To remove a bad public row, connect to the database configured by `GAMES_DB_PATH`, inspect the row, then delete it by `id`:
-
-```sql
-SELECT id, game_id, username, metric, metric_value, created_at
-FROM leaderboard_scores
-ORDER BY created_at DESC
-LIMIT 20;
-
-DELETE FROM leaderboard_scores
-WHERE id = 'leaderboard-id-to-remove';
-```
-
-Create a backup before manual cleanup. Restart is not required because reads query SQLite directly.
+Leaderboard submissions use a display name plus the finished run id to prevent duplicate submissions for the same run on the current browser profile. They are casual, device-local rankings and are cleared with browser storage.
 
 ## Deployment
 
@@ -185,7 +150,7 @@ Build static assets:
 mise run build
 ```
 
-Serve `dist/` with any static host, or run the included container. For persistent sync storage, mount `/app/data` or set `GAMES_DB_PATH` to a persistent SQLite path:
+Serve `dist/` with any static host, or run the included container for the full Node/WebSocket multiplayer server:
 
 ```bash
 mise run docker:up

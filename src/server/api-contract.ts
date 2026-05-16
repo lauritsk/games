@@ -1,95 +1,11 @@
 import * as v from "valibot";
-import {
-  syncIdSchema,
-  syncPreferenceSchema,
-  syncResultClearSchema,
-  syncResultSchema,
-  syncSaveSchema,
-  syncSaveTombstoneSchema,
-  syncSnapshotSchema,
-} from "@features/sync/sync-schema";
 import { multiplayerSeats } from "@features/multiplayer/multiplayer-protocol";
-import { finiteNumberSchema, integerSchema, primitiveRecordSchema } from "@shared/validation";
+import { finiteNumberSchema, integerSchema } from "@shared/validation";
 
 export const apiErrorResponseSchema = v.looseObject({
   ok: v.literal(false),
   error: v.string(),
 });
-
-export const apiErrorWithSyncSnapshotResponseSchema = v.looseObject({
-  ok: v.literal(false),
-  error: v.string(),
-  snapshot: v.optional(syncSnapshotSchema),
-});
-
-export const syncStatusResponseSchema = v.union([
-  v.object({ ok: v.literal(true), storage: v.literal("sqlite") }),
-  apiErrorResponseSchema,
-]);
-
-export const syncGetQuerySchema = v.object({ deviceId: syncIdSchema });
-export const syncPushRequestSchema = v.looseObject({
-  deviceId: syncIdSchema,
-  preferences: v.optional(v.array(syncPreferenceSchema), []),
-  saves: v.optional(v.array(syncSaveSchema), []),
-  deletedSaves: v.optional(v.array(syncSaveTombstoneSchema), []),
-  results: v.optional(v.array(syncResultSchema), []),
-  resultClears: v.optional(v.array(syncResultClearSchema), []),
-});
-export const syncSnapshotResponseSchema = v.union([
-  v.object({ ok: v.literal(true), snapshot: syncSnapshotSchema }),
-  apiErrorWithSyncSnapshotResponseSchema,
-]);
-
-const optionalMetricSchema = v.optional(integerSchema);
-const leaderboardEntrySchema = v.looseObject({
-  id: v.string(),
-  gameId: v.string(),
-  username: v.string(),
-  difficulty: v.optional(v.string()),
-  outcome: v.string(),
-  metric: v.string(),
-  metricValue: finiteNumberSchema,
-  score: optionalMetricSchema,
-  moves: optionalMetricSchema,
-  durationMs: optionalMetricSchema,
-  level: optionalMetricSchema,
-  streak: optionalMetricSchema,
-  metadata: primitiveRecordSchema,
-  createdAt: v.string(),
-  rank: v.optional(integerSchema),
-});
-
-export const leaderboardQuerySchema = v.looseObject({
-  gameId: v.string(),
-  difficulty: v.optional(v.string()),
-  limit: v.optional(v.string()),
-});
-
-export const leaderboardSubmissionSchema = v.looseObject({
-  deviceId: v.optional(v.string()),
-  runId: v.optional(v.string()),
-  gameId: v.string(),
-  username: v.string(),
-  difficulty: v.optional(v.string()),
-  outcome: v.string(),
-  score: optionalMetricSchema,
-  moves: optionalMetricSchema,
-  durationMs: optionalMetricSchema,
-  level: optionalMetricSchema,
-  streak: optionalMetricSchema,
-  metadata: v.optional(primitiveRecordSchema),
-});
-
-export const leaderboardListResponseSchema = v.union([
-  v.object({ ok: v.literal(true), entries: v.array(leaderboardEntrySchema) }),
-  apiErrorResponseSchema,
-]);
-
-export const leaderboardSubmitResponseSchema = v.union([
-  v.object({ ok: v.literal(true), rank: integerSchema, entry: leaderboardEntrySchema }),
-  apiErrorResponseSchema,
-]);
 
 export const roomCodeRequestSchema = v.looseObject({ code: v.optional(v.string(), "") });
 export const createMultiplayerRoomRequestSchema = v.looseObject({
@@ -201,81 +117,6 @@ export type ApiOpenApiScalar = {
 };
 
 export const apiContract = [
-  {
-    operationId: "getSyncStatus",
-    method: "GET",
-    path: "/api/sync/status",
-    summary: "Check server-backed sync availability.",
-    tags: ["Sync"],
-    bodyKind: "none",
-    responseSchema: syncStatusResponseSchema,
-  },
-  {
-    operationId: "getSyncSnapshot",
-    method: "GET",
-    path: "/api/sync",
-    summary: "Read the saved snapshot for one device.",
-    tags: ["Sync"],
-    bodyKind: "none",
-    requestSchema: syncGetQuerySchema,
-    responseSchema: syncSnapshotResponseSchema,
-    query: [
-      {
-        name: "deviceId",
-        required: true,
-        description: "Stable local sync device id.",
-        schema: { type: "string" },
-      },
-    ],
-  },
-  {
-    operationId: "pushSyncSnapshot",
-    method: "POST",
-    path: "/api/sync",
-    summary: "Merge local saves, preferences, results, and tombstones into server storage.",
-    tags: ["Sync"],
-    bodyKind: "json",
-    requestSchema: syncPushRequestSchema,
-    responseSchema: syncSnapshotResponseSchema,
-  },
-  {
-    operationId: "listLeaderboard",
-    method: "GET",
-    path: "/api/leaderboard",
-    summary: "List public leaderboard entries for a game.",
-    tags: ["Leaderboard"],
-    bodyKind: "none",
-    requestSchema: leaderboardQuerySchema,
-    responseSchema: leaderboardListResponseSchema,
-    query: [
-      {
-        name: "gameId",
-        required: true,
-        description: "Game id registered by the app.",
-        schema: { type: "string" },
-      },
-      {
-        name: "difficulty",
-        description: "Optional difficulty filter.",
-        schema: { type: "string" },
-      },
-      {
-        name: "limit",
-        description: "Maximum rows to return.",
-        schema: { type: "integer", minimum: 1, maximum: 50, default: 10 },
-      },
-    ],
-  },
-  {
-    operationId: "submitLeaderboardScore",
-    method: "POST",
-    path: "/api/leaderboard",
-    summary: "Submit one public leaderboard score.",
-    tags: ["Leaderboard"],
-    bodyKind: "json",
-    requestSchema: leaderboardSubmissionSchema,
-    responseSchema: leaderboardSubmitResponseSchema,
-  },
   {
     operationId: "getMultiplayerStatus",
     method: "GET",

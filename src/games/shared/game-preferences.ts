@@ -1,7 +1,6 @@
 import * as v from "valibot";
 import type { Difficulty } from "@shared/types";
 import { readStored, storageKey, writeStored } from "@shared/storage";
-import { notifySyncChanged } from "@features/sync/sync-local";
 import {
   parseWithSchema,
   picklistSchema,
@@ -32,7 +31,7 @@ export function loadGamePreferences(gameId: string): GamePreferences {
 export function saveGamePreferences(gameId: string, preferences: GamePreferences): void {
   const all = loadPreferences();
   all[gameId] = sanitizePreferences(preferences);
-  if (writeStored(preferencesKey, PREFERENCES_SCHEMA_VERSION, all)) notifySyncChanged();
+  writeStored(preferencesKey, PREFERENCES_SCHEMA_VERSION, all);
 }
 
 export function parseDifficulty(value: unknown): Difficulty | null {

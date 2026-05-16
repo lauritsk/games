@@ -6,11 +6,6 @@ Generated from `src/server/api-contract.ts`. Do not edit by hand; run `mise run 
 
 | Method | Path | Tags | Summary |
 | --- | --- | --- | --- |
-| `GET` | `/api/sync/status` | Sync | Check server-backed sync availability. |
-| `GET` | `/api/sync` | Sync | Read the saved snapshot for one device. |
-| `POST` | `/api/sync` | Sync | Merge local saves, preferences, results, and tombstones into server storage. |
-| `GET` | `/api/leaderboard` | Leaderboard | List public leaderboard entries for a game. |
-| `POST` | `/api/leaderboard` | Leaderboard | Submit one public leaderboard score. |
 | `GET` | `/api/multiplayer/status` | Multiplayer | Check multiplayer availability. |
 | `POST` | `/api/multiplayer/rooms` | Multiplayer | Create a private multiplayer room. |
 | `POST` | `/api/multiplayer/rooms/join` | Multiplayer | Join an open multiplayer room as a player. |

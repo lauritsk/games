@@ -179,7 +179,7 @@ async function loadScores(
 
 function renderEntries(entries: LeaderboardEntry[], submitted?: LeaderboardEntry): HTMLElement {
   if (entries.length === 0 && !submitted) {
-    return el("p", { className: "muted", text: "No public entries yet." });
+    return el("p", { className: "muted", text: "No local entries yet." });
   }
   const list = el("ol", { className: "record-list leaderboard-list" });
   for (const entry of entries) {

@@ -1,29 +1,23 @@
-ARG NODE_VERSION=26.1.0
-FROM node:${NODE_VERSION}-bookworm-slim AS build
+FROM dhi.io/node:25-alpine3.22-dev@sha256:cecc0d6394e711d73df0cfa7cd6ce6ec2ffcca070a0999bf98a597b34a7b8890 AS build
 
 WORKDIR /app
 RUN corepack enable
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY index.html tsconfig.json vite.config.ts ./
-COPY migrations ./migrations
 COPY src ./src
-RUN pnpm run build:production
+RUN pnpm exec vp run build:production
 
-ARG NODE_VERSION=26.1.0
-FROM node:${NODE_VERSION}-bookworm-slim
+FROM dhi.io/node:25-alpine3.22@sha256:99851bac3e2268b16e67f6a429b08ea7ce128288353a06487ee9a13131c2e709
 
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV GAMES_DB_PATH=/app/data/games.sqlite
 WORKDIR /app
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/dist-server ./dist-server
-COPY --from=build /app/migrations ./migrations
 
 EXPOSE 3000
-VOLUME ["/app/data"]
 CMD ["node", "dist-server/index.js"]

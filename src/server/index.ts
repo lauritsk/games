@@ -4,7 +4,6 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { extname, join, normalize, resolve } from "node:path";
 import { createServer as createViteServer, type ViteDevServer } from "vite-plus";
 import { WebSocketServer, type RawData, type WebSocket } from "ws";
-import { createSyncApiHandler } from "@server/api";
 import { apiError } from "@server/api-contract";
 import {
   MultiplayerHub,
@@ -17,7 +16,6 @@ const port = Number(process.env["PORT"] ?? 3000);
 const root = process.cwd();
 const clientDist = resolve(root, "dist");
 
-const syncApi = createSyncApiHandler();
 const multiplayer = new MultiplayerHub();
 const vite = isProduction
   ? undefined
@@ -74,8 +72,7 @@ async function routeRequest(
   viteServer: ViteDevServer | undefined,
 ): Promise<Response | undefined> {
   const request = nodeRequest(req);
-  const apiResponse =
-    (await multiplayer.handleHttp(request)) ?? (await syncApi(request)) ?? apiFallback(request);
+  const apiResponse = (await multiplayer.handleHttp(request)) ?? apiFallback(request);
   if (apiResponse) return apiResponse;
 
   if (viteServer) {
