@@ -21,23 +21,23 @@ run = "vp run dev"
 
 [tasks.install]
 description = "Install dependencies with pnpm"
-run = "vp install --frozen-lockfile"
+run = "vp run install:ci"
 
 [tasks.ci]
 description = "Install dependencies with pnpm's frozen lockfile"
-run = "vp install --frozen-lockfile"
+run = "vp run install:ci"
 
 [tasks."db:migrate"]
 description = "Create or migrate the SQLite sync database"
-run = "vp exec tsx src/server/migrate.ts"
+run = "vp run db:migrate"
 
 [tasks."db:generate"]
 description = "Generate Drizzle SQLite migrations"
-run = "vp exec drizzle-kit generate"
+run = "vp run db:generate"
 
 [tasks.build]
 description = "Build the web app"
-run = "vp build"
+run = "vp run build"
 
 [tasks."build:analyze"]
 description = "Build the web app and write bundle reports"
@@ -57,11 +57,11 @@ run = "vp run build:server"
 
 [tasks.lint]
 description = "Run hk-managed checks across the repository"
-run = "hk check --all"
+run = "vp run lint"
 
 [tasks.fix]
 description = "Run hk-managed fixers across the repository"
-run = "hk fix --all"
+run = "vp run fix"
 
 [tasks.typecheck]
 description = "Run TypeScript type checks"
@@ -69,11 +69,11 @@ run = "vp run typecheck"
 
 [tasks.test]
 description = "Run tests"
-run = "vp test run test/*.test.ts"
+run = "vp run test"
 
 [tasks."test:changed"]
 description = "Run tests affected by changed files"
-run = "vp test run --changed"
+run = "vp run test:changed"
 
 [tasks."test:coverage"]
 description = "Run tests with coverage reports"
@@ -94,7 +94,7 @@ run = "vp run test:e2e"
 
 [tasks."test:watch"]
 description = "Run tests in watch mode"
-run = "vp test watch test/*.test.ts"
+run = "vp run test:watch"
 
 [tasks."docker:push"]
 description = "Build and push latest multi-arch Docker image to Docker Hub"
