@@ -144,6 +144,14 @@ backend = "npm:oxfmt"
 version = "1.61.0"
 backend = "npm:oxlint"
 
+[[tools.oxfmt]]
+version = "0.47.0"
+backend = "npm:oxfmt"
+
+[[tools.oxlint]]
+version = "1.62.0"
+backend = "npm:oxlint"
+
 [[tools.pkl]]
 version = "0.31.1"
 backend = "aqua:apple/pkl"

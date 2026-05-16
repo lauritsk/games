@@ -21,6 +21,7 @@ async function openGame(page: Page, name: string): Promise<void> {
   await page.goto("/");
   await page.getByRole("link", { name }).click();
   await expect(page.getByRole("link", { name: "Back to games" })).toBeVisible();
+  await expect(page.locator(".game")).toBeVisible();
 }
 
 type OnlineRoom = {
@@ -325,8 +326,7 @@ test("new game key dismisses result popup and resets finished game", async ({ pa
   }
 
   const center = page.locator(".ttt-cell").nth(4);
-  await page.locator(".game").focus();
-  await page.keyboard.press("Space");
+  await center.click();
   await expect(center).toHaveText("X");
   await page.evaluate(() => {
     const game = document.querySelector<HTMLElement>(".game");
@@ -365,6 +365,7 @@ test("keyboard routing selects games, plays current game, and protects escape na
   await expect(page).toHaveURL(/#\/minesweeper$/);
 
   await page.goto("/#/tictactoe");
+  await expect(page.locator(".game")).toBeVisible();
   await page.keyboard.press("Space");
   await expect(page.getByRole("button", { name: "Row 2, column 2, X" })).toHaveText("X");
 
