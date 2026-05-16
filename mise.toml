@@ -25,13 +25,38 @@ run = "bun run dev"
 description = "Install dependencies with Bun's frozen CI installer"
 run = "bun ci"
 
-[tasks."db:migrate"]
-description = "Create or migrate the Bun SQLite sync database"
-run = "bun run src/server/migrate.ts"
+[tasks.fix]
+description = "Run hk-managed fixers across the repository"
+run = "hk fix --all"
 
-[tasks."db:generate"]
-description = "Generate Drizzle SQLite migrations"
-run = "bunx --bun drizzle-kit generate"
+[tasks.lint]
+description = "Run hk-managed checks across the repository"
+run = "hk check --all"
+
+[tasks.typecheck]
+description = "Run TypeScript type checks"
+run = "bun run typecheck"
+
+[tasks.test]
+description = "Run tests"
+run = "bun run test"
+
+[tasks."test:changed"]
+description = "Run Bun tests affected by changed files"
+run = "bun run test:changed"
+
+[tasks."test:coverage"]
+description = "Run Bun tests with coverage reports"
+run = "bun run test:coverage"
+
+[tasks."test:e2e"]
+description = "Run Playwright browser tests"
+depends = ["build"]
+run = "bun run test:e2e"
+
+[tasks."test:watch"]
+description = "Run tests in watch mode"
+run = "bun run test:watch"
 
 [tasks.build]
 description = "Build the web app"
@@ -53,46 +78,21 @@ run = "bun run build:single"
 description = "Build the Bun server bundle into a temporary directory"
 run = "bun run build:server"
 
-[tasks.lint]
-description = "Run hk-managed checks across the repository"
-run = "hk check --all"
-
-[tasks.fix]
-description = "Run hk-managed fixers across the repository"
-run = "hk fix --all"
-
-[tasks.typecheck]
-description = "Run TypeScript type checks"
-run = "bun run typecheck"
-
-[tasks.test]
-description = "Run tests"
-run = "bun run test"
-
-[tasks."test:changed"]
-description = "Run Bun tests affected by changed files"
-run = "bun run test:changed"
-
-[tasks."test:coverage"]
-description = "Run Bun tests with coverage reports"
-run = "bun run test:coverage"
+[tasks."docs:api"]
+description = "Generate API docs from Valibot-backed contracts"
+run = "bun run docs:api"
 
 [tasks.audit]
 description = "Run Bun package audit"
 run = "bun run audit"
 
-[tasks."docs:api"]
-description = "Generate API docs from Valibot-backed contracts"
-run = "bun run docs:api"
+[tasks."db:migrate"]
+description = "Create or migrate the Bun SQLite sync database"
+run = "bun run src/server/migrate.ts"
 
-[tasks."test:e2e"]
-description = "Run Playwright browser tests"
-depends = ["build"]
-run = "bun run test:e2e"
-
-[tasks."test:watch"]
-description = "Run tests in watch mode"
-run = "bun run test:watch"
+[tasks."db:generate"]
+description = "Generate Drizzle SQLite migrations"
+run = "bunx --bun drizzle-kit generate"
 
 [tasks."docker:push"]
 description = "Build and push latest multi-arch Docker image to Docker Hub"
