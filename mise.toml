@@ -2,105 +2,107 @@
 HK_MISE = 1
 
 [tools]
-actionlint = "1.7.12"
-bun = "1.3.13"
-cocogitto = "7.0.0"
+node = "26.1.0"
+pnpm = "11.1.1"
+vp = "0.1.21"
 hk = "1.44.3"
-"npm:oxfmt" = "0.46.0"
-"npm:oxlint" = "1.61.0"
 pkl = "0.31.1"
-rumdl = "0.1.87"
-shellcheck = "0.11.0"
-shfmt = "3.13.1"
-tombi = "0.10.2"
+"npm:oxlint" = "1.61.0"
+"npm:oxfmt" = "0.46.0"
+cocogitto = "7.0.0"
+tombi = "0.10.4"
 
 [hooks]
 postinstall = "hk install --mise"
 
 [tasks.dev]
 description = "Run the web app dev server"
-run = "bun run dev"
+run = "vp run dev"
 
 [tasks.install]
-description = "Install dependencies with Bun's frozen CI installer"
-run = "bun ci"
+description = "Install dependencies with pnpm"
+run = "vp install --frozen-lockfile"
 
-[tasks.fix]
-description = "Run hk-managed fixers across the repository"
-run = "hk fix --all"
+[tasks.ci]
+description = "Install dependencies with pnpm's frozen lockfile"
+run = "vp install --frozen-lockfile"
+
+[tasks."db:migrate"]
+description = "Create or migrate the SQLite sync database"
+run = "vp exec tsx src/server/migrate.ts"
+
+[tasks."db:generate"]
+description = "Generate Drizzle SQLite migrations"
+run = "vp exec drizzle-kit generate"
+
+[tasks.build]
+description = "Build the web app"
+run = "vp build"
+
+[tasks."build:analyze"]
+description = "Build the web app and write bundle reports"
+run = "vp run build:analyze"
+
+[tasks."build:production"]
+description = "Build the fullstack Node production bundle"
+run = "vp run build:production"
+
+[tasks."build:single"]
+description = "Build the web app as one standalone HTML file"
+run = "vp run build:single"
+
+[tasks."build:server"]
+description = "Build the Node server bundle into a temporary directory"
+run = "vp run build:server"
 
 [tasks.lint]
 description = "Run hk-managed checks across the repository"
 run = "hk check --all"
 
+[tasks.fix]
+description = "Run hk-managed fixers across the repository"
+run = "hk fix --all"
+
 [tasks.typecheck]
 description = "Run TypeScript type checks"
-run = "bun run typecheck"
+run = "vp run typecheck"
 
 [tasks.test]
 description = "Run tests"
-run = "bun run test"
+run = "vp test run test/*.test.ts"
 
 [tasks."test:changed"]
-description = "Run Bun tests affected by changed files"
-run = "bun run test:changed"
+description = "Run tests affected by changed files"
+run = "vp test run --changed"
 
 [tasks."test:coverage"]
-description = "Run Bun tests with coverage reports"
-run = "bun run test:coverage"
+description = "Run tests with coverage reports"
+run = "vp run test:coverage"
+
+[tasks.audit]
+description = "Run pnpm package audit"
+run = "vp run audit"
+
+[tasks."docs:api"]
+description = "Generate API docs from Valibot-backed contracts"
+run = "vp run docs:api"
 
 [tasks."test:e2e"]
 description = "Run Playwright browser tests"
 depends = ["build"]
-run = "bun run test:e2e"
+run = "vp run test:e2e"
 
 [tasks."test:watch"]
 description = "Run tests in watch mode"
-run = "bun run test:watch"
-
-[tasks.build]
-description = "Build the web app"
-run = "bun run build"
-
-[tasks."build:analyze"]
-description = "Build the web app and write Bun metafile reports"
-run = "bun run build:analyze"
-
-[tasks."build:production"]
-description = "Build the fullstack Bun production bundle"
-run = "bun run build:production"
-
-[tasks."build:single"]
-description = "Build the web app as one standalone HTML file"
-run = "bun run build:single"
-
-[tasks."build:server"]
-description = "Build the Bun server bundle into a temporary directory"
-run = "bun run build:server"
-
-[tasks."docs:api"]
-description = "Generate API docs from Valibot-backed contracts"
-run = "bun run docs:api"
-
-[tasks.audit]
-description = "Run Bun package audit"
-run = "bun run audit"
-
-[tasks."db:migrate"]
-description = "Create or migrate the Bun SQLite sync database"
-run = "bun run src/server/migrate.ts"
-
-[tasks."db:generate"]
-description = "Generate Drizzle SQLite migrations"
-run = "bunx --bun drizzle-kit generate"
+run = "vp test watch test/*.test.ts"
 
 [tasks."docker:push"]
 description = "Build and push latest multi-arch Docker image to Docker Hub"
-run = "docker buildx build --platform linux/amd64,linux/arm64 --build-arg BUN_VERSION=$(mise current bun) -t docker.io/lauritsk/games:latest --push ."
+run = "docker buildx build --platform linux/amd64,linux/arm64 --build-arg NODE_VERSION=$(mise current node) -t docker.io/lauritsk/games:latest --push ."
 
 [tasks."docker:up"]
-description = "Run Docker Compose with Bun version from mise"
-run = "BUN_VERSION=$(mise current bun) docker compose up --build"
+description = "Run Docker Compose with Node version from mise"
+run = "NODE_VERSION=$(mise current node) docker compose up --build"
 
 [tasks.check]
 description = "Run version check, hk checks, tests, and build"

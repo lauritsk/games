@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vite-plus/test";
 import { canMove2048, merge2048Line, slide2048 } from "@games/2048/logic";
 import {
   advanceBallzRound,

@@ -5,7 +5,7 @@
 </h1>
 
 <p align="center">
-  A small, fast collection of browser-playable games built with Bun, TypeScript, and plain CSS.
+  A small, fast collection of browser-playable games built with Vite+, Node, TypeScript, and plain CSS.
 </p>
 
 ## Features
@@ -16,9 +16,9 @@
 - Shared arcade helpers for fixed-step loops, collisions, held-key input, pause overlays, and touch controls.
 - Unit tests for game logic plus Playwright coverage for browser behavior.
 - Static builds and a Docker image for simple deployment.
-- Local-first saves/results with optional Bun SQLite sync when served by the included Bun server.
-- Public leaderboards for scores, fastest times, and bot win streaks when the Bun server is available.
-- Live private-room multiplayer for Tic-Tac-Toe, Connect 4, Snake, Memory, and 2-player Space Invaders co-op, with spectator room-code viewing when the Bun server is available.
+- Local-first saves/results with optional SQLite sync when served by the included Node server.
+- Public leaderboards for scores, fastest times, and bot win streaks when the Node server is available.
+- Live private-room multiplayer for Tic-Tac-Toe, Connect 4, Snake, Memory, and 2-player Space Invaders co-op, with spectator room-code viewing when the Node server is available.
 
 ## Demo locally
 
@@ -54,23 +54,23 @@ Open <http://localhost:3000>.
 
 | Command | Description |
 | --- | --- |
-| `mise run dev` | Start the Bun dev server with HMR at <http://localhost:3000>. |
-| `mise run db:migrate` | Create or migrate the Bun SQLite sync database. |
+| `mise run dev` | Start the Node/Vite+ dev server at <http://localhost:3000>. |
+| `mise run db:migrate` | Create or migrate the SQLite sync database. |
 | `mise run db:generate` | Generate Drizzle SQLite migrations from the typed schema. |
-| `mise run build` | Build the static app into `dist/` with Bun code splitting. |
-| `mise run build:analyze` | Build and write Bun metafile reports into `reports/build/`. |
-| `mise run build:production` | Build the fullstack Bun production bundle used by Docker. |
-| `mise run build:server` | Build the Bun server bundle into a temporary directory. |
+| `mise run build` | Build the static app into `dist/` with Vite+. |
+| `mise run build:analyze` | Build with Vite+ analyze mode. |
+| `mise run build:production` | Build the fullstack Node production bundle used by Docker. |
+| `mise run build:server` | Build the Node server bundle into a temporary directory. |
 | `mise run build:single` | Build a standalone single-file browser artifact into `dist-single/` with PWA disabled. |
-| `mise run test` | Run Bun unit tests in parallel. |
-| `mise run test:changed` | Run Bun tests affected by changed files. |
-| `mise run test:coverage` | Run Bun unit tests with text and LCOV coverage output. |
+| `mise run test` | Run Vite+ unit tests. |
+| `mise run test:changed` | Run Vite+ tests affected by changed files. |
+| `mise run test:coverage` | Run Vite+ unit tests with text and LCOV coverage output. |
 | `mise run test:e2e` | Build and run Playwright browser tests. |
 | `mise run test:watch` | Run unit tests in watch mode. |
 | `mise run lint` | Run hk-managed format/lint checks. |
 | `mise run fix` | Run hk-managed fixers. |
-| `mise run audit` | Run Bun package audit. |
-| `mise run ci` | Install dependencies with Bun's frozen CI installer. |
+| `mise run audit` | Run pnpm package audit. |
+| `mise run ci` | Install dependencies with pnpm's frozen lockfile. |
 | `mise run check` | Run lint, unit tests, build, and e2e tests. |
 | `mise run docker:push` | Build and push the multi-arch Docker image as `docker.io/lauritsk/games:latest`. |
 | `mise run docker:up` | Run the app with Docker Compose on port 3000. |
@@ -79,24 +79,24 @@ Open <http://localhost:3000>.
 
 ```text
 .
-├── index.html              # Bun HTML bundler entrypoint
+├── index.html              # Vite+ HTML entrypoint
 ├── src/
 │   ├── app/                # Browser app shell, hash routing, game selection
 │   ├── features/           # Results, leaderboards, sync, multiplayer, bot streaks
 │   ├── games/              # Game registry plus one folder per game
 │   │   ├── shared/         # Game-only helpers: arcade, controls, layout, saves
 │   │   └── <game>/         # `index.ts` UI and `logic.ts` pure rules
-│   ├── server/             # Bun API/server, DB, leaderboard, multiplayer rooms
+│   ├── server/             # Node API/server, DB, leaderboard, multiplayer rooms
 │   ├── shared/             # Generic DOM, modal, keyboard, storage, type helpers
 │   └── ui/                 # Theme/assets/styles/PWA/sound/visual feedback
-├── test/                   # Bun unit tests
+├── test/                   # Vite+ unit tests
 ├── e2e/                    # Playwright tests
 ├── Dockerfile
 ├── compose.yaml
 └── mise.toml               # Tool versions and tasks
 ```
 
-See `docs/architecture.md` for a quick "where do I edit?" map. See `docs/bun.md` for Bun build variants, bundle flags, coverage, audit, and profiling helpers.
+See `docs/architecture.md` for a quick "where do I edit?" map.
 
 ## Add a game
 
@@ -112,7 +112,7 @@ Themes are shared tokens in `src/ui/styles.css` and selected by each game's `the
 
 ## State and sync
 
-The browser keeps game preferences, saves, and result history in `localStorage` first. When served by `src/server/index.ts`, the app also syncs that local data to Bun's native SQLite driver (`bun:sqlite`) through `/api/sync`.
+The browser keeps game preferences, saves, and result history in `localStorage` first. When served by `src/server/index.ts`, the app also syncs that local data to SQLite through `/api/sync`.
 
 Default database path:
 
@@ -139,7 +139,7 @@ When served by `src/server/index.ts`, supported games offer casual live private 
 
 Room codes use a cryptographically random ambiguity-safe base32 alphabet such as `K7P9Q2`. Each player also receives a separate high-entropy session token that is required for the WebSocket connection and reconnects. The server enforces room capacity, turn order, move validation, short request rate limits, and room cleanup TTLs.
 
-Multiplayer rooms are process-local memory only in v1. They disappear when the Bun server restarts, and they are intended for friendly private games rather than strong anti-cheat. Online results can appear in local history but are not eligible for public leaderboards.
+Multiplayer rooms are process-local memory only in v1. They disappear when the Node server restarts, and they are intended for friendly private games rather than strong anti-cheat. Online results can appear in local history but are not eligible for public leaderboards.
 
 Static builds cannot host live multiplayer because they have no WebSocket/API server.
 

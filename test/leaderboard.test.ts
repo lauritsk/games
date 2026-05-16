@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vite-plus/test";
 import { createSyncApiHandler } from "@server/api";
 import { GameDatabase } from "@server/db";
 import { parseLeaderboardSubmission } from "@server/leaderboard/schema";

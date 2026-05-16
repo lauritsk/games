@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "vite-plus/test";
 import { readStored, removeStored, storageKey, writeStored } from "@shared/storage";
 
 class FakeStorage {

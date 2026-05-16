@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import type { ServerWebSocket } from "bun";
+import { describe, expect, test } from "vite-plus/test";
+import type { MultiplayerWebSocket as ServerWebSocket } from "@server/multiplayer";
 import {
   canRequestMultiplayerRematch,
   canStartMultiplayerMatch,

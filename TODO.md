@@ -29,9 +29,9 @@
 - [x] Refactor shared result-pruning maintainability hot spot.
 - [x] Refactor current maintainability hot spots.
 - [x] Extract shared array/grid parsing helpers for save-state parsers.
-- [x] Pin Dockerfile Bun images to current digests.
-- [x] Review Bun v1.3.13 feature opportunities.
-- [x] Adopt Bun v1.3.13 opportunities.
+- [x] Pin Dockerfile runtime images to current digests.
+- [x] Review runtime/tooling feature opportunities.
+- [x] Adopt runtime/tooling opportunities.
 - [x] Refactor maintainability hot spots.
 - [x] Integrate Valibot runtime schemas.
 - [x] Integrate Drizzle ORM for SQLite.
@@ -39,7 +39,7 @@
 - [x] Add safe JSON parsing helper if parser duplication grows.
 - [x] Add a typed API contract layer using shared Valibot request/response schemas.
 - [x] Generate OpenAPI documentation from Valibot schemas if the API surface grows.
-- [x] Run a Bun SQLite performance pass for sync, leaderboard, and multiplayer persistence paths.
+- [x] Run a SQLite performance pass for sync, leaderboard, and multiplayer persistence paths.
 
 ## Online multiplayer
 

@@ -28,7 +28,7 @@ export function createSyncApiHandler(database = new GameDatabase()): SyncApiHand
 
     try {
       if (url.pathname === "/api/sync/status" && request.method === "GET") {
-        return apiJson(syncStatusResponseSchema, { ok: true, storage: "bun:sqlite" });
+        return apiJson(syncStatusResponseSchema, { ok: true, storage: "sqlite" });
       }
       if (url.pathname === "/api/sync" && request.method === "GET") {
         const query = parseQuery(syncGetQuerySchema, url);

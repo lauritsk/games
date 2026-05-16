@@ -1,4 +1,3 @@
-import type { ServerWebSocket } from "bun";
 import {
   mapMultiplayerSeats,
   multiplayerCodeAlphabet,
@@ -60,7 +59,7 @@ type Room = {
   players: Partial<Record<MultiplayerSeat, PlayerState>>;
   spectators: Map<string, SpectatorState>;
   rematchReady: Partial<Record<MultiplayerSeat, boolean>>;
-  sockets: Set<ServerWebSocket<MultiplayerSocketData>>;
+  sockets: Set<MultiplayerWebSocket<MultiplayerSocketData>>;
   tickTimer: ReturnType<typeof setInterval> | null;
   countdownTimer: ReturnType<typeof setTimeout> | null;
   startSeats: MultiplayerSeat[] | null;
@@ -83,6 +82,17 @@ const disconnectedTtlMs = 2 * 60_000;
 const hardTtlMs = 24 * 60 * 60_000;
 const maxRequestBytes = 10_000;
 const defaultCountdownMs = 3000;
+
+export type MultiplayerWebSocket<TData> = {
+  data: TData;
+  send(message: string): unknown;
+  close(code?: number, reason?: string): void;
+  subscribe?(topic: string): void;
+  publishText?(topic: string, message: string): unknown;
+  publish?(topic: string, message: string): unknown;
+  subscriptions?: unknown;
+  isSubscribed?(topic: string): boolean;
+};
 
 export type MultiplayerHubOptions = {
   countdownMs?: number;
@@ -271,7 +281,7 @@ export class MultiplayerHub {
     return { ok: true, data: { code, playerId, seat: "p1", role: "spectator" } };
   }
 
-  onOpen(ws: ServerWebSocket<MultiplayerSocketData>): void {
+  onOpen(ws: MultiplayerWebSocket<MultiplayerSocketData>): void {
     const room = this.rooms.get(ws.data.code);
     if (!room) {
       ws.close(1008, "Room unavailable");
@@ -285,11 +295,11 @@ export class MultiplayerHub {
     participant.connectedCount += 1;
     room.lastActivityAt = Date.now();
     room.sockets.add(ws);
-    ws.subscribe(roomTopic(room.code));
+    ws.subscribe?.(roomTopic(room.code));
     this.broadcastRoom(room, ws);
   }
 
-  onMessage(ws: ServerWebSocket<MultiplayerSocketData>, message: string | Buffer): void {
+  onMessage(ws: MultiplayerWebSocket<MultiplayerSocketData>, message: string | Buffer): void {
     const room = this.rooms.get(ws.data.code);
     if (!room) {
       ws.close(1008, "Room unavailable");
@@ -309,7 +319,10 @@ export class MultiplayerHub {
     this.handleClientMessage(ws, room, parsed);
   }
 
-  private canAcceptPlayerMessage(ws: ServerWebSocket<MultiplayerSocketData>, room: Room): boolean {
+  private canAcceptPlayerMessage(
+    ws: MultiplayerWebSocket<MultiplayerSocketData>,
+    room: Room,
+  ): boolean {
     if (
       !checkRateLimit(`multiplayer-action:${room.code}:${ws.data.playerId}`, {
         windowMs: 10_000,
@@ -327,7 +340,7 @@ export class MultiplayerHub {
   }
 
   private handleClientMessage(
-    ws: ServerWebSocket<MultiplayerSocketData>,
+    ws: MultiplayerWebSocket<MultiplayerSocketData>,
     room: Room,
     message: MultiplayerClientMessage,
   ): void {
@@ -347,7 +360,7 @@ export class MultiplayerHub {
   }
 
   private handleAction(
-    ws: ServerWebSocket<MultiplayerSocketData>,
+    ws: MultiplayerWebSocket<MultiplayerSocketData>,
     room: Room,
     message: MultiplayerActionMessage,
   ): void {
@@ -369,7 +382,7 @@ export class MultiplayerHub {
     this.broadcastRoom(room, ws);
   }
 
-  onClose(ws: ServerWebSocket<MultiplayerSocketData>): void {
+  onClose(ws: MultiplayerWebSocket<MultiplayerSocketData>): void {
     const room = this.rooms.get(ws.data.code);
     if (!room) return;
     const participant = participantState(room, ws.data);
@@ -441,14 +454,14 @@ export class MultiplayerHub {
     };
   }
 
-  private broadcastRoom(room: Room, fallback?: ServerWebSocket<MultiplayerSocketData>): void {
+  private broadcastRoom(room: Room, fallback?: MultiplayerWebSocket<MultiplayerSocketData>): void {
     const publisher = fallback ?? room.sockets.values().next().value;
     if (publisher && canPublishTopic(publisher)) {
-      publisher.publishText(roomTopic(room.code), JSON.stringify(this.snapshotMessage(room)));
+      publisher.publishText?.(roomTopic(room.code), JSON.stringify(this.snapshotMessage(room)));
       return;
     }
 
-    const sent = new Set<ServerWebSocket<MultiplayerSocketData>>();
+    const sent = new Set<MultiplayerWebSocket<MultiplayerSocketData>>();
     for (const socket of room.sockets) {
       socket.send(JSON.stringify(this.snapshotMessage(room, socket.data)));
       sent.add(socket);
@@ -458,13 +471,17 @@ export class MultiplayerHub {
     }
   }
 
-  private sendError(ws: ServerWebSocket<MultiplayerSocketData>, error: string, room?: Room): void {
+  private sendError(
+    ws: MultiplayerWebSocket<MultiplayerSocketData>,
+    error: string,
+    room?: Room,
+  ): void {
     ws.send(
       JSON.stringify({ type: "error", error, ...(room ? { room: this.publicRoom(room) } : {}) }),
     );
   }
 
-  private handleStart(ws: ServerWebSocket<MultiplayerSocketData>, room: Room): void {
+  private handleStart(ws: MultiplayerWebSocket<MultiplayerSocketData>, room: Room): void {
     if (ws.data.seat !== "p1") {
       this.sendError(ws, "Only the host can start", room);
       return;
@@ -482,7 +499,7 @@ export class MultiplayerHub {
   }
 
   private handleSettings(
-    ws: ServerWebSocket<MultiplayerSocketData>,
+    ws: MultiplayerWebSocket<MultiplayerSocketData>,
     room: Room,
     requestedSettings: unknown,
   ): void {
@@ -507,7 +524,7 @@ export class MultiplayerHub {
     this.broadcastRoom(room, ws);
   }
 
-  private handleRematch(ws: ServerWebSocket<MultiplayerSocketData>, room: Room): void {
+  private handleRematch(ws: MultiplayerWebSocket<MultiplayerSocketData>, room: Room): void {
     if (room.status !== "finished") {
       this.sendError(ws, "Rematch is available after the game ends", room);
       return;
@@ -722,10 +739,7 @@ function connectedReadySeats(room: Room): MultiplayerSeat[] {
   );
 }
 
-function participantState(
-  room: Room,
-  data: MultiplayerSocketData,
-): PlayerState | SpectatorState | undefined {
+function participantState(room: Room, data: MultiplayerSocketData): PlayerState | undefined {
   if (data.role === "spectator") return room.spectators.get(data.playerId);
   return room.players[data.seat];
 }
@@ -746,8 +760,10 @@ function roomTopic(code: string): string {
   return `multiplayer:${code}`;
 }
 
-function canPublishTopic(ws: ServerWebSocket<MultiplayerSocketData>): boolean {
-  return Array.isArray(ws.subscriptions) && ws.isSubscribed(roomTopic(ws.data.code));
+function canPublishTopic(ws: MultiplayerWebSocket<MultiplayerSocketData>): boolean {
+  return Boolean(
+    ws.publishText && Array.isArray(ws.subscriptions) && ws.isSubscribed?.(roomTopic(ws.data.code)),
+  );
 }
 
 function randomCode(): string {

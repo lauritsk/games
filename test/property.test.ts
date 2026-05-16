@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vite-plus/test";
 import fc from "fast-check";
 import {
   addRandom2048Tile,

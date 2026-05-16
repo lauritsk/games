@@ -1,25 +1,26 @@
-amends "package://github.com/jdx/hk/releases/download/v1.44.2/hk@1.44.2#/Config.pkl"
-import "package://github.com/jdx/hk/releases/download/v1.44.2/hk@1.44.2#/Builtins.pkl"
+amends "package://github.com/jdx/hk/releases/download/v1.44.3/hk@1.44.3#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.44.3/hk@1.44.3#/Builtins.pkl"
 
 local linters = new Mapping<String, Step> {
-  ["oxlint"] = Builtins.ox_lint
+  ["oxlint"] = new Step {
+    glob = List("**/*.{js,jsx,ts,tsx}")
+    check = "vp lint {{ files }}"
+    fix = "vp lint --fix {{ files }}"
+  }
   ["oxfmt"] = new Step {
     glob = List("**/*.{js,jsx,ts,tsx,json,jsonc,css,html}")
-    check = "oxfmt --check {{ files }}"
-    fix = "oxfmt --write {{ files }}"
+    check = "vp fmt --check {{ files }}"
+    fix = "vp fmt {{ files }}"
   }
   ["typecheck"] = new Step {
     glob = List("**/*.{ts,tsx}")
-    check = "bun run typecheck"
+    check = "vp run typecheck"
   }
   ["mise"] = Builtins.mise
   ["pkl"] = Builtins.pkl
   ["pkl-format"] = Builtins.pkl_format
   ["tombi"] = Builtins.tombi
   ["tombi-format"] = Builtins.tombi_format
-  ["shellcheck"] = Builtins.shellcheck
-  ["shfmt"] = Builtins.shfmt
-  ["actionlint"] = Builtins.actionlint
 }
 
 hooks {

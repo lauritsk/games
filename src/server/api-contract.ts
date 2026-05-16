@@ -23,7 +23,7 @@ export const apiErrorWithSyncSnapshotResponseSchema = v.looseObject({
 });
 
 export const syncStatusResponseSchema = v.union([
-  v.object({ ok: v.literal(true), storage: v.literal("bun:sqlite") }),
+  v.object({ ok: v.literal(true), storage: v.literal("sqlite") }),
   apiErrorResponseSchema,
 ]);
 

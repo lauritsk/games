@@ -31,7 +31,7 @@ Use this map to find likely edit points quickly.
 
 ## Server
 
-- Bun server entrypoint: `src/server/index.ts`
+- Node server entrypoint: `src/server/index.ts`
 - API routes: `src/server/api.ts`
 - SQLite wrapper/migrations/schema: `src/server/db.ts`, `src/server/migrate.ts`, `src/server/schema.ts`
 - Server-side leaderboard validation/types: `src/server/leaderboard/`

@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "vite-plus/test";
 import { botPlayModeLabel, nextBotPlayMode } from "@games/shared/controls";
 
 test("bot play mode cycles and labels consistently", () => {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "vite-plus/test";
 import { GameDatabase } from "@server/db";
 import { buildLocalSyncSnapshot, mergeRemoteSyncSnapshot } from "@features/sync/sync-local";
 import { storageKey, writeStored } from "@shared/storage";
@@ -39,7 +39,7 @@ beforeEach(() => {
   Object.defineProperty(globalThis, "window", { configurable: true, value: undefined });
 });
 
-describe("Bun SQLite sync", () => {
+describe("SQLite sync", () => {
   test("stores preferences, saves, results, and tombstones", () => {
     const db = new GameDatabase(":memory:");
     const snapshot = db.applySync({

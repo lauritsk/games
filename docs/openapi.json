@@ -436,7 +436,7 @@
                 "const": true
               },
               "storage": {
-                "const": "bun:sqlite"
+                "const": "sqlite"
               }
             }
           },

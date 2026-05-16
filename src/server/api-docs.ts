@@ -1,3 +1,5 @@
+import { writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import { apiContract, type ApiEndpointContract, type ApiOpenApiScalar } from "@server/api-contract";
 
 type JsonObject = Record<string, unknown>;
@@ -15,14 +17,19 @@ const openApi = {
   },
 } satisfies JsonObject;
 
-await Bun.write("docs/openapi.json", `${JSON.stringify(openApi, null, 2)}\n`);
-await Bun.write("docs/api.md", markdown());
+await writeFile("docs/openapi.json", `${JSON.stringify(openApi, null, 2)}\n`);
+await writeFile("docs/api.md", markdown());
 await formatJson("docs/openapi.json");
 
 async function formatJson(path: string): Promise<void> {
   try {
-    const proc = Bun.spawn(["oxfmt", "--write", path], { stdout: "ignore", stderr: "ignore" });
-    await proc.exited;
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn("oxfmt", ["--write", path], { stdio: "ignore" });
+      proc.on("error", reject);
+      proc.on("exit", (code) =>
+        code === 0 ? resolve() : reject(new Error(`oxfmt exited ${code}`)),
+      );
+    });
   } catch {
     // Formatting is enforced by `mise run lint`; keep docs generation usable without oxfmt in PATH.
   }
@@ -136,7 +143,7 @@ function buildSchemas(): JsonObject {
     ApiError: objectSchema({ ok: { const: false }, error: stringSchema() }, ["ok", "error"], {
       additionalProperties: true,
     }),
-    SyncStatusResponse: successResponse({ storage: { const: "bun:sqlite" } }, ["storage"]),
+    SyncStatusResponse: successResponse({ storage: { const: "sqlite" } }, ["storage"]),
     SyncSnapshotResponse: successResponse({ snapshot: schemaRef("SyncSnapshot") }, ["snapshot"]),
     SyncPush: objectSchema({ deviceId: syncId(), ...syncCollectionProperties() }, ["deviceId"]),
     SyncSnapshot: objectSchema(syncCollectionProperties(), [

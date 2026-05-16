@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import {
   and,
   asc,
@@ -17,8 +17,8 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { takeGroupedItems } from "@shared/collections";
 import { parseJsonSafely } from "@shared/json";
 import {
@@ -54,7 +54,7 @@ const maxResultsPerGame = 50;
 const allResultsClearKey = "*";
 const drizzleMigrationsFolder = "migrations/drizzle";
 
-type GameDrizzle = BunSQLiteDatabase<typeof databaseSchema>;
+type GameDrizzle = BetterSQLite3Database<typeof databaseSchema>;
 type LeaderboardRankOptions = {
   gameId: string;
   metric: LeaderboardListOptions["metric"];
@@ -66,12 +66,12 @@ type LeaderboardRankOptions = {
 };
 
 export class GameDatabase {
-  private readonly sqlite: Database;
+  private readonly sqlite: ReturnType<typeof Database>;
   private readonly db: GameDrizzle;
 
   constructor(path = defaultDatabasePath()) {
     ensureDatabaseParent(path);
-    this.sqlite = new Database(path, { create: true, strict: true });
+    this.sqlite = new Database(path, { fileMustExist: false });
     this.db = drizzle(this.sqlite, { schema: databaseSchema });
     this.sqlite.exec(`
       PRAGMA busy_timeout = 5000;
