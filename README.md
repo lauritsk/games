@@ -8,6 +8,12 @@
   A small, fast collection of browser-playable games built with Vite+, Node, TypeScript, and plain CSS.
 </p>
 
+## Status
+
+- Maturity: maintained web game collection
+- Primary command: `mise run check`
+- Release target: static bundle / container image
+
 ## Features
 
 - 13 games: Connect 4, Minesweeper, 2048, Tic-Tac-Toe, Snake, Memory, Tetris, Breakout, Ballz, Space Invaders, Asteroids, Frogger, and Maze Chase.

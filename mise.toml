@@ -57,11 +57,11 @@ run = "vp run build:server"
 
 [tasks.lint]
 description = "Run hk-managed checks across the repository"
-run = "vp run lint"
+run = "hk check --all"
 
 [tasks.fix]
 description = "Run hk-managed fixers across the repository"
-run = "vp run fix"
+run = "hk fix --all"
 
 [tasks.typecheck]
 description = "Run TypeScript type checks"
