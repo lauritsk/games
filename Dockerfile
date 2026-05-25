@@ -1,4 +1,4 @@
-FROM dhi.io/node:25-alpine3.22-dev@sha256:cecc0d6394e711d73df0cfa7cd6ce6ec2ffcca070a0999bf98a597b34a7b8890 AS build
+FROM dhi.io/node:26-alpine3.23-dev@sha256:88d721c72f82cc1522b4900750bdc7cc7191e73d5b9b5343d8e970ef4a3cf5d1 AS build
 
 WORKDIR /app
 RUN corepack enable
@@ -9,7 +9,7 @@ COPY index.html tsconfig.json vite.config.ts ./
 COPY src ./src
 RUN pnpm exec vp run build:production
 
-FROM dhi.io/node:25-alpine3.22@sha256:99851bac3e2268b16e67f6a429b08ea7ce128288353a06487ee9a13131c2e709
+FROM dhi.io/node:26-alpine3.23@sha256:e13734fabe5fe8bc2a139a7cb6fdddb07a18806ef5766af4dd91043ccf75bfc8
 
 ENV NODE_ENV=production
 ENV PORT=3000

@@ -20,25 +20,20 @@
   },
   "dependencies": {
     "valibot": "1.4.0",
-    "ws": "8.18.3"
+    "ws": "8.21.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.59.1",
-    "@types/node": "25.8.0",
+    "@playwright/test": "1.60.0",
+    "@types/node": "25.9.1",
     "@types/ws": "8.18.1",
-    "fast-check": "4.7.0",
-    "tsx": "4.20.6",
+    "fast-check": "4.8.0",
+    "tsx": "4.22.3",
     "typescript": "6.0.3",
-    "vite-plus": "0.1.21"
+    "vite-plus": "0.1.22"
   },
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
     "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
   },
-  "packageManager": "pnpm@11.1.1",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
-  }
+  "packageManager": "pnpm@11.2.2"
 }
