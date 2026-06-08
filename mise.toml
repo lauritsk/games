@@ -8,7 +8,7 @@ vp = "0.1.22"
 hk = "1.45.0"
 pkl = "0.31.1"
 oxlint = "1.66.0"
-oxfmt = "0.51.0"
+oxfmt = "0.53.0"
 cocogitto = "7.0.0"
 tombi = "0.11.6"
 
