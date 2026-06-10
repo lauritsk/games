@@ -201,54 +201,6 @@ checksum = "sha256:b3ddff2c2bf87d3996fadf074bac58cd2259f718a17912a04ae930e3775b3
 url = "https://github.com/pnpm/pnpm/releases/download/v11.5.2/pnpm-win32-x64.zip"
 provenance = "github-attestations"
 
-[[tools.tombi]]
-version = "1.1.2"
-backend = "aqua:tombi-toml/tombi"
-
-[tools.tombi."platforms.linux-arm64"]
-checksum = "sha256:e12b92009e489a21b3dedddb1b74cf54416b86ef58dc7f3efb56bb7fbf9158f4"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.1.2/tombi-cli-1.1.2-aarch64-unknown-linux-musl.tar.gz"
-
-[tools.tombi."platforms.linux-arm64-musl"]
-checksum = "sha256:e12b92009e489a21b3dedddb1b74cf54416b86ef58dc7f3efb56bb7fbf9158f4"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.1.2/tombi-cli-1.1.2-aarch64-unknown-linux-musl.tar.gz"
-
-[tools.tombi."platforms.linux-x64"]
-checksum = "sha256:6a435cd296247e17f7971e3616370e3d0651c18301c2346872794e1903366440"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.1.2/tombi-cli-1.1.2-x86_64-unknown-linux-musl.tar.gz"
-
-[tools.tombi."platforms.linux-x64-baseline"]
-checksum = "sha256:6a435cd296247e17f7971e3616370e3d0651c18301c2346872794e1903366440"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.1.2/tombi-cli-1.1.2-x86_64-unknown-linux-musl.tar.gz"
-
-[tools.tombi."platforms.linux-x64-musl"]
-checksum = "sha256:6a435cd296247e17f7971e3616370e3d0651c18301c2346872794e1903366440"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.1.2/tombi-cli-1.1.2-x86_64-unknown-linux-musl.tar.gz"
-
-[tools.tombi."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:6a435cd296247e17f7971e3616370e3d0651c18301c2346872794e1903366440"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.1.2/tombi-cli-1.1.2-x86_64-unknown-linux-musl.tar.gz"
-
-[tools.tombi."platforms.macos-arm64"]
-checksum = "sha256:e0b670cb6a1e5a49c608838a5fcb7fec6020ee9596288fba17400a48a79feb5b"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.1.2/tombi-cli-1.1.2-aarch64-apple-darwin.tar.gz"
-
-[tools.tombi."platforms.macos-x64"]
-checksum = "sha256:169241e4050a427d20b173f324a913e56f5504d565d56e4f3c87e4b2f0451829"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.1.2/tombi-cli-1.1.2-x86_64-apple-darwin.tar.gz"
-
-[tools.tombi."platforms.macos-x64-baseline"]
-checksum = "sha256:169241e4050a427d20b173f324a913e56f5504d565d56e4f3c87e4b2f0451829"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.1.2/tombi-cli-1.1.2-x86_64-apple-darwin.tar.gz"
-
-[tools.tombi."platforms.windows-x64"]
-checksum = "sha256:8845ade444df7b87e9199a65b8a70594920a74c05740fd8e8763f8083e751752"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.1.2/tombi-cli-1.1.2-x86_64-pc-windows-msvc.zip"
-
-[tools.tombi."platforms.windows-x64-baseline"]
-checksum = "sha256:8845ade444df7b87e9199a65b8a70594920a74c05740fd8e8763f8083e751752"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.1.2/tombi-cli-1.1.2-x86_64-pc-windows-msvc.zip"
-
 [[tools.vp]]
 version = "0.1.24"
 backend = "npm:vite-plus"
