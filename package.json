@@ -19,7 +19,7 @@
     "check": "vp run lint && vp run test && vp run build && vp run build:server && vp run test:e2e"
   },
   "dependencies": {
-    "valibot": "1.4.0",
+    "valibot": "1.4.1",
     "ws": "8.21.0"
   },
   "devDependencies": {
