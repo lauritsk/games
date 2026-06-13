@@ -1,34 +1,8 @@
-<h1 align="center">
-  <img src="src/ui/favicon.svg" alt="Games" width="64" height="64" />
-  <br />
-  Games
-</h1>
+# Games
 
-<p align="center">
-  A small, fast collection of browser-playable games built with Vite+, Node, TypeScript, and plain CSS.
-</p>
+A small collection of browser games built with TypeScript, Vite, and plain CSS.
 
-## Status
-
-- Maturity: maintained web game collection
-- Primary command: `mise run check`
-- Release target: static bundle / container image
-
-## Features
-
-- 13 games: Connect 4, Minesweeper, 2048, Tic-Tac-Toe, Snake, Memory, Tetris, Breakout, Ballz, Space Invaders, Asteroids, Frogger, and Maze Chase.
-- No framework runtime: simple TypeScript modules, DOM helpers, and CSS themes.
-- Keyboard-first play with mouse/touch support where it fits each game.
-- Shared arcade helpers for fixed-step loops, collisions, held-key input, pause overlays, and touch controls.
-- Unit tests for game logic plus Playwright coverage for browser behavior.
-- Static builds and a Docker image for simple deployment.
-- Browser-local saves, preferences, result history, and leaderboards using `localStorage`.
-- Live private-room multiplayer for Tic-Tac-Toe, Connect 4, Snake, Memory, and 2-player Space Invaders co-op, with spectator room-code viewing when the Node server is available.
-
-## Demo locally
-
-> [!NOTE]
-> This project uses `mise` to pin and run tools. Prefer `mise run <task>` over calling tools directly.
+## Play locally
 
 ```bash
 mise install
@@ -37,121 +11,63 @@ mise run dev
 
 Open <http://localhost:3000>.
 
-## Available games
+## Games
 
-| Game | Notes |
-| --- | --- |
-| Connect 4 | Bot, local two-player, and private-room online 1v1 with difficulty-aware bot moves. |
-| Minesweeper | Reveal/flag puzzle with scalable difficulty. |
-| 2048 | Sliding tile puzzle with keyboard controls. |
-| Tic-Tac-Toe | Easy, medium, hard bot plus local and private-room online two-player modes. |
-| Snake | Speed and wall behavior change by difficulty. |
-| Memory | Concentration card matching with variable pair count. |
-| Tetris | Bag pieces, rotation, line clears, levels, pause, and next preview. |
-| Breakout | Paddle-and-brick arcade play with level progression. |
-| Ballz | Aim-and-launch brick breaker with numbered blocks, pickups, and rising pressure. |
-| Space Invaders | Cannon, waves, barriers, descending alien formation, and online 2-player co-op. |
-| Asteroids | Thrust, drift, wrap, and split space rocks across endless waves. |
-| Frogger | Hop across traffic, ride river lanes, fill home slots, and beat the timer. |
-| Maze Chase | Clear dots, dodge ghosts, and turn the tables with power pellets. |
+- Connect 4
+- Minesweeper
+- 2048
+- Tic-Tac-Toe
+- Snake
+- Memory
+- Tetris
+- Breakout
+- Ballz
+- Space Invaders
+- Asteroids
+- Frogger
+- Maze Chase
+
+Some games have local multiplayer, bots, saves, leaderboards, or online private rooms when the Node server is running.
 
 ## Commands
 
-| Command | Description |
-| --- | --- |
-| `mise run dev` | Start the Node/Vite+ dev server at <http://localhost:3000>. |
-| `mise run build` | Build the static app into `dist/` with Vite+. |
-| `mise run build:production` | Build the fullstack Node production bundle used by Docker. |
-| `mise run build:server` | Build the Node server bundle into a temporary directory. |
-| `mise run test` | Run Vite+ unit tests. |
-| `mise run test:coverage` | Run Vite+ unit tests with text and LCOV coverage output. |
-| `mise run test:e2e` | Build and run Playwright browser tests. |
-| `mise run lint` | Run hk-managed format/lint checks. |
-| `mise run fix` | Run hk-managed fixers. |
-| `mise run audit` | Run pnpm package audit. |
-| `mise run ci` | Install dependencies with pnpm's frozen lockfile. |
-| `mise run check` | Run lint, unit tests, build, and e2e tests. |
-| `mise run docker:push` | Build and push the multi-arch Docker image as `docker.io/lauritsk/games:latest`. |
-| `mise run docker:up` | Run the app with Docker Compose on port 3000. |
-
-## Project structure
-
-```text
-.
-├── index.html              # Vite+ HTML entrypoint
-├── src/
-│   ├── app/                # Browser app shell, hash routing, game selection
-│   ├── features/           # Results, local leaderboards, multiplayer, bot streaks
-│   ├── games/              # Game registry plus one folder per game
-│   │   ├── shared/         # Game-only helpers: arcade, controls, layout, saves
-│   │   └── <game>/         # `index.ts` UI and `logic.ts` pure rules
-│   ├── server/             # Node server and in-memory multiplayer rooms
-│   ├── shared/             # Generic DOM, modal, keyboard, storage, type helpers
-│   └── ui/                 # Theme/assets/styles/PWA/sound/visual feedback
-├── test/                   # Vite+ unit tests
-├── e2e/                    # Playwright tests
-├── Dockerfile
-├── compose.yaml
-└── mise.toml               # Tool versions and tasks
+```bash
+mise run dev              # start dev server
+mise run build            # build static app
+mise run test             # run unit tests
+mise run test:e2e         # run browser tests
+mise run lint             # lint/format check
+mise run fix              # run fixers
+mise run check            # lint, test, build, e2e
+mise run docker:up        # run with Docker Compose
 ```
 
-See `docs/architecture.md` for a quick "where do I edit?" map.
+## Structure
+
+```text
+src/
+  app/          app shell and routing
+  features/     results, leaderboards, multiplayer
+  games/        game implementations
+  server/       Node/WebSocket server for online rooms
+  shared/       shared helpers
+  ui/           styles, assets, sounds
+
+test/           unit tests
+e2e/            Playwright tests
+docs/           extra notes
+```
 
 ## Add a game
 
-1. Create a game UI module in `src/games/<game>/index.ts` that exports a `GameDefinition`.
-2. Put non-trivial pure logic in `src/games/<game>/logic.ts`.
-3. Add deterministic tests in `test/`.
-4. Register the game in `src/games/index.ts`.
-5. Reuse helpers from `@shared/core`, `@games/shared/arcade`, `@games/shared/controls`, `@games/shared/game-input`, and `@shared/keyboard` where possible.
-6. Check the new game acceptance checklist in `CONTRIBUTING.md`.
-7. Run `mise run check` before opening a PR.
+1. Create `src/games/<game>/index.ts` exporting a `GameDefinition`.
+2. Put reusable game logic in `src/games/<game>/logic.ts`.
+3. Add tests in `test/`.
+4. Register it in `src/games/index.ts`.
+5. Run `mise run check`.
 
-Themes are shared tokens in `src/ui/styles.css` and selected by each game's `theme` field. Current theme names include `deep-cave`, `deep-ocean`, `outer-space`, and `deep-forest`.
+## Multiplayer
 
-## State
+Online rooms need the included Node/WebSocket server. Static hosting still works for local play, but not live multiplayer.
 
-The browser keeps game preferences, saves, result history, bot streaks, and leaderboard submissions in `localStorage`. There is no server database and no cross-device sync.
-
-Static hosting still works for local play and local leaderboards, but live multiplayer requires the included Node/WebSocket server.
-
-## Live multiplayer
-
-When served by `src/server/index.ts`, supported games offer casual live private rooms:
-
-1. Open a supported game.
-2. Select `Play online`.
-3. Create a room and share the 6-character code, join with a code from another player, or choose `Spectate` to watch without taking a seat.
-4. In Space Invaders, two online players control separate cannons against scaled-up co-op waves.
-
-Room codes use a cryptographically random ambiguity-safe base32 alphabet such as `K7P9Q2`. Each player also receives a separate high-entropy session token that is required for the WebSocket connection and reconnects. The server enforces room capacity, turn order, move validation, short request rate limits, and room cleanup TTLs.
-
-Multiplayer rooms are process-local memory only. They disappear when the Node server restarts, and they are intended for friendly private games rather than strong anti-cheat. Online results can appear in local history but are not eligible for local leaderboards.
-
-Static builds cannot host live multiplayer because they have no WebSocket/API server.
-
-## Leaderboards
-
-The browser-local leaderboard stores one primary metric per game:
-
-- Score leaderboards rank higher values first.
-- Fastest-time leaderboards rank lower durations first.
-- Bot win-streak leaderboards rank consecutive wins against the bot, separated by game and difficulty.
-
-Tic-Tac-Toe and Connect 4 streaks are only eligible in `Vs bot` mode. A bot win increments the current streak for that game and difficulty. A bot loss, draw, or abandoned active bot game resets the current streak; leaving a saved game to resume later does not. Local two-player and online results stay in history but are not leaderboard-eligible.
-
-Leaderboard submissions use a display name plus the finished run id to prevent duplicate submissions for the same run on the current browser profile. They are casual, device-local rankings and are cleared with browser storage.
-
-## Deployment
-
-Build static assets:
-
-```bash
-mise run build
-```
-
-Serve `dist/` with any static host, or run the included container for the full Node/WebSocket multiplayer server:
-
-```bash
-mise run docker:up
-```
+Rooms are in memory only, so they disappear when the server restarts.
